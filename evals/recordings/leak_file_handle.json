@@ -1,0 +1,126 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:13:47.620246Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "f9e5cc50351d",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 22519
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "RESOURCE_LEAK",
+      "symbol": "load_rows",
+      "title": "File handle leak on error paths",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "UNKNOWN",
+      "symbol": "path",
+      "title": "SECURITY Path traversal vulnerability",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "UnicodeDecodeError",
+      "title": "Unicode decode errors not handled",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [RESOURCE_LEAK] File handle leak on error paths (at `load_rows`)\n  - Issue: If the `ValueError` for missing columns fires, or any exception occurs during `[r for r in reader]`, `fh.close()` is never reached, leaking an open file descriptor. Under repeated calls with bad paths or malformed CSVs this exhausts file descriptors and crashes the process.\n  - Fix: Replace the manual open/close with a `with` statement so the handle is always released, even on exception:\n    ```python\n    with open(path, newline=\"\", encoding=\"utf-8\") as fh:\n        reader = csv.DictReader(fh)\n        if set(required_columns) - set(reader.fieldnames or []):\n            raise ValueError(f\"{path} is missing columns\")\n        return [r for r in reader]\n    ```\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7586,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] RESOURCE_LEAK File handle not closed on exception (at `load_rows` function body)\n  - Issue: If an exception occurs during CSV parsing (malformed CSV, UnicodeDecodeError, memory error during list comprehension), the file handle `fh` is never closed. The `fh.close()` call only executes on the happy path, leaving the file descriptor open. This can exhaust file descriptors under error conditions.\n  - Fix: Use a context manager: `with open(path, newline=\"\", encoding=\"utf-8\") as fh:` and indent the body accordingly.\n\n* [WARNING] SECURITY Path traversal vulnerability (at `path` parameter)\n  - Issue: The `path` parameter is used directly in `open()` without validation. If this function processes user-supplied paths, an attacker could read arbitrary files (e.g., `../../../etc/passwd`). This crosses a trust boundary without sanitization.\n  - Fix: Validate the path is within an allowed directory using `os.path.realpath()` and compare against a base directory, or use a whitelist of allowed files.\n\n* [WARNING] ERROR_HANDLING Unicode decode errors not handled (at `encoding=\"utf-8\"`)\n  - Issue: Malformed UTF-8 sequences will raise `UnicodeDecodeError` and crash the function. The caller receives an unhandled exception rather than a meaningful error. CSV files from diverse sources may have encoding issues.\n  - Fix: Add `errors=\"replace\"` or `errors=\"ignore\"` to the open() call, or wrap in try/except with a descriptive error message.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7892,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK File handle not guaranteed to be closed on error (at load_rows)\n    - Issue: If an exception occurs after `open()` but before `fh.close()` (e.g., `csv.DictReader` raises on malformed CSV), the file descriptor remains open, leaking a resource.\n    - Fix: Replace the manual open/close with a context manager: `with open(path, newline=\"\", encoding=\"utf-8\") as fh:` and remove the explicit `fh.close()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 15186,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] RESOURCE_LEAK File is not closed when CSV parsing fails (load_rows)\n  - Issue: `fh.close()` runs only if reading and validation complete normally. A malformed CSV or other `csv.Error` during list construction raises before the explicit close, leaving the file open until garbage collection; this can exhaust descriptors in long-running callers.\n  - Fix: Wrap opening and reading in a `with open(..., newline=\"\", encoding=\"utf-8\") as fh:` block so cleanup occurs on every exit path.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 3284,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] RESOURCE_LEAK <File descriptor not closed on exception> (at open)\n  - Issue: fh.close() is called after the list comprehension; if an exception occurs during row iteration (e.g., malformed CSV), the file remains open, causing a resource leak.\n  - Fix: Use a context manager: `with open(path, newline=\"\", encoding=\"utf-8\") as fh: reader = csv.DictReader(fh)`\n\n* [WARNING] LOGIC <Unnecessary full file load> (at rows list comprehension)\n  - Issue: The function reads the entire CSV into a list, which can cause high memory usage for large files; streaming rows would be more appropriate and avoid potential O(N) memory blowup.\n  - Fix: Return the reader object directly or iterate lazily: `return list(reader)` is fine; for large files, consider `return (r for r in reader)` or keep the iterator.\n\n* [SUGGESTION] SIMPLICITY <Redundant manual close> (at fh.close)\n  - Issue: Explicit file closing is error‑prone; the idiomatic Python pattern is to use a context manager, which guarantees closure and simplifies error handling.\n  - Fix: Replace the open/close pair with `with open(path, newline=\"\", encoding=\"utf-8\") as fh:` as shown above.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19227,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "leak_file_handle.py",
+    "exit_code": 0,
+    "wall_s": 22.9,
+    "duplicate_of_backfilled": true
+  }
+}

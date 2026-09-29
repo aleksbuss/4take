@@ -1,0 +1,132 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T15:58:06.340558Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "314158d73d18",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 35683,
+    "context": null
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "_apply_percentage",
+      "title": "Incorrect rounding for monetary values",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "_apply_percentage",
+      "title": "Missing input validation in percentage discount calculation",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "_apply_percentage",
+      "title": "No type validation for numeric inputs",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Incorrect rounding for monetary values> (at _apply_percentage)\n    - Issue: The function calls `.quantize(Decimal(\"0.01\"))` without an explicit rounding mode, which defaults to `ROUND_HALF_EVEN` (banker's rounding). For currency calculations this can produce wrong results when the value lies exactly halfway between two cents (e.g., `total=Decimal('1.005'), percent=0` yields `1.00` instead of the expected `1.01`).\n    - Fix: Specify the appropriate rounding mode, typically `ROUND_HALF_UP` for money: `.quantize(Decimal('0.01'), rounding=Decimal.ROUND_HALF_UP)`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16640
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 21996
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] LOGIC Missing input validation in percentage discount calculation (at _apply_percentage function)\n  - Issue: The function allows `percent` values outside the 0-100 range without validation. If `percent > 100`, the calculation produces negative totals (e.g., `percent=150` yields `total * -50 / 100`). If `percent < 0`, it increases the total instead of discounting it. In a billing context, this can cause silent data corruption, negative amounts in invoices, or unexpected surcharges.\n  - Fix: Add validation: `if not (0 <= percent <= 100): raise ValueError(\"Percent must be between 0 and 100\")`\n\n* [WARNING] LOGIC No type validation for numeric inputs (at _apply_percentage function)\n  - Issue: The function assumes `total` and `percent` are numeric types compatible with Decimal arithmetic. Passing non-numeric types (strings, None, etc.) will raise TypeError at runtime. In a billing system processing external data, this could cause unhandled exceptions or inconsistent error handling across the codebase.\n  - Fix: Either convert inputs to Decimal explicitly: `total = Decimal(total); percent = Decimal(percent)` or validate types at the call site.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 35436
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 35674
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <_apply_percentage lacks validation of percent range> (in _apply_percentage function)\n  - Issue: The calculation assumes percent is within 0‑100 % but accepts any numeric input; negative percentages or values >100 produce negative or inflated discounts, leading to incorrect billing amounts and potential data corruption.\n  - Fix: Add a guard that raises ValueError if percent < 0 or percent > 100, e.g.:\n    ```python\n    if not (0 <= percent <= 100):\n        raise ValueError(\"percent must be between 0 and 100\")\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 19117
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Discount calculation ignores percent range and invalid inputs> (_apply_percentage function, line 3)\n  - Issue: The function computes (total * (100 - percent) / 100) without validating that percent is within 0‑100 or that total and percent are proper numeric types, permitting negative totals, surcharges, or Decimal exceptions on invalid input, which can corrupt billing amounts.\n  - Fix: Add validation to reject percent < 0 or > 100 and ensure total and percent are Decimal (or convert safely), e.g., raise ValueError for out‑of‑range values.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 26042
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 36.4
+  }
+}

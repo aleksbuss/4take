@@ -1,0 +1,94 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:19:22.493571Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "032489919164",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 18735,
+    "context": {
+      "files": [
+        "jobs/watchdog.py"
+      ],
+      "tokens": 68,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "elapsed",
+      "title": "[CORRECTNESS] Unit mismatch between elapsed() and TIMEOUT_SECONDS",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-fin:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-fin:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [CORRECTNESS] Unit mismatch between elapsed() and TIMEOUT_SECONDS (at jobs/watchdog.py:4)\n    - Issue: `elapsed()` now returns milliseconds (`* 1000`), but `TIMEOUT_SECONDS = 30` is still in seconds. The comparison `elapsed(job.started_at) > TIMEOUT_SECONDS` cancels jobs after ~30ms instead of ~30s, a 1000× premature timeout.\n    - Fix: Change `TIMEOUT_SECONDS = 30` to `TIMEOUT_MILLISECONDS = 30000` in jobs/watchdog.py to match the new return unit of elapsed().",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 2573
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC Unit mismatch causes immediate cancellation (at `elapsed`)\n  - Issue: `elapsed` now returns milliseconds, but the existing `check_stalled` caller compares that value directly with `TIMEOUT_SECONDS = 30`. Consequently, every running job is cancelled after approximately 30 milliseconds rather than 30 seconds, breaking the watchdog timeout contract.\n  - Fix: Keep `elapsed` in seconds and leave the multiplication out. If millisecond precision is required instead, rename the API and update the watchdog to compare against `TIMEOUT_SECONDS * 1000`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 3496
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC Incorrect unit conversion in elapsed function (at elapsed)\n    - Issue: The elapsed function was changed to return milliseconds, but the watchdog code in jobs/watchdog.py expects seconds and compares the result to TIMEOUT_SECONDS=30. This causes jobs to be canceled after 30 milliseconds instead of 30 seconds, leading to premature termination of nearly all jobs.\n    - Fix: Revert the function to return seconds by removing the multiplication by 1000, or update the docstring to reflect seconds and remove the *1000 factor. Given the watchdog's usage, returning seconds is correct.\n\n[WARNING] LOGIC Incorrect unit conversion in elapsed function (at elapsed)\n    - Issue: The elapsed function was changed to return milliseconds, but the watchdog code in jobs/watchdog.py expects seconds and compares the result to TIMEOUT_SECONDS=30. This causes jobs to be canceled after 30 milliseconds instead of 30 seconds, leading to premature termination of nearly all jobs.\n    - Fix: Revert the function to return seconds by removing the multiplication by 1000, or update the docstring to reflect seconds and remove the *1000 factor. Given the watchdog's usage, returning seconds is correct.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9445
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC check_stalled (in jobs/watchdog.py)\n- Issue: The diff changes `elapsed` to return milliseconds, but `TIMEOUT_SECONDS` remains a 30‑second constant. The comparison `elapsed(job.started_at) > TIMEOUT_SECONDS` now treats the threshold as 30 ms, causing jobs to be cancelled almost immediately. This is a wrong result the caller trusts, potentially aborting long‑running jobs prematurely.\n- Fix: Adjust the watchdog to match the new unit, e.g.:\n\n```python\nTIMEOUT_MILLISECONDS = 30_000  # 30 seconds in ms\n...\nif job.running and elapsed(job.started_at) > TIMEOUT_MILLISECONDS:\n    job.cancel(reason=\"timeout\")\n```\n\nor keep `TIMEOUT_SECONDS` and compare `elapsed(job.started_at) / 1000 > TIMEOUT_SECONDS`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18721
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 19.3
+  }
+}

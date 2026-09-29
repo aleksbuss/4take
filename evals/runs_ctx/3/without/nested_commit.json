@@ -1,0 +1,98 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:35:32.417383Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "b4009490bb65",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 91500,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "import_order",
+      "title": "Incomplete exception handling in transaction management",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 4,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] ERROR_HANDLING Failed imports leave the session transaction unusable (at `import_order`)\n  - Issue: The rollback only covers `KeyError` and `ValueError`. If `add_line_item` raises another normal exception—for example, a database `IntegrityError` or `OperationalError` from a constraint or unavailable connection—or if iterating `rows` raises one, `import_order` exits without rolling back the newly added `Order`. The session can then remain in a failed transaction and reject or accidentally join subsequent operations. A failure from `session.commit()` is also propagated without cleanup. This violates the function’s “all of its lines, or nothing at all” contract from the caller’s perspective.\n  - Fix: Enqueue the commit inside the protected block and roll back on any exception before propagating it, using `except BaseException: session.rollback(); raise` (or an outer session-level transaction policy that guarantees rollback).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6493
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] ERROR_HANDLING Incomplete exception handling during commit (at import_order)\n    - Issue: The function catches only KeyError and ValueError during line item processing, but does not handle exceptions that may occur during session.commit(). If commit fails (e.g., due to database constraints), the session remains in a pending transaction state without rollback, risking resource leaks and inconsistent state.\n    - Fix: Wrap the commit in a try-except block to rollback on any exception during commit, or use a broader exception handling strategy that ensures rollback on any failure before commit.\n\n* [WARNING] ERROR_HANDLING Missing rollback for non-KeyError/ValueError exceptions in line processing (at import_order)\n    - Issue: If add_line_item raises an exception other than KeyError or ValueError (e.g., IntegrityError, TypeError), the session is not rolled back, leaving the order object in the session without commit, causing a resource leak and potential inconsistent state.\n    - Fix: Catch a broader exception (e.g., Exception) in the try block to ensure rollback on any error during line processing, or specifically catch expected exceptions from add_line_item and database operations.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 19456
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] ERROR_HANDLING Incomplete exception handling in transaction management (at import_order function)\n  - Issue: The try/except block only catches `KeyError` and `ValueError`, leaving the session in an uncommitted state for all other exceptions (database errors, `TypeError` from `None` rows, `IntegrityError` from invalid `customer_id`, etc.). This violates the \"all or nothing\" guarantee in the docstring. Additionally, if `session.commit()` fails, the session is left in an unusable state without rollback. If `session.rollback()` itself raises an exception, the original exception is lost.\n  - Fix: Catch all exceptions, ensure rollback happens, and use a context manager or broader exception handling:\n    ```python\n    try:\n        for row in rows:\n            add_line_item(order, row[\"sku\"], int(row[\"qty\"]))\n        session.commit()\n    except Exception:\n        session.rollback()\n        raise\n    ```\n\n* [CRITICAL] ERROR_HANDLING Exception masking from rollback failure (at import_order function)\n  - Issue: If `session.rollback()` raises an exception (e.g., database connection lost during rollback), the original exception is lost and the caller sees a rollback failure instead of the actual cause. This makes debugging extremely difficult and can mask data corruption issues.\n  - Fix: Use exception chaining or ensure rollback errors are logged while preserving the original exception:\n    ```python\n    except Exception as e:\n        try:\n            session.rollback()\n        except Exception as rollback_error:\n            raise type(e)(f\"{e}; rollback also failed: {rollback_error}\") from rollback_error\n        raise\n    ```\n\n* [WARNING] LOGIC Missing input validation before transaction start (at import_order function)\n  - Issue: The function accepts `rows` without validating it's iterable or that each row has required keys before adding to the session. If `rows` is `None` or an invalid type, `TypeError` is raised after the order is already in the session, requiring rollback. Empty `rows` creates an order with no line items, which may violate business rules.\n  - Fix: Validate inputs before session operations:\n    ```python\n    if not rows:\n        raise ValueError(\"rows cannot be empty\")\n    for row in rows:\n        if \"sku\" not in row or \"qty\" not in row:\n            raise ValueError(f\"row missing required keys: {row}\")\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 67812
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] ERROR_HANDLING Incomplete Exception Handling (at import_order)\n  - Issue: The function catches only KeyError and ValueError, leaving other exceptions (e.g., database integrity errors, type errors) uncaught. If such an exception occurs after session.add(order) or during add_line_item, the session is not rolled back, leaving the order and any partially added line items in a pending transaction, potentially corrupting the database or leaving the session in an invalid state.\n  - Fix: Replace the except clause with `except Exception:` to rollback on any error, then re-raise.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 91487
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Partial rollback on unhandled exceptions> (in import_order)\n  - Issue: Only KeyError and ValueError are caught; any other exception (e.g., DB constraint violation in add_line_item) bypasses rollback, causing partial commit and inconsistent order state.\n  - Fix: Expand the except clause to catch Exception or specific DB errors and ensure rollback before re-raising.\n\n* [WARNING] RESOURCE_LEAK <Transaction not fully isolated> (in import_order)\n  - Issue: Commit is performed outside the exception handling scope; if an unexpected exception occurs after order addition but before rollback, the session may be left in a committed but partially failed state, leaking resources.\n  - Fix: Move session.commit() inside a finally block or ensure it only executes when no exception remains, e.g., wrap commit in a separate try/except after rollback.\n\nNO_ISSUES_FOUND:",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 25097
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 92.1
+  }
+}

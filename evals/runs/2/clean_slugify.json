@@ -1,0 +1,125 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:32:05.181530Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "fe1dc71780a5",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 50219
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "slugify",
+      "title": "Leading dash may remain after truncation",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "slugify",
+      "title": "Slugify logic is not reusable/extensible",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Leading dash may remain after truncation> (at slugify)\n    - Issue: After truncating to max_length with `slug[:max_length].rstrip(\"-\")`, a leading dash introduced by the truncation is not removed. Example: slug=\"-abc-def\", max_length=4 yields \"-ab\" which retains a leading dash, violating the \"collapsed dashes, never longer than max_length\" intent and possibly producing invalid slugs.\n    - Fix: Use `slug[:max_length].strip(\"-\")` (or `rstrip` followed by `lstrip`) to remove dashes on both ends after truncation. Alternatively, recompute slug from the truncated ASCII string to ensure consistency.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 17728,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 30904,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "NO_ISSUES_FOUND",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 38476,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9116,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [LOGIC] Truncation can produce empty or dash-only slug (at `slugify`)\n  - Issue: When `max_length` is small (e.g. 1) or the slug's first `max_length` characters are all dashes, `slug[:max_length].rstrip(\"-\")` yields `\"\"`. Callers expecting a non-empty slug for routing/identification get an empty key, which can cause collisions or broken lookups.\n  - Fix: After truncation, if the result is empty, fall back to a deterministic non-empty token (e.g. `\"n\"` or a hash of the original value) so the invariant \"non-empty slug\" holds.\n\n* [SUGGESTION] [STRUCTURE] Slugify logic is not reusable/extensible (at `slugify`)\n  - Issue: The function hardcodes ASCII normalization, dash replacement, and truncation. Any caller needing Unicode slugs, different separators, or no length cap must reimplement the pipeline, causing drift.\n  - Fix: Split into composable helpers (`normalize`, `replace_non_alnum`, `truncate`) so callers can reuse stages without duplicating logic.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11738,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [SUGGESTION] SIMPLICITY <Over-engineered slug generation> (function slugify)\n  - Issue: The implementation uses unicodedata normalization, ASCII encoding, and a regex to collapse characters, which is heavier than needed for a simple ASCII slug; a direct regex lowercasing and hyphen replacement would be simpler and faster.\n  - Fix: Replace the normalization and encoding steps with a single lower() call and adjust the regex to allow hyphens, e.g., `slug = re.sub(r'[^a-z0-9]+', '-', value.lower()).strip('-')`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 37139,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 49859
+    }
+  ],
+  "_eval": {
+    "snippet": "clean_slugify.py",
+    "exit_code": 0,
+    "wall_s": 50.6,
+    "duplicate_of_backfilled": true
+  }
+}

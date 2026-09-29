@@ -1,0 +1,101 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:11:53.471266Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "aac9e77b0bd3",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 18952
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "archive_directory",
+      "title": "SECURITY Command Injection via Shell Metacharacters",
+      "models": [
+        "dots-studio/dots-3-note-preview:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "system",
+      "title": "os.system shell invocation instead of subprocess",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] SECURITY Command Injection via Shell Metacharacters (at archive_directory function)\n  - Issue: The `src` and `dest_name` parameters are directly interpolated into a shell command string passed to `os.system()`. An attacker controlling either parameter can inject arbitrary shell commands. For example, `src=\"/tmp; rm -rf /\"` would execute the tar command followed by a destructive deletion. Similarly, `dest_name=\"../../../etc/cron.d/malicious\"` enables path traversal to write to sensitive system locations.\n  - Fix: Use Python's `tarfile` module instead of shell commands:\n```python\nimport tarfile\nimport os\n\ndef archive_directory(src, dest_name):\n    dest_path = f\"/var/backups/{dest_name}.tar.gz\"\n    with tarfile.open(dest_path, \"w:gz\") as tar:\n        tar.add(src)\n    return 0\n```\n\n* [WARNING] SECURITY Path Traversal in dest_name (at archive_directory function)\n  - Issue: The `dest_name` parameter is not validated, allowing path traversal sequences like `../` to write archives outside `/var/backups/`. An attacker could overwrite critical system files or write to world-writable directories.\n  - Fix: Validate `dest_name` contains only safe characters and resolve the final path:\n```python\nimport re\nif not re.match(r'^[a-zA-Z0-9_.-]+$', dest_name):\n    raise ValueError(\"Invalid destination name\")\n```\n\n* [WARNING] CORRECTNESS No Input Validation or Error Handling (at archive_directory function)\n  - Issue: The function does not verify that `src` exists, is a directory, or that `dest_name` is a valid filename. It silently passes failures to the caller via exit codes, making debugging difficult. The function also doesn't handle the case where `/var/backups/` doesn't exist or isn't writable.\n  - Fix: Add validation and proper error handling:\n```python\nif not os.path.isdir(src):\n    raise ValueError(f\"Source directory does not exist: {src}\")\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7061,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "<unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> -\nS.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 14109,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] Command injection via unsanitized input in shell command (at `cmd = f\"tar czf...\"`)\n  - Issue: Both `src` and `dest_name` are interpolated directly into a shell command string passed to `os.system()`. A caller passing `src=\"; rm -rf /\"` or `dest_name=\"x; cat /etc/passwd\"` executes arbitrary commands with the parent process's privileges. Any untrusted or even indirectly controlled input reaching this function is exploitable.\n  - Fix: Replace `os.system(cmd)` with `subprocess.run([\"tar\", \"czf\", f\"/var/backups/{dest_name}.tar.gz\", src])` using an argument list (no shell), and validate `dest_name` against a strict pattern (e.g., `re.match(r'^[A-Za-z0-9_.-]+$', dest_name)`) before use.\n\n* [CRITICAL] [AUTH_CRYPTO] Path traversal via `dest_name` in file path (at `f\"/var/backups/{dest_name}.tar.gz\"`)\n  - Issue: `dest_name` is embedded directly into a filesystem path without sanitization. A value like `../../../etc/cron.d/malicious` writes the archive outside `/var/backups/`, potentially overwriting critical files or planting executables in scheduled directories.\n  - Fix: Validate `dest_name` with a whitelist regex (e.g., `^[A-Za-z0-9_.-]+$`) and reject any value containing path separators or `..` segments before constructing the path.\n\n* [WARNING] [ERROR_HANDLING] No error handling or input validation (at `return os.system(cmd)`)\n  - Issue: `os.system()` returns only a raw exit code that is passed through unchecked. There is no validation of `src` (e.g., existence, readability) or `dest_name` before command construction. Failures (missing source, permission denied, full disk) are silently reported to the caller as an integer exit code with no diagnostic context, making debugging and retry logic impossible.\n  - Fix: Validate inputs before execution, raise exceptions on invalid input, and use `subprocess.run(..., check=True)` to raise `CalledProcessError` with stderr output on failure.\n\n* [SUGGESTION] [STRUCTURE] `os.system` shell invocation instead of `subprocess` (at `os.system(cmd)`)\n  - Issue: Using `os.system()` forces all arguments through a shell interpreter, which is the root cause enabling the injection vulnerabilities above. It also prevents capturing stdout/stderr, offers no timeout support, and couples the function to shell semantics. Switching to `subprocess.run()` with an argument list eliminates the shell layer entirely, provides structured error handling, and enables timeout and output capture without additional code.\n  - Fix: Replace with `subprocess.run([\"tar\", \"czf\", archive_path, src], check=True, capture_output=True)` and handle `subprocess.CalledProcessError` at the call site.\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 17145,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n* [CRITICAL] [INJECTION] Command injection via shell interpolation in `archive_directory` (at `cmd` / `os.system`)\n  - Issue: The function constructs a shell command by directly interpolating user-supplied `src` and `dest_name` into an f-string and executing it via `os.system`. Any shell metacharacters in these inputs (e.g., `;`, `|`, `&&`, backticks, `$()`) will be interpreted by the shell, allowing arbitrary command execution. For example, calling `archive_directory(\"data\", \"backup; rm -rf /\")` results in the execution of `rm -rf /` after the tar command completes. This is a direct, exploitable remote/local code execution vulnerability.\n  - Fix: Avoid invoking a shell entirely. Use `subprocess.run` with an argument list (which bypasses shell parsing), or preferably use Python's standard library `tarfile` module or `shutil.make_archive` to create the archive programmatically without spawning an external process.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18945,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "cmdinjection_backup.py",
+    "exit_code": 0,
+    "wall_s": 19.3,
+    "duplicate_of_backfilled": true
+  }
+}

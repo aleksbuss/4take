@@ -1,0 +1,113 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:19:01.139538Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "032489919164",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 77049,
+    "context": null
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "elapsed",
+      "title": "Wrong result scaling",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] LOGIC: `elapsed()` silently changes its unit contract (at `jobs/timing.py:elapsed`)\n  - Issue: The function previously returned seconds, but now multiplies the monotonic-clock difference by `1000`. Any existing caller comparing the result with a seconds-based timeout will interpret one second as `1000`: for example, `elapsed(started_at) < 30` changes from a 30-second timeout into an effectively immediate timeout. The generic name and unchanged parameter provide no unit indication to prevent callers from making this mistake.\n  - Fix: Keep this seconds-based helper returning `time.monotonic() - started_at`. If milliseconds are genuinely required, introduce an explicitly named `elapsed_ms()` API and migrate each caller while converting units deliberately.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4984
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] LOGIC elapsed returns milliseconds (at jobs/timing.py:elapsed)\n  - Issue: The function now returns milliseconds, breaking callers that expect seconds, causing incorrect timing calculations.\n  - Fix: Revert the multiplication and docstring to return seconds, or update all callers to expect milliseconds.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 19267
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC Wrong result scaling (at elapsed function return)\n  - Issue: The function now returns milliseconds instead of seconds, causing callers that expect seconds to receive values 1000× larger, leading to incorrect timing calculations.\n  - Fix: return time.monotonic() - started_at  # seconds",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 22491
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC elapsed (jobs/timing.py) \n  - Issue: The function now returns milliseconds instead of seconds, violating the documented invariant that elapsed returns seconds; any caller that expects a duration in seconds (e.g., measuring a 1‑second interval) will receive a value 1000× larger, causing incorrect calculations or logic errors.\n  - Fix: Return time.monotonic() - started_at (seconds) or, if milliseconds are required, update all callers and documentation accordingly.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "latency_ms": 25494
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.\n\nThe change correctly converts the return value from seconds to milliseconds, and the docstring accurately reflects this. The function name `elapsed` is appropriately generic for a timing utility, and the multiplication by 1000 is the standard conversion. Without visibility into callers, this appears to be an intentional unit change that is internally consistent.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 77040
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Incorrect unit conversion> (at elapsed)\n    - Issue: The function `elapsed` now returns milliseconds instead of seconds, but the function name and lack of unit specification in the name create ambiguity. Callers expecting seconds (based on the original behavior or the function name) will receive values 1000x larger, leading to incorrect time calculations in downstream logic (e.g., timeouts, delays, or performance metrics). For example, a caller checking if `elapsed(start) < 1.0` intending to wait 1 second would now wait only 1 millisecond.\n    - Fix: Either revert to seconds (remove *1000) and update docstring to \"Seconds\", or rename the function to `elapsed_ms` to explicitly indicate milliseconds and update all callers accordingly. Given the context, reverting to seconds is likely safer unless millisecond precision is explicitly required elsewhere.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "latency_ms": 25389
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 36379
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 77.7
+  }
+}

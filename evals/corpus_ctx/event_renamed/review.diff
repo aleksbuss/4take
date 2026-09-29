@@ -1,0 +1,9 @@
+diff --git a/src/users/service.js b/src/users/service.js
+--- a/src/users/service.js
++++ b/src/users/service.js
+@@ -8,7 +8,7 @@ async function createUser(input) {
+   const user = await repo.insert({ email: input.email.toLowerCase(), name: input.name });
+-  bus.emit("user:created", user);
++  bus.emit("userCreated", user);
+   return user;
+ }

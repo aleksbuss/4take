@@ -1,0 +1,97 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T17:13:33.806185Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "063446befa13",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 64883,
+    "context": {
+      "files": [
+        "cache/lru.py"
+      ],
+      "tokens": 205,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "_evict_oldest",
+      "title": "Duplicate method definition causing syntax error",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "CRITICAL": 1,
+        "WARNING": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8996
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 13155
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Duplicate method definition causing syntax error> (at symbol/line)\n- Issue: The added `_evict_oldest` method duplicates an existing method, resulting in a duplicate definition error that prevents the class from being defined, causing a crash on import.\n- Fix: Remove the duplicated method definition; keep only the existing `_evict_oldest` implementation.\n\n[WARNING] STRUCTURE <Method duplicated, breaking class invariants> (at symbol/line)\n- Issue: Adding a duplicate `_evict_oldest` method creates two definitions, forcing any future change to edit multiple locations and risking inconsistent behavior.\n- Fix: Delete the duplicated method definition.\n\nNO_ISSUES_FOUND: Not applicable.\n\n[CRITICAL] LOGIC <Duplicate method definition causing syntax error> (at symbol/line)\n- Issue: The added `_evict_oldest` method duplicates an existing method, resulting in a duplicate definition error that prevents the class from being defined, causing a crash on import.\n- Fix: Remove the duplicated method definition; keep only the existing `_evict_oldest` implementation.\n\n[WARNING] STRUCTURE <Method duplicated, breaking class invariants> (at symbol/line)\n- Issue: Adding a duplicate `_evict_oldest` method creates two definitions, forcing any future change to edit multiple locations and risking inconsistent behavior.\n- Fix: Delete the duplicated method definition.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 31085
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 1700
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Empty response from model",
+      "latency_ms": 63167
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 65.5
+  }
+}

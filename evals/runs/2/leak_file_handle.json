@@ -1,0 +1,139 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:15:11.744950Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "f9e5cc50351d",
+    "responses_received": 7,
+    "distinct_models": 4,
+    "responses_failed": 4,
+    "total_latency_ms": 111755
+  },
+  "warning": "3 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "RESOURCE_LEAK",
+      "symbol": "load_rows",
+      "title": "Unclosed file handle on exception paths",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-pro:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 3,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK File handle not guaranteed to be closed (at load_rows)\n    - Issue: If an exception is raised after opening the file but before `fh.close()` (e.g., missing columns error or a CSV parsing error), the file handle remains open, causing a resource leak under repeated calls.\n    - Fix: Replace the manual open/close with a context manager: `with open(path, newline=\"\", encoding=\"utf-8\") as fh:` and indent the subsequent block.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8732,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK File handle not closed on early error or exception (at load_rows)\n    - Issue: If the required_columns check fails (raising ValueError) or an exception occurs while reading rows, the file handle `fh` is never closed, leaking a file descriptor.\n    - Fix: Use a context manager to guarantee closure: replace the open/close block with `with open(path, newline=\"\", encoding=\"utf-8\") as fh:` and remove the explicit `fh.close()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 17559,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [RESOURCE_LEAK] Unclosed file handle on exception paths (at `load_rows`)\n  - Issue: If any exception occurs between `open()` and `fh.close()` — most concretely when `required_columns` contains a column not present in the CSV, causing the `ValueError` to be raised — the file handle is never closed. This also applies to any exception during the list comprehension. The leaked handle blocks other processes from accessing the file and exhausts file descriptors under repeated calls.\n  - Fix: Replace manual open/close with a `with` statement and return inside the context:\n    ```python\n    def load_rows(path, required_columns):\n        with open(path, newline=\"\", encoding=\"utf-8\") as fh:\n            reader = csv.DictReader(fh)\n            if set(required_columns) - set(reader.fieldnames or []):\n                raise ValueError(f\"{path} is missing columns\")\n            return [r for r in reader]\n    ```\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21990,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] RESOURCE_LEAK at fh = open(path, ...)\n  - Issue: If an exception is raised during validation (`set(required_columns) - set(reader.fieldnames or [])`) or during the list comprehension `[r for r in reader]`, the file handle `fh` is never closed. The `fh.close()` call only executes on the happy path, leaving the file descriptor open on any error.\n  - Fix: Use a context manager: `with open(path, newline=\"\", encoding=\"utf-8\") as fh:` and remove the explicit `fh.close()`.\n\n* [WARNING] ERROR_HANDLING at set(required_columns) - set(reader.fieldnames or [])\n  - Issue: When the CSV file is empty or has no header row, `reader.fieldnames` is `None`. The code correctly catches this with `or []`, but raises a generic \"missing columns\" error that doesn't distinguish between \"file has no headers\" and \"file has headers but missing specific columns\". This could confuse users debugging empty files.\n  - Fix: Add explicit check: `if reader.fieldnames is None: raise ValueError(f\"{path} has no header row\")` before the column validation.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 28879,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-pro:free",
+      "served_model": "nex-agi/nex-n2.5-pro:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] [RESOURCE_LEAK] Failed validation bypasses `fh.close()` (at `load_rows`)\n  - Issue: If the CSV header lacks a required column, the `ValueError` is raised before `fh.close()`. Repeated calls with malformed files can retain descriptors until garbage collection, eventually causing `OSError: [Errno 24] Too many open files`, particularly on implementations without immediate refcount-based cleanup. Exceptions during CSV iteration have the same problem.\n  - Fix: Use a context manager so the file closes on both success and every exception:\n    ```python\n    with open(path, newline=\"\", encoding=\"utf-8\") as fh:\n        reader = csv.DictReader(fh)\n        ...\n        return [r for r in reader]\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16420,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK <File descriptor may remain open on exception> (in function load_rows)\n  - Issue: The file handle fh is closed only after the list comprehension completes; if an exception occurs during reading or list creation, fh.close() is never called, leaving the file descriptor open and potentially leaking resources.\n  - Fix: Use a context manager to ensure the file is closed deterministically:\n    with open(path, newline=\"\", encoding=\"utf-8\") as fh:\n        reader = csv.DictReader(fh)\n        if set(required_columns) - set(reader.fieldnames or []):\n            raise ValueError(f\"{path} is missing columns\")\n        rows = [r for r in reader]\n    return rows",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19017,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [RESOURCE_LEAK] File handle leaked on exception path (in `load_rows`)\n  - Issue: `fh = open(...)` is closed only at the end of the function via `fh.close()`. If the `ValueError` for missing columns is raised, or if the list comprehension `[r for r in reader]` raises during iteration (e.g., a malformed row or I/O error mid-read), execution never reaches `fh.close()`, leaking the file descriptor. Under repeated calls with bad input or large files, this exhausts the process file descriptor limit.\n  - Fix: Replace the manual open/close with a `with` statement so the handle is released regardless of how the function exits:\n    ```python\n    with open(path, newline=\"\", encoding=\"utf-8\") as fh:\n        reader = csv.DictReader(fh)\n        if set(required_columns) - set(reader.fieldnames or []):\n            raise ValueError(f\"{path} is missing columns\")\n        return [r for r in reader]\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 53787,
+      "duplicate_of": "poolside/laguna-xs-2.1:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 16760
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "Provider error 503 after 4 retries: Provider returned error",
+      "latency_ms": 43079
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 35482
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 39663
+    }
+  ],
+  "_eval": {
+    "snippet": "leak_file_handle.py",
+    "exit_code": 0,
+    "wall_s": 112.2,
+    "duplicate_of_backfilled": true
+  }
+}

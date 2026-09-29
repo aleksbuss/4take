@@ -1,0 +1,122 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T11:22:55.450974Z",
+  "config": {
+    "models_requested": 7,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "cd5fe483ae7f",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 41596,
+    "context": {
+      "files": [
+        "web/sessions.py"
+      ],
+      "tokens": 64,
+      "dropped": [],
+      "auto": {
+        "web/sessions.py": "defines refresh_session"
+      }
+    }
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "AUTH_CRYPTO",
+      "symbol": "on_login",
+      "title": "Privilege escalation via flawed role check",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "refresh_session",
+      "title": "refresh_session called without await — session rotation never executes",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 2
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] AUTH_CRYPTO Session rotation is never executed (at `on_login`)\n  - Issue: `refresh_session` is asynchronous, but `on_login` calls it without `await`. This creates and discards a coroutine, so the old session ID is never revoked and no replacement is issued. An attacker who fixed a victim’s pre-login session ID can continue using that ID after the victim authenticates, defeating the documented session-fixation protection.\n  - Fix: Await the operation before returning the authenticated response: `await refresh_session(user.id)`. If rotation must complete before authentication is committed, move it to immediately after successful credential validation.\n\n* [CRITICAL] AUTH_CRYPTO Non-admin users receive management privileges (at `on_login`)\n  - Issue: `if user.role == \"admin\" or \"owner\"` evaluates to true for every user because a non-empty string is truthy. Consequently, every successful login—including users with `\"user\"`, `\"viewer\"`, or any other role—receives `request.session[\"can_manage\"] = True`, creating a direct privilege-escalation path if that flag controls an authorization decision.\n  - Fix: Compare the role to both permitted values: `if user.role in (\"admin\", \"owner\"):`. Ideally, derive this capability server-side from centralized role/permission logic rather than storing a client-session boolean as the authorization source of truth.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6250
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Incorrect role check allowing unintended privilege escalation> (if user.role == \"admin\" or \"owner\":)\n  - Issue: The condition `if user.role == \"admin\" or \"owner\":` always evaluates to True because `\"owner\"` is truthy, so any user—including those without admin or owner role—will have `request.session[\"can_manage\"]` set to True, granting unauthorized management privileges. Concrete scenario: a regular user logs in, role is \"user\", the condition remains true, and the user can perform management actions.\n  - Fix: Replace the condition with `if user.role in (\"admin\", \"owner\"):` or `if user.role == \"admin\" or user.role == \"owner\":`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 31297
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] [AUTH_CRYPTO] Privilege escalation via flawed role check (on_login)\n  - Issue: The condition `if user.role == \"admin\" or \"owner\":` always evaluates to true because the literal string `\"owner\"` is truthy, granting `request.session[\"can_manage\"] = True` to any user regardless of role. An attacker can log in as a non‑admin and obtain management privileges.\n  - Fix: Change the condition to `if user.role in (\"admin\", \"owner\"):` or `if user.role == \"admin\" or user.role == \"owner\":`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 35274
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] AUTH_CRYPTO Incorrect role check (at on_login)\n- Issue: The condition `if user.role == \"admin\" or \"owner\":` always evaluates to True because the literal `\"owner\"` is truthy, granting the `can_manage` privilege to any user. This is a confirmed authorization flaw that can be exploited to obtain admin capabilities.\n- Fix: Change the condition to `if user.role in (\"admin\", \"owner\"):` or `if user.role == \"admin\" or user.role == \"owner\":`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "cohere/north-mini-code:free",
+      "latency_ms": 37448
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] Always-true condition grants `can_manage` to every user (line `if user.role == \"admin\" or \"owner\":`)\n  - The string `\"owner\"` is truthy, so the expression short-circuits to `True` for all roles. Every logged-in user gets `request.session[\"can_manage\"] = True`, not just admins/owners.\n  - Fix: `if user.role in (\"admin\", \"owner\"):`\n\n* [CRITICAL] [ERROR_HANDLING] `refresh_session` called without `await` — session rotation never executes (line `refresh_session(user.id)`)\n  - `refresh_session` is an `async def`. Omitting `await` creates a coroutine that is never scheduled, so `store.revoke` + `store.issue` never run. The session ID is not rotated, leaving the login flow vulnerable to session fixation.\n  - Fix: `await refresh_session(user.id)`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4136
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 42.6
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T09:04:21.820075Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "829b902d0505",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 26133
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "build_endpoint",
+      "title": "Unchecked None from missing env vars",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "build_endpoint",
+      "title": "Unhandled ValueError on non-numeric port",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "build_endpoint",
+      "title": "Host value interpolated into URL without sanitization",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [ERROR_HANDLING] Unchecked None from missing env vars (build_endpoint)\n  - Issue: If `API_HOST` or `API_PORT` is unset, `os.environ.get` returns `None`. Calling `host.strip()` raises `AttributeError` and `int(port)` raises `TypeError`, crashing the process on startup. Concrete input: `API_HOST=\"\"` with `API_PORT` unset.\n  - Fix: Use `os.environ[\"API_HOST\"]` to raise a clear `KeyError`, or add explicit `None` checks with a descriptive error message before accessing the values.\n\n* [WARNING] [ERROR_HANDLING] Unhandled ValueError on non-numeric port (build_endpoint)\n  - Issue: `int(port)` raises `ValueError` if `API_PORT` is set to a non-integer string (e.g., `\"abc\"` or `\"8080.5\"`). This is an unhandled exception path with no validation or graceful failure.\n  - Fix: Wrap `int(port)` in a try/except or validate with a regex like `r\"^\\d+$\"` before conversion, raising a descriptive error for invalid values.\n\n* [WARNING] [LOGIC] No port range or host emptiness validation (build_endpoint)\n  - Issue: The function accepts any integer as a port, including values outside 0–65535 (e.g., `API_PORT=\"99999\"`), and produces a URL with an empty host if `API_HOST` is whitespace-only (`host.strip()` returns `\"\"`). Both produce technically invalid URLs that downstream consumers may not handle.\n  - Fix: Add bounds checking `0 <= int(port) <= 65535` and assert `host.strip()` is non-empty, failing with a clear error if not.\n\n* [SUGGESTION] [STRUCTURE] Host value interpolated into URL without sanitization (build_endpoint)\n  - Issue: `host` is interpolated directly into the URL string after only `.strip()`. If `API_HOST` contains characters like `/`, `:`, or `@` (e.g., `\"evil.com/../../internal\"`), the resulting URL is malformed and could confuse URL parsers or enable SSRF if the endpoint is used to make requests to untrusted backends. A constant-time or structured URL builder would validate the host as a hostname.\n  - Fix: Validate `host` against a hostname pattern (e.g., `re.match(r\"^[a-zA-Z0-9.\\-]+$\", host.strip())`) before constructing the URL, or use `urllib.parse.urlunparse` with separately validated components.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11319,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [ERROR_HANDLING] Unhandled missing/malformed environment variables (build_endpoint)\n  - Issue: If `API_HOST` is unset, `host` is `None` and `host.strip()` raises `AttributeError`. If `API_PORT` is unset, `int(None)` raises `TypeError`. If `API_PORT` is a non-numeric string, `int(port)` raises `ValueError`. All three paths crash the caller with an unhandled exception instead of surfacing a meaningful error.\n  - Fix: Validate both values before use — e.g., `host = os.environ.get(\"API_HOST\")` followed by a check for `None`/empty, and wrap `int(port)` in a try/except or use a validated conversion helper that raises a descriptive error.\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 12117,
+      "duplicate_of": "inclusionai/ling-3.0-flash-vl:free"
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] [LOGIC] Missing host validation leads to AttributeError (at build_endpoint)\n    - Issue: If the API_HOST environment variable is unset, os.environ.get returns None; calling .strip() on None raises AttributeError, crashing the function.\n    - Fix: Check for None and either supply a default or raise an informative error, e.g.: host = os.environ.get(\"API_HOST\") or \"\"; if not host: raise ValueError(\"API_HOST must be set\").\n\n* [CRITICAL] [LOGIC] Missing port validation leads to TypeError/ValueError (at build_endpoint)\n    - Issue: If API_PORT is unset or contains a non‑numeric string, int(port) raises TypeError or ValueError, crashing the function.\n    - Fix: Validate the port before conversion, e.g.: port_str = os.environ.get(\"API_PORT\"); if not port_str or not port_str.isdigit(): raise ValueError(\"API_PORT must be a set integer\"); port = int(port_str).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 13810,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] [ERROR_HANDLING] Missing or invalid environment configuration raises unhandled exceptions (build_endpoint)\n  - Issue: `API_HOST` may be absent or empty, causing `host.strip()` to raise `AttributeError` or return an empty host; `API_PORT` may be absent or non-numeric, causing `int(port)` to raise `ValueError`. These failures occur without a clear configuration error.\n  - Fix: Read and validate both values explicitly, raising a descriptive `ConfigurationError` for missing, empty, or invalid input before constructing the URL.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 6792,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] [ERROR_HANDLING] Missing validation for environment variables (at build_endpoint)\n  - Issue: The function assumes API_HOST and API_PORT are present and well‑formed; missing or malformed values cause AttributeError or ValueError when calling host.strip() or int(port), crashing the program on valid deployments.\n  - Fix: Add presence checks before using the values:\n\n```\n    if not host or not port:\n        raise ValueError(\"API_HOST and API_PORT must be set\")\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 26127,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "none_env_parse.py",
+    "exit_code": 0,
+    "wall_s": 26.5,
+    "duplicate_of_backfilled": true
+  }
+}

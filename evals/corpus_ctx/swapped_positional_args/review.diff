@@ -1,0 +1,14 @@
+diff --git a/src/ledger.js b/src/ledger.js
+--- a/src/ledger.js
++++ b/src/ledger.js
+@@ -3,9 +3,9 @@ const { db } = require("./db");
+
+-async function transfer(fromAccount, toAccount, amount) {
+-  if (amount <= 0) throw new Error("amount must be positive");
++async function transfer(amount, fromAccount, toAccount) {
++  if (amount = 0) return;
+   await db.tx(async (t) => {
+     await t.debit(fromAccount, amount);
+     await t.credit(toAccount, amount);
+   });
+ }

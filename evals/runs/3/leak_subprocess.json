@@ -1,0 +1,198 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T09:03:53.267216Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "66df33378953",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 64249
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "probe_versions",
+      "title": "readline() blocks indefinitely on a non-responsive binary at proc.stdout.readline()",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "RESOURCE_LEAK",
+      "symbol": "probe_versions",
+      "title": "Zombie process accumulation at proc = subprocess.Popen(...)",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "probe_versions",
+      "title": "Unhandled FileNotFoundError and OSError crash entire function",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "probe_versions",
+      "title": "Redundant manual pipe handling",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "probe_versions",
+      "title": "Potential file descriptor leak",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "probe_versions",
+      "title": "Only reads first line of stdout, missing multi-line version output",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "probe_versions",
+      "title": "probe_versions",
+      "models": [
+        "cohere/north-mini-code:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [RESOURCE_LEAK] Zombie process accumulation at `proc = subprocess.Popen(...)`\n  - Issue: Each `Popen` call spawns a child process that is never `wait()`ed or `communicate()`ed. After the child exits, it becomes a zombie until the parent process terminates. With a large list of binaries, this accumulates zombie processes and can exhaust the process table.\n  - Fix: Replace with `subprocess.run([name, \"--version\"], stdout=subprocess.PIPE, capture_output=True)` and read from `result.stdout`, or call `proc.communicate()` / `proc.wait()` after reading.\n\n* [WARNING] [ERROR_HANDLING] Unhandled `FileNotFoundError` crashes entire probe at `subprocess.Popen([name, \"--version\"], ...)`\n  - Issue: If any binary in the list does not exist or is not executable, `Popen` raises `FileNotFoundError`, aborting all subsequent probes. A single missing binary causes the entire function to fail instead of skipping that entry.\n  - Fix: Wrap `Popen` in a `try/except FileNotFoundError` (or `OSError`) and set `out[name] = None` or skip the entry on failure.\n\n* [WARNING] [ERROR_HANDLING] `readline()` blocks indefinitely on a non-responsive binary at `proc.stdout.readline()`\n  - Issue: If a binary exists but hangs without producing output to stdout (e.g., waits for stdin, segfaults before flushing), `readline()` blocks forever with no timeout, freezing the entire function.\n  - Fix: Use `subprocess.run(..., timeout=N)` with a reasonable timeout, or use `select`/`poll` on `proc.stdout` to detect unresponsive children and terminate them.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10497,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Uncaught subprocess failures and hangs> (at function probe_versions)\n  - Issue: The code does not handle cases where the subprocess fails to start, returns a non‑zero exit code, or hangs indefinitely; `proc.stdout.readline()` will raise `AttributeError` if `proc.stdout` is `None` or block forever, causing silent data corruption or a hang.\n  - Fix: Replace the manual Popen/readline pattern with `subprocess.run([name, \"--version\"], capture_output=True, text=True, check=False)` and verify `proc.returncode == 0` before assigning `out[name] = stdout.strip()`.\n\n* [WARNING] RESOURCE_LEAK <Potential file descriptor leak> (at function probe_versions)\n  - Issue: The `Popen` object is not explicitly closed; relying on garbage collection may leave open file descriptors if many binaries are processed, especially under high concurrency.\n  - Fix: Use `with subprocess.Popen([...]) as proc:` (or call `proc.wait()` and `proc.stdout.close()`) to ensure the pipe is closed promptly after reading.\n\n* [SUGGESTION] SIMPLICITY <Redundant manual pipe handling> (at function probe_versions)\n  - Issue: The loop manually manages `stdout=subprocess.PIPE` and reads a single line, while the standard library already provides `subprocess.run(..., capture_output=True)` which handles pipe creation and cleanup automatically.\n  - Fix: Rewrite the loop as `out[name] = subprocess.run([name, \"--version\"], capture_output=True, text=True).stdout.strip()` with appropriate error checking.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 20945,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] RESOURCE_LEAK - Subprocess resource leak and zombie process creation (at `probe_versions` function)\n  - Issue: The code calls `Popen` but never invokes `proc.wait()`, `proc.communicate()`, or closes `proc.stdout`. This leaves processes in a zombie state and file descriptors unclosed. If `binaries` contains 100 items, 100 zombie processes and 100 unclosed pipe file descriptors accumulate. Additionally, if a binary hangs, the function blocks forever.\n  - Fix: Use `subprocess.run()` with `capture_output=True`, `text=True`, and a `timeout` parameter, or call `proc.communicate()` followed by `proc.wait()` to properly reap the process.\n\n* [CRITICAL] ERROR_HANDLING - Unhandled FileNotFoundError and OSError crash entire function (at `probe_versions` function)\n  - Issue: If any `name` in `binaries` doesn't exist or isn't executable, `Popen` raises `FileNotFoundError` or `OSError`, crashing the entire function. The caller loses version information for all other binaries. For example, `probe_versions([\"git\", \"nonexistent\", \"ls\"])` would fail on \"nonexistent\" and never return results for \"git\" or \"ls\".\n  - Fix: Wrap the subprocess call in a try-except block, catching `FileNotFoundError`, `OSError`, and `subprocess.TimeoutExpired`, storing `None` or an error indicator in `out[name]` for failed binaries.\n\n* [WARNING] LOGIC - No timeout allows indefinite blocking on hanging processes (at `probe_versions` function)\n  - Issue: If any binary outputs version info slowly or hangs, the entire function blocks indefinitely. For example, a malicious or buggy binary could cause the function to never return, potentially hanging a server or CLI tool that depends on it.\n  - Fix: Add a `timeout` parameter to `Popen` or use `subprocess.run()` with a reasonable default timeout (e.g., 5 seconds), catching `TimeoutExpired` to handle slow/hanging binaries.\n\n* [WARNING] LOGIC - Only reads first line of stdout, missing multi-line version output (at `probe_versions` function)\n  - Issue: Some programs output version information across multiple lines (e.g., \"git version 2.34.1\\ncompiled by user@host\\n\"). The code only reads `readline()`, potentially missing important version details or returning incomplete information.\n  - Fix: Use `communicate()` to read all output, then extract the first line with `.split('\\n')[0]` if needed, or return the complete output.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 60197,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] RESOURCE_LEAK probe_versions (def probe_versions(binaries))\n    - Issue: The function spawns child processes with `subprocess.Popen` but never waits for them to terminate. After reading the first line of stdout, the child may still be running (e.g., writing to stderr or stuck in a loop). The OS retains the terminated process as a zombie until a `wait()` reaps it, causing resource exhaustion when probing many binaries or under repeated calls.\n    - Fix: Replace the manual `Popen` with `subprocess.run([name, \"--version\"], capture_output=True, text=True)` or, if keeping `Popen`, call `proc.wait()` and `proc.communicate()` after reading the output.\n\n* [WARNING] ERROR_HANDLING probe_versions (def probe_versions(binaries))\n    - Issue: No exception handling is present for missing binaries or non‑UTF‑8 output. If a binary does not exist, `Popen` raises `FileNotFoundError`; if the binary emits binary data or uses a different encoding, `decode()` raises `UnicodeDecodeError`. The caller cannot differentiate between “tool not installed” and “malformed output”, and the whole function aborts.\n    - Fix: Wrap the process invocation in a `try…except` block. Store `None` or an error string in the dict on exception, and decode with `errors='replace'` or `errors='ignore'` to avoid crashes.\n\n* [WARNING] LOGIC probe_versions (def probe_versions(binaries))\n    - Issue: The absence of a timeout lets a misbehaving binary hang indefinitely on `--version`. An attacker could supply a script that never prints to stdout, causing the function to block forever and consume a thread, breaking the expectation of prompt return.\n    - Fix: Use `subprocess.run(..., timeout=5)` (or a configurable limit) and catch `subprocess.TimeoutExpired`, storing a timeout indicator (e.g., `\"timeout\"`) in the result dict.\n\n* [WARNING] STRUCTURE probe_versions (def probe_versions(binaries))\n    - Issue: The public API exposes low‑level subprocess management (`Popen`, pipe handling). Any change—such as adding stderr capture, respecting timeouts, or switching to `run`—requires modifications in multiple places and risks breaking existing callers that rely on the current behavior.\n    - Fix: Extract a private helper (e.g., `_run_version(name)`) that uses `subprocess.run` and returns raw bytes. Have `probe_versions` format the output, isolating implementation details behind a stable interface.\n\n* [SUGGESTION] SIMPLICITY probe_versions (def probe_versions(binaries))\n    - Issue: Manual `Popen` with `readline` is more code and error‑prone than the standard library's `subprocess.run`, which already provides output capture, waiting, and optional timeout. Maintaining the manual approach adds cognitive load and increases regression risk when adding features.\n    - Fix: Replace the loop with a dict comprehension using `subprocess.run([name, \"--version\"], capture_output=True, text=True).stdout.strip()`. This reduces lines, eliminates pipe handling, and leverages well‑tested library behavior.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 64242,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [RESOURCE_LEAK] Missing process cleanup leading to zombie or orphaned processes (at probe_versions)\n    - Issue: The function starts a subprocess with Popen but never calls wait() or communicate(). If the child process exits before the function returns, it becomes a zombie; if it continues running (e.g., waiting for input), it remains orphaned, consuming process table slots. This can exhaust system resources under repeated calls or with binaries that do not terminate quickly.\n    - Fix: Replace the readline approach with proc.communicate(timeout=1)[0] to capture output and ensure the process is waited on, or explicitly call proc.wait() after reading.\n\n* [ERROR_HANDLING] Uncaught exceptions for missing binaries or non‑UTF‑8 output cause crashes (at probe_versions)\n    - Issue: subprocess.Popen raises FileNotFoundError when the binary does not exist, and .decode() raises UnicodeDecodeError if the output is not valid UTF‑8. Both propagate out of the function, causing the caller to see an unhandled exception instead of a graceful error or missing entry. For example, probe_versions([\"nonexistent\"]) crashes with FileNotFoundError.\n    - Fix: Wrap the Popen and read/decode in a try block, catching (FileNotFoundError, subprocess.SubprocessError, UnicodeDecodeError) and storing an error sentinel (e.g., None) or logging the issue before continuing.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 25301,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK <Unclosed subprocess handles may leave zombie processes> (at probe_versions)\n    - Issue: The function creates subprocess.Popen objects but never waits for them to terminate or closes their pipes. If the binary produces more output than the first line, the pipe may fill and block the child; even with short output, the process becomes a zombie until waited, consuming PID table entries.\n    - Fix: Replace the Popen loop with subprocess.run([name, \"--version\"], capture_output=True, text=True, timeout=5) and check the returncode, or explicitly call proc.wait() after reading stdout.\n\n* [WARNING] ERROR_HANDLING <Uncaught exceptions for missing or failing binaries> (at probe_versions)\n    - Issue: If a binary is not found, cannot be executed, or returns a non‑zero exit status, subprocess.Popen will raise FileNotFoundError or similar, propagating out of the function and potentially crashing the caller. The function also ignores stderr, so version strings written there are missed.\n    - Fix: Wrap the call in a try/except block, capture stderr, and on failure store an error indicator (e.g., None or an error message) instead of letting the exception bubble up.\n\n* [SIMPLICITY> <Manual pipe management duplicates stdlib functionality> (at probe_versions)\n    - Issue: Using Popen with manual stdout.readline and decode recreates what subprocess.run(..., capture_output=True, text=True) provides in one line, adding unnecessary complexity and increasing the chance of mistakes.\n    - Fix: Use subprocess.run([name, \"--version\"], capture_output=True, text=True, timeout=5) and assign out[name] = result.stdout.strip() if result.returncode == 0 else <error handling>. This reduces the code to a few clear lines.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 46686,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "leak_subprocess.py",
+    "exit_code": 0,
+    "wall_s": 64.7,
+    "duplicate_of_backfilled": true
+  }
+}

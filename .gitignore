@@ -1,0 +1,65 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution and packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+coverage_report.txt
+
+# Audit and temporary scratch files
+audit_*.txt
+audit_report.md
+review.json
+scratch.py
+test_audit.py
+test_or.py
+4take_raw_data.json
+
+# Local config & state cache
+.cache/
+evals/recordings_backup/
+
+# OS and IDE files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Evals built from private repositories: their code must never reach this repository
+evals/private/
+
+# Third-party benchmark data, fetched for scoring and not redistributed
+evals/external/
+
+# The frontier test's answer key and blind runs: an agent under test that can read truth.json is
+# no longer blind. prereg.sha256 fixes the corpus and the key before any run.
+evals/frontier/

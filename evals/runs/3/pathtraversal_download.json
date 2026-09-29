@@ -1,0 +1,97 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T08:54:50.417303Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "8b93eaecd064",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 46290
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "read_report",
+      "title": "Path traversal allows reading arbitrary files outside the intended directory",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC Path traversal allows reading arbitrary files outside the intended directory (at read_report)\n    - Issue: The function joins user‑supplied `name` with `ROOT` but does not verify that the resulting path stays inside `/srv/reports`. An attacker can supply `name = \"../../etc/passwd\"` (or an absolute path) causing `os.path.join` to produce a path outside the allowed directory, which passes the `os.path.isfile` check and is read, leading to unauthorized file disclosure.\n    - Fix: Resolve the absolute path and ensure it is under the resolved root before opening:\n        ```python\n        def read_report(name):\n            full = os.path.join(ROOT, name)\n            full = os.path.realpath(full)\n            root_real = os.path.realpath(ROOT)\n            if not full.startswith(root_real):\n                raise FileNotFoundError(name)\n            with open(full, \"rb\") as fh:\n                return fh.read()\n        ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8415,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] SECURITY Path Traversal in read_report (at read_report function)\n  - Issue: The `name` parameter is user-controlled and passed directly to `os.path.join()` without validation. An attacker can supply `../../../etc/passwd` or `/etc/passwd` to read arbitrary files outside `/srv/reports`. The function only checks file existence, not that the resolved path remains within the intended directory.\n  - Fix: Resolve the path and verify it's within ROOT before reading:\n    ```python\n    def read_report(name):\n        full = os.path.realpath(os.path.join(ROOT, name))\n        if not full.startswith(os.path.realpath(ROOT) + os.sep) and full != os.path.realpath(ROOT):\n            raise FileNotFoundError(name)\n        if not os.path.isfile(full):\n            raise FileNotFoundError(name)\n        with open(full, \"rb\") as fh:\n            return fh.read()\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10395,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [INJECTION] Path Traversal in `read_report` (function body)\n- Issue: The `name` parameter is concatenated with `ROOT` via `os.path.join` without any validation or sanitization. Two attack vectors exist: (1) `name` containing `..` segments (e.g., `\"../../etc/passwd\"`) causes `os.path.join` to produce a path escaping `ROOT`; (2) `name` being an absolute path (e.g., `\"/etc/passwd\"`) causes `os.path.join` to discard `ROOT` entirely, returning the absolute path directly. Both allow reading arbitrary files accessible to the process.\n- Fix: After joining, resolve the canonical path and verify it remains within `ROOT`:\n  ```python\n  full = os.path.realpath(os.path.join(ROOT, name))\n  if not full.startswith(os.path.realpath(ROOT) + os.sep):\n      raise PermissionError(name)\n  ```\n  Also reject absolute `name` values and those containing `..` segments before resolution as defense in depth.\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 15823,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [CRITICAL] [AUTH_CRYPTO] Report path traversal reads arbitrary files (at `read_report`)\n  - Issue: `os.path.join(ROOT, name)` preserves an absolute `name` or permits `..` traversal. A caller supplying `/etc/passwd` or `../../etc/passwd` makes `isfile` and `open` operate outside `/srv/reports`; if the process has read access, the caller receives the complete file bytes. This is a concrete authorization bypass at the report-name trust boundary.\n  - Fix: Normalize and verify containment before opening, and reject absolute names; for stronger protection, open with directory handles and `O_NOFOLLOW` so symlinks cannot bypass the check.\n<CPA_DONE>",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 4918,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION <Path traversal allows reading arbitrary files> (os.path.join)\n  - Issue: An attacker can supply a filename containing '..' to escape ROOT, e.g., name='../../etc/passwd', causing full to resolve outside /srv/reports and read sensitive files.\n  - Fix: Resolve the full path and ensure it is within ROOT:\n    import os\n    def read_report(name):\n        full = os.path.join(ROOT, name)\n        real = os.path.realpath(full)\n        if not real.startswith(os.path.abspath(ROOT) + os.sep):\n            raise ValueError(\"Invalid report path\")\n        if not os.path.isfile(full):\n            raise FileNotFoundError(name)\n        with open(full, \"rb\") as fh:\n            return fh.read()\n```\n\nCheck length: about 80-150 words. Good.\n\nAny other issues? Maybe resource exhaustion due to reading large files into memory, but not a bug. Could be considered a resource leak? Not exactly; it's a potential DoS but not a leak. Might be a BOUNDS issue? Not needed.\n\nThus output only this finding.\n\n* [CRITICAL] INJECTION <Path traversal allows reading arbitrary files> (os.path.join)\n  - Issue: An attacker can supply a filename containing '..' (e.g., name='../../etc/passwd'), causing os.path.join to produce a path outside ROOT and read sensitive files, leading to information disclosure.\n  - Fix: Resolve the path and verify it stays within ROOT:\n    import os\n    def read_report(name):\n        full = os.path.join(ROOT, name)\n        real = os.path.realpath(full)\n        if not real.startswith(os.path.abspath(ROOT) + os.sep):\n            raise ValueError(\"Invalid report path\")\n        if not os.path.isfile(full):\n            raise FileNotFoundError(name)\n        with open(full, \"rb\") as fh:\n            return fh.read()",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 41366,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "pathtraversal_download.py",
+    "exit_code": 0,
+    "wall_s": 46.7,
+    "duplicate_of_backfilled": true
+  }
+}

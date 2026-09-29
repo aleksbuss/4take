@@ -1,0 +1,102 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:29:12.203441Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "ab1c71b0456f",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 19723
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "list_orders",
+      "title": "SQL injection via sort_field and direction",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "list_orders",
+      "title": "Cursor never closed",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [INJECTION] SQL injection via sort_field and direction (at list_orders)\n- Issue: `sort_field` and `direction` are interpolated directly into the SQL query via f-string, allowing arbitrary SQL injection. An attacker passing `sort_field=\"email; DROP TABLE orders; --\"` or `direction=\"ASC; SELECT * FROM users\"` executes arbitrary SQL. The `ALLOWED` set at module level exists but is never consulted, so the intended validation is dead code.\n- Fix: Validate both parameters against an allowlist before use — e.g., assert `sort_field in ALLOWED` and `direction.upper() in {\"ASC\", \"DESC\"}` — then interpolate the validated values, or map them to columns via a dict and use a fixed string.\n\n[WARNING] [RESOURCE_LEAK] Cursor never closed (at list_orders)\n- Issue: `cur = conn.cursor()` is never closed. Under sustained load with many calls, cursor objects (and their server-side resources) accumulate until GC or connection close.\n- Fix: Use `with conn.cursor() as cur:` or call `cur.close()` in a `finally` block.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 5584,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION SQL Injection via sort_field and direction (at list_orders)\n    - Issue: The function directly interpolates the user‑controlled `sort_field` and `direction` parameters into the SQL string, enabling arbitrary SQL injection (e.g., `sort_field=\"created_at; DROP TABLE orders--\"`). The `ALLOWED` set is defined but never used, so no validation occurs.\n    - Fix: Validate `sort_field` against `ALLOWED` and `direction` against `{'ASC','DESC'}` (case‑insensitive) before building the query, then use safe string formatting for the ORDER BY clause while keeping the `customer_id` parameterized.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 6824,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Unsafe SQL interpolation in list_orders\n  - Issue: The function directly interpolates user‑controlled sort_field and direction into the query string via f‑string, allowing an attacker to inject arbitrary SQL (e.g., “price; DROP TABLE orders;–”) and bypass parameter binding.\n  - Fix: Validate sort_field against a whitelist (e.g., {\"created_at\",\"email\",\"price\"}) and direction against {\"ASC\",\"DESC\"}, then build the query using string formatting only after validation, or use a mapping to safe column names.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 17307,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] INJECTION SQL Injection via sort_field and direction parameters (at list_orders function)\n  - Issue: The `sort_field` and `direction` parameters are directly interpolated into the SQL query string without validation. An attacker can inject arbitrary SQL by passing malicious values like `sort_field = \"created_at; DROP TABLE orders; --\"` or `direction = \"DESC; SELECT * FROM users WHERE '1'='1\"`. The `ALLOWED` set at the top of the file appears intended to whitelist valid sort fields but is never used.\n  - Fix: Validate both parameters against allowed values before interpolation:\n    ```python\n    ALLOWED_FIELDS = {\"created_at\", \"email\"}\n    ALLOWED_DIRECTIONS = {\"ASC\", \"DESC\"}\n    \n    if sort_field not in ALLOWED_FIELDS:\n        raise ValueError(f\"Invalid sort field: {sort_field}\")\n    if direction.upper() not in ALLOWED_DIRECTIONS:\n        raise ValueError(f\"Invalid direction: {direction}\")\n    ```\n\n* [WARNING] ERROR_HANDLING Missing validation for direction parameter (at list_orders function)\n  - Issue: The `direction` parameter accepts any string value, not just \"ASC\" or \"DESC\". This could lead to unexpected query behavior or errors when invalid values like \"INVALID\" are passed.\n  - Fix: Add validation for the direction parameter as shown above, or use a case-insensitive check against allowed values.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19716,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "sqli_order_by.py",
+    "exit_code": 0,
+    "wall_s": 20.1,
+    "duplicate_of_backfilled": true
+  }
+}

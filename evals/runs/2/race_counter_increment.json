@@ -1,0 +1,88 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:27:44.649440Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "2a1ac2f8ce88",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 13834
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "hit",
+      "title": "Race condition in hit()",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [CONCURRENCY] Race condition in hit() (at hit)\n  - Issue: The lock is only held during dictionary initialization (`self.counts[key] = 0`), not during the increment (`self.counts[key] += 1`). Two threads calling `hit(key)` on a new key can both pass `if key not in self.counts` before either acquires the lock, both initialize to 0, and both increment — losing one count entirely. The `+= 1` read-modify-write is also non-atomic, so concurrent hits on an existing key suffer lost updates.\n  - Fix: Hold the lock for the entire `hit` method body:\n    ```python\n    def hit(self, key):\n        with self.lock:\n            if key not in self.counts:\n                self.counts[key] = 0\n            self.counts[key] += 1\n            return self.counts[key]\n    ```\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9562,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CONCURRENCY Race condition in hit() method (at HitCounter.hit)\n  - Issue: The check `if key not in self.counts` and the increment `self.counts[key] += 1` are not atomic. Thread A checks key absence, Thread B does the same, both initialize to 0, then both increment without lock, causing lost updates. Additionally, the increment itself is unprotected, allowing concurrent read-modify-write cycles to corrupt counts.\n  - Fix: Acquire lock before the check and hold it through the entire operation:\n    ```python\n    def hit(self, key):\n        with self.lock:\n            if key not in self.counts:\n                self.counts[key] = 0\n            self.counts[key] += 1\n            return self.counts[key]\n    ```\n\n* [WARNING] ERROR_HANDLING Missing lock protection on dictionary read (at HitCounter.hit)\n  - Issue: The return statement reads `self.counts[key]` without lock protection, potentially returning stale or inconsistent data due to lack of memory visibility guarantees between threads.\n  - Fix: Read and return the value while still holding the lock (included in fix above).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10518,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [CONCURRENCY] Race condition on key initialization in hit (at hit method)\n    - Issue: The check `if key not in self.counts:` is performed outside the lock, allowing two threads to both see the key as missing and subsequently reset the count to zero inside the lock, causing lost increments.\n    - Fix: Perform the check and initialization inside the same lock that protects the increment, e.g., wrap the entire method body in `with self.lock:`.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 12814,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] CONCURRENCY Race condition on increment (at HitCounter.hit)\n  - Issue: The method checks for key presence outside the lock, then initializes under lock, but the subsequent increment is performed without synchronization. Two threads can both see a missing key, both set it to 0 (the second overwrites), then both increment without protection, causing lost updates and silently corrupted counts.\n  - Fix: Protect the entire read‑modify‑write operation with the lock:\n```python\ndef hit(self, key):\n    with self.lock:\n        self.counts[key] = self.counts.get(key, 0) + 1\n        return self.counts[key]\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 13827,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "race_counter_increment.py",
+    "exit_code": 0,
+    "wall_s": 14.2,
+    "duplicate_of_backfilled": true
+  }
+}

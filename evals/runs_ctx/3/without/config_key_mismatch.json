@@ -1,0 +1,99 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:21:38.128436Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "616516c27b6d",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 31251,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "fetch_profile",
+      "title": "Invalid timeout value causes unhandled exception",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "INJECTION",
+      "symbol": "fetch_profile",
+      "title": "/profiles/{user_id} path traversal",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 2625
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] ERROR_HANDLING Invalid timeout value causes unhandled exception (at fetch_profile)\n    - Issue: If settings.PROFILE_API_TIMEOUT_MS is negative or zero, timeout becomes <=0 seconds. httpx.get with timeout<=0 raises ValueError (timeout must be positive) which is not caught, causing unhandled exception. Example: PROFILE_API_TIMEOUT_MS=-1000 → timeout=-1.0 → ValueError.\n    - Fix: Validate timeout > 0 before use, e.g., if timeout <= 0: timeout = 10.0 (or use a safe default). Alternatively, catch ValueError and handle appropriately.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16208
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 25477
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] INJECTION /profiles/{user_id} path traversal (at fetch_profile function)\n  - Issue: The `user_id` parameter is directly interpolated into the URL path without validation or encoding. An attacker-controlled `user_id` containing path traversal sequences (e.g., `../admin`) or special characters could manipulate the request target, potentially accessing unintended endpoints or bypassing intended access controls. For example, `user_id=\"../../../internal/debug\"` could resolve to a different path than expected.\n  - Fix: Validate `user_id` against a strict pattern (e.g., alphanumeric only) or use `httpx.URL` with proper path encoding: `f\"{settings.PROFILE_API_URL}/profiles/{httpx.URL(user_id).path}\"` or better, validate with a regex like `re.match(r'^[a-zA-Z0-9_-]+$', user_id)`.\n\n* [WARNING] BOUNDS Timeout value of 0 could cause immediate timeout (at fetch_profile function)\n  - Issue: If `settings.PROFILE_API_TIMEOUT_MS` is 0, the calculated `timeout` becomes 0.0 seconds, which httpx may interpret as \"no timeout\" or an immediate timeout depending on version, potentially causing requests to fail immediately or hang indefinitely rather than respecting an intended minimum timeout.\n  - Fix: Add a minimum timeout guard: `timeout = max(0.001, settings.PROFILE_API_TIMEOUT_MS / 1000)` to ensure a non-zero timeout value.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 31242
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 31.9
+  }
+}

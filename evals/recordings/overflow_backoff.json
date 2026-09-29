@@ -1,0 +1,164 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:18:27.366561Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "468dcb9285ab",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 54446
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "BOUNDS",
+      "symbol": "retry_with_backoff",
+      "title": "[CORRECTNESS] Unbounded exponential backoff with no cap",
+      "models": [
+        "inclusionai/ling-3.0-flash-fin:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 1,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "retry_with_backoff",
+      "title": "Zero or negative attempts leads to immediate ExhaustedRetries without invoking fn*",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "UNKNOWN",
+      "symbol": null,
+      "title": "[CORRECTNESS] Unnecessary sleep after final failed attempt",
+      "models": [
+        "inclusionai/ling-3.0-flash-fin:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": null,
+      "title": "No observability into retry failures",
+      "models": [
+        "inclusionai/ling-3.0-flash-fin:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "retry_with_backoff",
+      "title": "Original TransientError is lost when retries are exhausted*",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-fin:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [CORRECTNESS] Unbounded exponential backoff with no cap\n- The backoff `2 ** i` grows without limit. With `attempts=30`, the final sleep is `2^29` seconds (~17 years). Even moderate attempt counts produce absurd delays, making the function unusable for any real retry policy.\n- Fix: Add a maximum backoff cap, e.g. `time.sleep(min(2 ** i, MAX_BACKOFF))`, and consider adding jitter to avoid thundering herd.\n\n[WARNING] [CORRECTNESS] Unnecessary sleep after final failed attempt\n- On the last iteration (`i == attempts - 1`), if `fn()` raises `TransientError`, the function sleeps `2 ** (attempts-1)` seconds before immediately raising `ExhaustedRetries()`. This wastes time when the outcome is already determined.\n- Fix: Move the sleep inside an `else` branch or restructure so sleep only occurs when further retries remain: `if i < attempts - 1: time.sleep(2 ** i)`.\n\n[WARNING] [STRUCTURE] No observability into retry failures\n- The function silently swallows every `TransientError` across all attempts with no logging, metrics, or callback. In production, this makes it impossible to diagnose why a function is failing repeatedly or to detect that retries are being exhausted.\n- Fix: Add optional logging or a callback parameter so callers can observe each failure and the final exhaustion.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7333,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC *Zero or negative attempts leads to immediate ExhaustedRetries without invoking fn* (at retry_with_backoff)\n    - Issue: When `attempts` is zero or negative, `range(attempts)` produces an empty sequence, so the loop body never executes and the function raises `ExhaustedRetries()` without ever calling `fn`. This breaks the expected retry semantics and can cause callers to observe a failure even though they asked for “no retries” (which should probably mean a single attempt) or passed an invalid value.\n    - Fix: Validate the argument before looping, e.g. `if attempts <= 0: raise ValueError(\"attempts must be > 0\")`, or treat non‑positive as a single attempt by setting `attempts = max(1, attempts)`.\n\n* [WARNING] ERROR_HANDLING *Original TransientError is lost when retries are exhausted* (at retry_with_backoff)\n    - Issue: After all attempts fail with `TransientError`, the function raises a fresh `ExhaustedRetries()` exception, discarding the last caught `TransientError`. Callers lose useful diagnostic information (e.g., the underlying error message or type) that could help distinguish between different failure modes.\n    - Fix: Capture the last exception and chain it, e.g.:\n\n        last_err = None\n        for i in range(attempts):\n            try:\n                return fn()\n            except TransientError as e:\n                last_err = e\n                time.sleep(2 ** i)\n        raise ExhaustedRetries() from last_err if last_err else ExhaustedRetries()",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11359,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] BOUNDS Unbounded exponential backoff duration (retry_with_backoff)\n  - Issue: `attempts` is used directly in `range`, and `2 ** i` is used as the sleep duration without a cap. If `attempts=10_000` and `fn` always raises `TransientError`, the function eventually calls `sleep(2 ** 9999)`, making termination practically impossible.\n  - Fix: cap the delay to a configured maximum and sleep only when another retry remains; validate `attempts` as a bounded integer.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7944,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] LOGIC - Missing input validation for attempts parameter (at retry_with_backoff function)\n  - Issue: When `attempts` is 0 or negative, the loop never executes and `ExhaustedRetries()` is raised immediately without ever calling `fn()`. This violates the principle of least surprise—callers expecting retries will get an exception named as if retries were exhausted, when in fact no attempts were made. A caller passing `attempts=0` due to a bug or configuration error receives misleading feedback.\n  - Fix: Add validation at function start: `if attempts < 1: raise ValueError(\"attempts must be at least 1\")`\n\n* [WARNING] LOGIC - Unbounded exponential backoff can cause excessive delays (at retry_with_backoff function)\n  - Issue: The backoff `2 ** i` grows without bound. With 20 attempts, the final sleep is ~524,000 seconds (over 6 days). This can cause production systems to hang indefinitely during retry storms, especially if `TransientError` is raised repeatedly due to a persistent underlying issue.\n  - Fix: Cap the backoff: `time.sleep(min(2 ** i, MAX_BACKOFF_SECONDS))` where `MAX_BACKOFF_SECONDS` could be 30 or 60.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 54439,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[WARNING] [LOGIC] Unnecessary sleep after final failed attempt (at `time.sleep(2 ** i)`)\n    - Issue: On the last iteration (`i = attempts - 1`), when `fn()` raises `TransientError`, the function sleeps for `2 ** (attempts - 1)` seconds before raising `ExhaustedRetries()`. This sleep serves no purpose — there are no remaining attempts, so the delay only wastes the caller's time. With exponential backoff, this can be very long (e.g., 512 seconds for `attempts=10`).\n    - Fix: Guard the sleep so it only occurs when retries remain: `if i < attempts - 1: time.sleep(2 ** i)`\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16767,
+      "duplicate_of": "inclusionai/ling-3.0-flash-fin:free"
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Exponential backoff may cause unbounded sleep and resource exhaustion> (function retry_with_backoff)\n  - Issue: The sleep duration grows as 2**i, so for large `attempts` the delay becomes huge, potentially causing excessive latency or denial‑of‑service; also only `TransientError` is caught, so other transient failures are not retried, leading to incorrect retry behavior.\n  - Fix:\n```python\ndef retry_with_backoff(fn, attempts, max_delay=30):\n    for i in range(max(1, attempts)):\n        try:\n            return fn()\n        except TransientError:\n            delay = min(2 ** i, max_delay)\n            time.sleep(delay)\n    raise ExhaustedRetries()\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 17685,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "overflow_backoff.py",
+    "exit_code": 0,
+    "wall_s": 54.8,
+    "duplicate_of_backfilled": true
+  }
+}

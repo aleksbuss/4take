@@ -1,0 +1,145 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T11:24:36.056694Z",
+  "config": {
+    "models_requested": 7,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "b4009490bb65",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 97461,
+    "context": {
+      "files": [
+        "orders/lines.py"
+      ],
+      "tokens": 80,
+      "dropped": [],
+      "auto": {
+        "orders/lines.py": "defines add_line_item"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "import_order",
+      "title": "Broken atomicity guarantee",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "add_line_item",
+      "title": "Unhandled NoResultFound from Product.query.filter_by(sku=sku).one()",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "import_order",
+      "title": "Split transaction responsibility between caller and callee",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "import_order",
+      "title": "Incomplete exception handling",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC Import is not atomic despite committing each line (at `import_order`)\n  - Issue: `add_line_item()` calls `session.commit()` internally. If `rows` is `[{valid}, {\"missing\": ...}]`, the first call persists both the order and its line; the second raises, and `session.rollback()` cannot undo the already committed line. The caller receives an exception but is left with a partial order, directly violating the function’s “all of its lines, or nothing at all” contract. Exceptions other than `KeyError` and `ValueError` likewise leave any pending transaction state to the caller.\n  - Fix: Establish the transaction boundary only in `import_order`. Remove the commit from `add_line_item`, use a transaction/session scope with one final commit, and roll back on every exception before re-raising.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6170
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC Transaction boundary violation (at import_order)\n  - Issue: The docstring promises \"create an order and all of its lines, or nothing at all\", but `add_line_item` commits each line item individually. If the 3rd line item fails after the first two are committed, the first two remain in the database. The `session.rollback()` in `import_order` cannot undo already-committed transactions.\n  - Fix: Refactor `add_line_item` to accept an optional session parameter and defer commit to the caller, or use a nested transaction pattern.\n\n* [WARNING] ERROR_HANDLING Incomplete exception handling (at import_order)\n  - Issue: Only `KeyError` and `ValueError` are caught, but `add_line_item` can raise `NoResultFound` (product not found), `TypeError` (from `int(None)`), and other database exceptions. If any other exception occurs, the order object exists in the session but is neither committed nor rolled back, leaving the session in an inconsistent state.\n  - Fix: Catch a broader exception class or use `except Exception:` to ensure rollback on any failure.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 26671
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] Broken atomicity guarantee (in `import_order`)\n  - `add_line_item` calls `session.commit()` inside the loop, so each iteration persists to the database immediately. If row *n* fails, rows 1..*n*-1 are already committed and cannot be rolled back, contradicting the \"or nothing at all\" contract.\n  - Fix: remove `session.commit()` from `add_line_item` (or make it conditional on an outer transaction), and let `import_order` be the sole commit point.\n\n* [WARNING] [ERROR_HANDLING] Unhandled `NoResultFound` from `Product.query.filter_by(sku=sku).one()` (in `add_line_item`)\n  - If a SKU does not exist, `.one()` raises `NoResultFound`, which is not caught by `import_order`'s `except (KeyError, ValueError)`. The session is left in a failed state and the partially-created order may persist depending on SQLAlchemy version/session config.\n  - Fix: catch `NoResultFound` (or a broader exception set) in `import_order`, or validate SKUs before the loop.\n\n* [WARNING] [ERROR_HANDLING] `session.rollback()` in `import_order` only undoes back to the last `commit()` issued by `add_line_item`, not to the beginning of the transaction (in `add_line_item`)\n  - Because of the premature commits, the rollback target is wrong. Even if other exceptions were caught, the rollback would not restore the \"nothing\" state the docstring promises.\n  - Fix: resolve the premature-commit issue above; then a single rollback at the top of the try block will correctly undo everything.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6322
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC Non-atomic order creation leaves partial data on failure (at import_order)\n- Issue: The function calls `add_line_item`, which commits each line item immediately. If a later row raises `KeyError` or `ValueError`, the `except` block rolls back the session, but any line items already committed remain in the database, leaving the order without those lines or orphan line items. Example: `rows = [{\"sku\":\"A\",\"qty\":\"1\"},{\"sku\":\"B\",\"qty\":\"x\"}]` commits the first line item, then rolls back, leaving a dangling line item.\n- Fix: Avoid using `add_line_item`’s internal commit. Instead, replicate its logic without committing: fetch the product, create `LineItem`, add to session, and commit once after the loop. On exception, roll back and re‑raise.\n\n[WARNING] STRUCTURE Split transaction responsibility between caller and callee (at import_order)\n- Issue: Transaction boundaries are divided: `add_line_item` commits inside the loop, while `import_order` attempts to manage a rollback for the whole operation. This duplication makes future changes to transaction handling require edits in both places, increasing the risk of inconsistent behavior.\n- Fix: Move transaction management to a single layer. Refactor `add_line_item` to not call `session.commit()` (or create a thin wrapper that omits the commit), letting `import_order` handle the sole commit after processing all rows. If `add_line_item` cannot be changed, replace its use with direct `LineItem` creation as in the fix above.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 97449
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "error": "Upstream provider error: Upstream error from Nvidia: ResourceExhausted: Worker local total request limit reached (1179/16)",
+      "latency_ms": 56374
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 98.6
+  }
+}

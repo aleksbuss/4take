@@ -1,0 +1,111 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T11:28:40.007873Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "c66e189f5b62",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 32131,
+    "context": {
+      "files": [
+        "profiles/events.py"
+      ],
+      "tokens": 41,
+      "dropped": [],
+      "auto": {
+        "profiles/events.py": "uses \"profile:{user_id}\", which the change removes"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "profile_cache_key",
+      "title": "Cache invalidation in on_profile_updated targets the old key format",
+      "models": [
+        "dots-studio/dots-3-note-preview:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "on_profile_updated",
+      "title": "Cache key format is duplicated in on_profile_updated instead of reusing profile_cache_key",
+      "models": [
+        "dots-studio/dots-3-note-preview:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] [LOGIC] Versioned cache key is not invalidated by profile updates (at `profile_cache_key`)\n  - Issue: `profile_cache_key` now writes reads and presumably profile-cache population to `profile:v2:{user_id}`, but `profiles.events.on_profile_updated()` still deletes only `profile:{user_id}`. After a profile update, the new-versioned entry remains and callers can trust stale data until the 24-hour TTL expires. Versioning also permanently leaves the old key orphaned.\n  - Fix: Route invalidation through the shared key function—delete `profile_cache_key(user_id)` from the update handler—and, if switching versions, avoid retaining obsolete entries or explicitly clean up the old namespace during deployment.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4233
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] LOGIC Cache invalidation broken by key format change (at profile_cache_key function and on_profile_updated)\n  - Issue: The `profile_cache_key` function now generates keys with schema version (`profile:v2:{user_id}`), but `on_profile_updated` in `events.py` still deletes using the old format (`profile:{user_id}`). When a profile is updated, the old cache entry won't be invalidated, causing stale data to persist indefinitely. The new versioned key will never be deleted.\n  - Fix: Update `events.py` to use the `profile_cache_key` function: `redis.delete(profile_cache_key(user_id))` and import it from `cache.py`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 14739
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n[CRITICAL] [LOGIC] Cache invalidation in `on_profile_updated` targets the old key format (at `profile_cache_key` / `profiles/events.py:on_profile_updated`)\n- Issue: The cache key format changed to `profile:v{SCHEMA_VERSION}:{user_id}`, but `on_profile_updated` still deletes `f\"profile:{user_id}\"`. After a profile update, the event handler removes the legacy key while the new key — which holds the actually-cached data — is never invalidated. The next read therefore returns the stale pre-update profile until the 24h TTL expires. Concrete trigger: any user updates their profile, `on_profile_updated` fires, and the immediately following read returns outdated data that the caller trusts.\n- Fix: Delete using the canonical key function so the handler always matches the store: `from profiles.cache import profile_cache_key` then `redis.delete(profile_cache_key(user_id))`. During the migration window also delete the legacy key to clear old entries.\n\n[WARNING] [STRUCTURE] Cache key format is duplicated in `on_profile_updated` instead of reusing `profile_cache_key` (at `profiles/events.py:on_profile_updated`)\n- Issue: The key string `profile:{user_id}` is now defined in two places — `profiles/cache.py` and `profiles/events.py`. They have already drifted apart (the drift is exactly what caused the critical bug), and any future schema bump will silently break invalidation again. Changing the key format requires editing two modules and remembering to update both.\n- Fix: Have `on_profile_updated` import and call `profile_cache_key(user_id)` so there is a single source of truth for the key, making a drift impossible by construction.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 26498
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Cache key version mismatch causing stale data> (profile_cache_key)\n- Issue: on_profile_updated deletes `profile:{user_id}` while profile_cache_key now returns `profile:v{SCHEMA_VERSION}:{user_id}`, so the cached entry is never removed, leading to incorrect profile reads after update.\n- Fix: Change on_profile_updated to delete the versioned key: `redis.delete(f\"profile:v{SCHEMA_VERSION}:{user_id}\")`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 32080
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 32.9
+  }
+}

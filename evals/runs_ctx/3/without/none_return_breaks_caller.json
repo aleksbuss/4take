@@ -1,0 +1,108 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:36:43.181813Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "14236218e783",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 25060,
+    "context": null
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "find_user",
+      "title": "find_user returns None instead of raising",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 3,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] LOGIC `find_user` silently changes its missing-user contract (at `find_user`)\n  - Issue: Returning `None` instead of raising `UserNotFound` causes existing callers that use `try/except UserNotFound` to continue and potentially dereference or process `None`, producing an `AttributeError` or incorrect authorization/business behavior. No caller migration is visible in this diff, while the now-unused exception signals that the previous contract remains part of the API.\n  - Fix: Restore `raise UserNotFound(user_id)` unless this is an intentional API migration; in that case, update the return annotation and every caller in the same change and explicitly handle `None`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5663
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Change in error handling contract> (at find_user)\n    - Issue: The function find_user was changed to return None on missing user instead of raising UserNotFound. This breaks the contract for callers that expect an exception to be raised on lookup failure, likely causing AttributeError when they attempt to access attributes on the returned None value. For example, a caller that does `user = find_user(id); print(user.email)` will crash with AttributeError if the user is not found.\n    - Fix: Revert to raising UserNotFound when row is None to maintain the original contract, or if returning None is intended, update all callers to check for None and adjust the function's documentation accordingly. Given the context, reverting the exception is the safer fix unless the callers are known to be updated.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9896
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Change in error handling contract> (at find_user)\n    - Issue: The function `find_user` originally raised `UserNotFound` when a user was not found, but now returns `None`. This changes the function's contract without updating callers. Callers that previously caught `UserNotFound` will now receive `None` and may fail with attribute errors (e.g., `user.email` when `user` is `None`). This is a correctness issue because the behavior change is not reflected in the caller code (which we assume exists but is not shown in the diff).\n    - Fix: Either revert to raising `UserNotFound` for consistency with existing caller expectations, or update all callers to handle the `None` return value (which requires changes outside this snippet). Given the context, restoring the exception is the safer immediate fix to maintain backward compatibility.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 17683
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] ERROR_HANDLING find_user returns None instead of raising (at find_user)\n  - Issue: The function now returns None when a user is not found, discarding the previous contract of raising UserNotFound. Callers that expect an exception will receive None, leading to silent failures, downstream logic errors, or unhandled None values that may be trusted as valid user objects.\n  - Fix: Restore the original behavior: raise UserNotFound(user_id) when row is None, or, if returning None is intentional, update all callers to handle the new contract and document the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 23071
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [ERROR_HANDLING] Silent failure on missing user (in `find_user`)\n  - Issue: `find_user` previously raised `UserNotFound` for missing users, allowing callers to distinguish \"no such user\" from other errors. Returning `None` collapses this into a silent failure: callers that don't check will hit `AttributeError` later (e.g., `None.email`), and the original `UserNotFound` exception type — part of the function's contract — is now dead code. This breaks the invariant that missing users are explicitly surfaced.\n  - Fix: Restore `raise UserNotFound(user_id)` to preserve the explicit error contract, or if `None` is intended, remove the now-unused `UserNotFound` class and update all callers to handle `None`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7368
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC find_user returns None instead of raising UserNotFound (line 13)  \n- Issue: Callers that expect an exception will receive None, causing downstream AttributeError when accessing user attributes and breaking the invariant that a successful lookup yields a non‑None user object.  \n- Fix: Replace `return None` with `raise UserNotFound(user_id)` or update callers to handle the None return value explicitly.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 22156
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 25.7
+  }
+}

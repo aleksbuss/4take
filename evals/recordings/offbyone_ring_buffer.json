@@ -1,0 +1,98 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:17:30.541906Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "1cad309642b5",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 26150
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "push",
+      "title": "OverflowCheck",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC OverflowCheck (in push)\n  - Issue: The fullness test uses `self._count > len(self._buf)`, which only raises `BufferFull` when the count exceeds capacity. When `self._count == len(self._buf)` (i.e., the buffer is exactly full), the condition is false, allowing another push. This overwrites an existing slot, increments `self._head`, and increments `self._count` beyond capacity, breaking the invariant that `self._count` never exceeds buffer size and corrupting the ring‑buffer state.\n  - Fix: Change the condition to `if self._count >= len(self._buf):` so that `BufferFull` is raised as soon as the buffer reaches capacity, preserving the intended overflow protection.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 6007,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [BOUNDS] RingBuffer.push off-by-one allows silent overflow (at push)\n- The guard `self._count > len(self._buf)` permits `capacity + 1` items in a buffer of size `capacity`. After exactly `capacity` pushes, `_count == capacity` and the check `capacity > capacity` is False, so a further item is accepted. `_head` then wraps via `% len(self._buf)` and overwrites the oldest slot while `_count` becomes `capacity + 1`, violating the invariant that `_count` equals the number of valid items. Any consumer (e.g., a `pop` that decrements `_count`) will then read stale or uninitialized data.\n- Fix: Change the guard to `if self._count >= len(self._buf): raise BufferFull()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7884,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] ERROR_HANDLING Missing BufferFull exception (at class definition)\n  - Issue: The push method raises `BufferFull`, but this name is never defined, causing a `NameError` at runtime whenever the buffer is full. The exception class must be declared before it is used.\n  - Fix: Define the exception at the top of the module (or inside the class) as:\n    ```python\n    class BufferFull(Exception):\n        pass\n    ```\n\n* [WARNING] LOGIC Incorrect full condition leads to count overflow (in push)\n  - Issue: The check `if self._count > len(self._buf):` only raises when `count` exceeds capacity, allowing one extra insertion when `count == capacity`. After that insertion, `count` becomes `capacity + 1`, breaking the buffer’s size invariant and causing subsequent logic (e.g., future pops) to misbehave.\n  - Fix: Change the condition to detect a truly full buffer:\n    ```python\n    if self._count >= len(self._buf):\n        raise BufferFull\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 22790,
+      "duplicate_of": "cohere/north-mini-code:free"
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Incorrect full detection in push> (push method)\n  - Issue: The condition `if self._count > len(self._buf):` allows the buffer to exceed its capacity, violating the invariant that count ≤ capacity. With a capacity of 5, pushing 6 items results in count=6 > 5 but no BufferFull exception, causing logical overflow and potential data corruption.\n  - Fix: Replace with `if self._count >= len(self._buf):` to raise BufferFull when the buffer is full.\n\n* [WARNING] BOUNDS <Index error on zero-capacity buffer> (constructor and push)\n  - Issue: Initializing `RingBuffer(0)` creates an empty list; the first `push` attempts `self._buf[self._head] = item`, causing an IndexError instead of a defined BufferFull or ValueError, breaking expected error handling.\n  - Fix: Add a guard in `__init__` to raise an exception if capacity <= 0, e.g., `if capacity <= 0: raise ValueError(\"capacity must be positive\")`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 23095,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] [LOGIC] Invalid capacities cause `IndexError` (RingBuffer)\n  - Issue: A capacity of `0` or a negative value creates an empty buffer; `push()` then raises `IndexError` instead of `BufferFull` or a validation error. For example, `RingBuffer(0).push(\"x\")` crashes unexpectedly.\n  - Fix: Validate `capacity` in `__init__`, then use `if self._count >= len(self._buf): raise BufferFull()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 3353,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "offbyone_ring_buffer.py",
+    "exit_code": 0,
+    "wall_s": 26.5,
+    "duplicate_of_backfilled": true
+  }
+}

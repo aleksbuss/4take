@@ -1,0 +1,118 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:21:20.091879Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "ab1c71b0456f",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 19845
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "list_orders",
+      "title": "SQL injection via sort_field and direction",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "ALLOWED",
+      "title": "Dead validation constant",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION SQL injection via sort_field and direction (at list_orders)\n    - Issue: The function directly interpolates user‑provided sort_field and direction into the SQL query using an f‑string, allowing an attacker to inject arbitrary SQL. Although an ALLOWED set of column names is defined, it is never used, so input such as \"created_at; DROP TABLE orders--\" would be executed.\n    - Fix: Validate sort_field and direction against the ALLOWED set (or a whitelist of permitted directions) before building the query; raise an error on invalid input. Then use the validated values in the query string.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 6235,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [CRITICAL] [INJECTION] Untrusted SQL order clauses enable command injection (`list_orders`)\n  - Issue: `sort_field` and `direction` are interpolated directly into SQL. A caller supplying `direction=\"ASC; DROP TABLE orders; --\"` or an unvalidated `sort_field` can alter the query, bypass ordering, or execute additional statements.\n  - Fix: Validate `sort_field` against `ALLOWED` and map `direction` to a fixed `ASC`/`DESC` value before interpolation; parameterize `customer_id` as already done.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 6595,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] SQL injection via ORDER BY clause (at `list_orders`, `cur.execute` line)\n  - Issue: `sort_field` and `direction` are interpolated directly into the SQL string via f-string, bypassing parameterization. An attacker can pass `sort_field=\"email; DROP TABLE orders--\"` or `direction=\"ASC; SELECT * FROM users\"` to execute arbitrary SQL. Even on backends that disallow multiple statements per execute, injection into ORDER BY enables schema enumeration, error-based data exfiltration, and blind injection. The `ALLOWED` set at module scope signals an intended whitelist but is never consulted, leaving the validation gap open.\n  - Fix: Validate both arguments against a strict whitelist before interpolation:\n    ```python\n    VALID_FIELDS = {\"created_at\", \"email\"}\n    VALID_DIRS = {\"ASC\", \"DESC\"}\n    if sort_field not in VALID_FIELDS or direction not in VALID_DIRS:\n        raise ValueError(\"invalid sort field or direction\")\n    cur.execute(\n        f\"SELECT * FROM orders WHERE customer_id = %s ORDER BY {sort_field} {direction}\",\n        (customer_id,),\n    )\n    ```\n\n* [WARNING] [STRUCTURE] Dead validation constant (at `ALLOWED`)\n  - Issue: `ALLOWED = {\"created_at\", \"email\"}` is defined at module scope but never referenced by `list_orders` or any other code. This is either a leftover from a partially implemented validation step (now redundant dead weight) or a missing integration that will cause someone to add a second, ad-hoc validation check in a future caller, duplicating logic in two places that can drift apart.\n  - Fix: Remove the dead constant or wire it into `list_orders` as the canonical whitelist (see fix above), so there is exactly one source of truth.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9423,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Unsafe SQL interpolation in ORDER BY clause (at cur.execute line)\n  - Issue: The function directly interpolates user‑controlled sort_field and direction into the SQL string via an f‑string. An attacker can supply a sort_field like “id; DROP TABLE orders;--” to alter query execution, leading to data loss or exfiltration. The ALLOWED set is defined but never validated, so the intended whitelist is ignored, leaving the query fully injectable.\n  - Fix: Validate sort_field against a whitelist (e.g., ALLOWED) and direction against a safe set (ASC/DESC). Build the ORDER BY clause using a static column name derived from the whitelist and a parameterized direction placeholder, or construct the query string after validation without f‑string interpolation. Example:\n\n```\nallowed = {\"created_at\", \"email\"}\nif sort_field not in allowed:\n    raise ValueError(\"invalid sort field\")\ndirection = direction.upper()\nif direction not in {\"ASC\", \"DESC\"}:\n    raise ValueError(\"invalid direction\")\ncur.execute(\n    f\"SELECT * FROM orders WHERE customer_id = %s ORDER BY {sort_field} {direction}\",\n    (customer_id,),\n)\n```\n\n* [WARNING] STRUCTURE Unused ALLOWED set creates validation gap (at ALLOWED = {\"created_at\", \"email\"})\n  - Issue: The constant ALLOWED is defined but never consulted, leaving the function without any whitelist enforcement. This dead code will drift if validation logic is added later, and it misleads readers into believing the function is safe. Maintaining an unused constant adds cognitive overhead and risks future developers assuming validation is in place.\n  - Fix: Either remove the unused set or integrate it into list_orders. If the set is needed elsewhere, move it to a module‑level constant and use it for validation, ensuring the whitelist is actually enforced and the code remains maintainable.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19838,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION <SQL Injection via ORDER BY clause> (function list_orders)\n  - Issue: `sort_field` and `direction` are interpolated directly into the SQL string, permitting attacker‑controlled input to inject arbitrary SQL; this can corrupt data, expose unauthorized rows, or execute destructive commands.\n  - Fix: Validate `sort_field` against `ALLOWED` and `direction` against a whitelist (e.g., {\"ASC\",\"DESC\"}), and only then format the ORDER BY clause, or use a safe query‑building helper that escapes identifiers.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10407,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 2772
+    }
+  ],
+  "_eval": {
+    "snippet": "sqli_order_by.py",
+    "exit_code": 0,
+    "wall_s": 20.3,
+    "duplicate_of_backfilled": true
+  }
+}

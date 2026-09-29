@@ -1,0 +1,119 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T11:10:39.949024Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "0b1ff692a7f0",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 24949,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "switch_branch",
+      "title": "CORRECTNESS UnboundLocalError on Exception",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 3
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "switch_branch",
+      "title": "Missing Input Validation on Branch Parameter",
+      "models": [
+        "cohere/north-mini-code:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "switch_branch",
+      "title": "Silent Exception Swallowing",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CORRECTNESS UnboundLocalError on Exception (at switch_branch function)\n  - Issue: When `run_git(\"checkout\", branch)` raises an exception, the `except` block silently passes, but `output` is referenced in the return statement. This causes an UnboundLocalError since `output` is never assigned when an exception occurs.\n  - Fix: Initialize `output = None` before the try block, or return early in the except handler with an error response.\n\n* [SECURITY] INJECTION Missing Input Validation on Branch Parameter (at switch_branch function)\n  - Issue: The `branch` parameter is taken directly from `request.json[\"branch\"]` without any validation. If `run_git` passes this to a shell command or git without sanitization, an attacker could inject malicious branch names like `master; rm -rf /` or use path traversal sequences to access unintended files.\n  - Fix: Validate branch name against a strict allowlist pattern (e.g., `^[a-zA-Z0-9._/-]+$`) or use `subprocess` with argument list (not shell string) in `run_git`.\n\n* [WARNING] ERROR_HANDLING Silent Exception Swallowing (at switch_branch function)\n  - Issue: The bare `except Exception: pass` catches all exceptions and discards them, providing no feedback to the client about failure. Combined with the `output` reference bug, this creates a double failure mode where the user receives no indication of what went wrong.\n  - Fix: Catch specific exceptions, log the error, and return an appropriate error response to the client.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16827
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Uninitialized output on exception (at switch_branch)\n  - Issue: The try/except catches Exception from run_git and passes, leaving output undefined. If run_git raises an exception, the function proceeds to return json_response with undefined output, causing UnboundLocalError.\n  - Fix: Initialize output = None before try, or re-raise the exception.\n\n* [CRITICAL] ERROR_HANDLING Missing request.json validation (at switch_branch)\n  - Issue: The code accesses request.json[\"branch\"] without checking if request.json exists or contains \"branch\". If request.json is None or missing key, a TypeError or KeyError is raised, causing a 500 error.\n  - Fix: Validate request.json and branch presence, e.g., branch = request.json.get(\"branch\") and return error response if missing.\n\n* [WARNING] ERROR_HANDLING Overly broad exception swallowing (at switch_branch)\n  - Issue: The try/except catches all exceptions, hiding errors like authentication failures, git errors, etc., which could be security-relevant and makes debugging difficult.\n  - Fix: Catch specific exceptions (e.g., GitError) and re-raise others, or log and return appropriate error response.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 20531
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] ERROR_HANDLING <UnboundLocalError when run_git raises> (at switch_branch)\n    - Issue: If run_git(\"checkout\", branch) raises any exception, the except block passes and output remains undefined, causing UnboundLocalError when building the response. This turns a git failure into a 500 error.\n    - Fix: Initialize output before the try block (e.g., output = None) or return an error response in the except block.\n\n* [WARNING] ERROR_HANDLING <Missing KeyError handling for request.json[\"branch\"]> (at switch_branch)\n    - Issue: Accessing request.json[\"branch\"] with direct indexing raises KeyError if the \"branch\" field is absent, resulting in a 500 error instead of a client‑side validation failure.\n    - Fix: Use request.json.get(\"branch\") and validate its presence, returning a 400 response if missing or empty.\n\n* [WARNING] ERROR_HANDLING <Overly broad exception catch> (at switch_branch)\n    - Issue: except Exception: pass catches BaseException subclasses like KeyboardInterrupt and SystemExit, preventing graceful shutdown and hiding programming errors.\n    - Fix: Catch only the specific exceptions that run_git may raise (e.g., subprocess.CalledProcessError, FileNotFoundError) or at least log the exception before returning an error response.\n\n* [WARNING] LOGIC <Silent failure hides git errors> (at switch_branch)\n    - Issue: When run_git fails, the function ignores the error and still returns a success‑like JSON payload with whatever output value happened to be left undefined or stale, misleading the caller about the operation's outcome.\n    - Fix: In the except block, return an error response (e.g., json_response({\"error\": str(e)}, status=500)) or propagate the exception after logging.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 23543
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] [LOGIC] Failed checkout leaves `output` undefined (`switch_branch`)\n  - Issue: Any `run_git` exception is swallowed, but `output` is assigned only after a successful checkout. For example, requesting a nonexistent branch raises from `run_git`, enters the `except` block, and then the `return` raises `UnboundLocalError`, producing a 500 response instead of the intended JSON result. The actual checkout failure is also lost.\n  - Fix: Handle the exception explicitly and return an error response, or initialize `output` before the call and include the failure status. Prefer catching the expected git/subprocess exception rather than `Exception`.\n\n* [WARNING] [INJECTION] Unvalidated branch is passed as a git option (`switch_branch`)\n  - Issue: `branch` comes directly from request JSON and is passed as the first argument to `git checkout`. A request such as `{\"branch\":\"--detach\"}` is interpreted by Git as an option rather than a branch name, allowing a caller to alter repository state outside the endpoint’s stated branch-switching operation. Other checkout options can similarly affect index/worktree behavior. This is command-argument injection even if the process is launched without a shell.\n  - Fix: Validate that the value is a single expected branch/ref name and reject option-like or path-like input. Invoke Git with an explicit safe boundary, such as validating against `refs/heads/*` and using a constrained ref argument, rather than forwarding arbitrary request data as a checkout operand.\n\n* [WARNING] [ERROR_HANDLING] Malformed JSON is not handled (`switch_branch`)\n  - Issue: `request.json[\"branch\"]` raises `KeyError` for a valid JSON object such as `{}`, and can raise a parsing/type error for malformed or non-string input. Since there is no request validation or error mapping, malformed requests produce an unhandled 500 and inconsistent error behavior.\n  - Fix: Validate the request body and require a non-empty string before invoking Git; map validation failures to a 4xx JSON response.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 24942
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 25.4
+  }
+}

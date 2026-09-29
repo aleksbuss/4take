@@ -1,0 +1,130 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T08:50:36.011212Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "99c9b53936e4",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 45713
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "fetchProfile",
+      "title": "Missing profile/displayName guard",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "CRITICAL": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "fetchProfile",
+      "title": "URL path injection via unsanitized id",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "fetchProfile",
+      "title": "No handling for client.get() or res.json() failures",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] URL path injection via unsanitized `id` (fetchProfile)\n  - Issue: `id` is interpolated directly into the URL path `/users/${id}` without encoding or validation. If `id` originates from user input and contains `../`, `?`, `#`, or encoded sequences, the request target can be altered — e.g., `id = \"../admin\"` resolves to `/admin`, or `id = \"x?y=z\"` injects query parameters into the request.\n  - Fix: Validate `id` against an expected pattern (e.g., UUID or numeric regex) before use, or URL-encode it with `encodeURIComponent(id)`.\n\n* [WARNING] [ERROR_HANDLING] Unprotected property access on `body.profile` (fetchProfile)\n  - Issue: `body.profile.displayName` and `body.profile.avatarUrl` will throw a `TypeError` if `body.profile` is `undefined` — which happens when the API returns an error envelope, an empty body, or a schema without a `profile` key. No guard or fallback exists, so a malformed response crashes the function rather than surfacing a meaningful error.\n  - Fix: Add a null-safe access pattern or explicit check, e.g., `const profile = body?.profile; if (!profile) throw new Error(\"Invalid response shape\");` before accessing its properties.\n\n* [WARNING] [ERROR_HANDLING] No handling for `client.get()` or `res.json()` failures (fetchProfile)\n  - Issue: Both `client.get()` and `res.json()` can throw (network error, timeout, non-JSON body, 5xx response). These exceptions propagate without context, making it impossible for callers to distinguish between \"user not found,\" \"server unreachable,\" and \"malformed response.\" A retry or timeout strategy also cannot be implemented at this layer because failure modes are indistinguishable.\n  - Fix: Wrap the operations in a try/catch that rethrows with contextual messages, or return a structured error result type, e.g., `try { ... } catch (err) { throw new Error(`fetchProfile failed for id=${id}: ${err.message}`); }`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 13780,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Missing profile/displayName guard> (fetchProfile)\n  - Issue: When the HTTP response contains a body without a `profile` object or `displayName` property, `body.profile.displayName.trim()` throws a TypeError, causing the function to crash and return no result, violating the expected contract.\n  - Fix: Guard access with optional chaining and fallback:\n    ```js\n    const displayName = (body?.profile?.displayName ?? '').trim();\n    return {\n      name: displayName,\n      avatar: body?.profile?.avatarUrl ?? \"/static/default.png\",\n    };\n    ```\n\n* [WARNING] INJECTION <Path traversal via id> (fetchProfile)\n  - Issue: The URL is built by interpolating `id` directly into the path (`/users/${id}`); a malicious `id` containing sequences like `../` can cause path traversal if the underlying client interprets the path differently, leading to unauthorized resource access.\n  - Fix: Validate or sanitize `id` (e.g., ensure it matches a safe pattern) before interpolation, or use client‑provided safe routing helpers:\n    ```js\n    const safeId = id?.match(/^[a-zA-Z0-9_-]+$/) ? id : 'invalid';\n    const res = await client.get(`/users/${safeId}`);\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21117,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] ERROR_HANDLING Missing validation and error handling in fetchProfile (fetchProfile)\n  - Issue: The function assumes the HTTP response is successful and that body.profile exists with displayName and avatarUrl. If the server returns an error (non‑2xx), a malformed JSON, or a missing profile, the subsequent .json() or .trim() will throw, crashing the caller. A realistic scenario is a network glitch or a revoked user ID causing a 404; the function will propagate an unhandled rejection.\n  - Fix: Wrap the call in a try/catch, validate response.ok, assert body.profile, coerce displayName to a string before trim, and provide a sensible fallback or rethrow a domain‑specific error.\n\n* [CRITICAL] INJECTION Unsanitized id allows path traversal in fetchProfile (fetchProfile)\n  - Issue: The id parameter is directly interpolated into the URL path `/users/${id}`. If id contains characters like '/' or '..', the resulting request may target unintended endpoints (e.g., `/users/123/../admin`). An attacker controlling id can thus read arbitrary resources on the server, breaking the intended API boundary.\n  - Fix: Validate id to be a non‑empty string containing only allowed characters (e.g., /^[a-zA-Z0-9_-]+$/), or encode it via encodeURIComponent before insertion. Reject malformed ids with a clear error.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 40826,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] SECURITY Path Traversal via Unsanitized ID Parameter (at fetchProfile function)\n  - Issue: The `id` parameter is directly interpolated into the URL path without validation or encoding. An attacker could supply `id=\"../../../etc/passwd\"` or `id=\"users/123\"` to manipulate the request path, potentially accessing unauthorized resources or triggering unexpected routing behavior in the backend.\n  - Fix: Validate `id` against a strict pattern (e.g., UUID or numeric) or use `encodeURIComponent(id)` when constructing the URL path.\n\n* [WARNING] ERROR_HANDLING Unhandled Runtime Errors on Malformed Response (at fetchProfile function)\n  - Issue: The function assumes `body.profile` exists and `body.profile.displayName` is a string. If the API returns malformed data (missing profile object, null displayName, or non-string displayName), calling `.trim()` will throw a TypeError, crashing the caller.\n  - Fix: Add defensive checks: `const profile = body.profile || {}; const name = (profile.displayName || '').trim();`\n\n* [WARNING] ERROR_HANDLING Missing Error Handling for HTTP and JSON Parsing Failures (at fetchProfile function)\n  - Issue: Neither `client.get()` failures nor `res.json()` parsing errors are caught. Network failures, non-JSON responses, or HTTP error status codes will propagate as unhandled promise rejections.\n  - Fix: Wrap in try-catch and validate `res.ok` before parsing JSON, or use a helper that throws on non-2xx responses.\n\n* [WARNING] ERROR_HANDLING Missing HTTP Status Validation (at fetchProfile function)\n  - Issue: The function does not check `res.ok` or `res.status` before processing the response body. A 404 or 500 response would still attempt to parse JSON and return potentially invalid data.\n  - Fix: Add `if (!res.ok) throw new Error(\\`HTTP ${res.status}\\`);` after the fetch call.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 45705,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [LOGIC] Incorrect assumption about profile shape (at fetchProfile)\n  - Issue: The code directly accesses `body.profile.displayName.trim()` and `body.profile.avatarUrl`. If the API returns a response where `profile` is missing, `null`, or `displayName` is not a string (e.g., a number), the `.trim()` call will throw a `TypeError`, causing an unhandled promise rejection and crashing the caller. Example payload: `{ \"profile\": {} }` or `{ \"profile\": { \"displayName\": 42 } }`.\n  - Fix: Use optional chaining and provide sensible defaults, ensuring the value is a string before trimming:\n    ```javascript\n    const name = (body.profile?.displayName ?? '').trim() || 'Unknown';\n    const avatar = body.profile?.avatarUrl ?? '/static/default.png';\n    return { name, avatar };\n    ```\n\n* [ERROR_HANDLING] Missing HTTP status validation (at fetchProfile)\n  - Issue: The function assumes `client.get` always returns a successful response. If the server responds with a 4xx or 5xx status (e.g., 404 Not Found returning an HTML error page), `res.json()` will either fail with a `SyntaxError` or parse an error object lacking the expected `profile` field, leading to incorrect data or an unhandled exception. Example: a 404 response body `<html>Not found</html>` causes `JSON.parse` to throw.\n  - Fix: Check the response status before parsing JSON and handle non‑OK responses appropriately (e.g., throw a descriptive error or return a fallback):\n    ```javascript\n    if (!res.ok) {\n      throw new Error(`Failed to fetch profile for ${id}: ${res.status} ${res.statusText}`);\n    }\n    const body = await res.json();\n    // … rest unchanged\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 31774,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "none_json_response.js",
+    "exit_code": 0,
+    "wall_s": 46.1,
+    "duplicate_of_backfilled": true
+  }
+}

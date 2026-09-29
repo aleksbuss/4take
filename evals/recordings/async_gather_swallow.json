@@ -1,0 +1,147 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:08:24.185244Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "fad207a14935",
+    "responses_received": 7,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 48154
+  },
+  "warning": "3 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "fan_out",
+      "title": "Exception objects pass through truthiness filter",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "fan_out",
+      "title": "Unbounded concurrency on large URL lists",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "fan_out",
+      "title": "fan_out mixes error handling",
+      "models": [
+        "cohere/north-mini-code:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] Exception objects pass through truthiness filter (at `fan_out`, line 6)\n  - Issue: With `return_exceptions=True`, `asyncio.gather` places exception instances into `results` instead of raising. Exception objects are truthy (no `__bool__`/`__len__` returning falsy), so `[r for r in results if r]` keeps them. Meanwhile, legitimate falsy results (`None`, `\"\"`, `0`, `[]`) from successful fetches are silently dropped. The function returns a list of exceptions instead of filtering them out, and discards valid falsy data — a silent result-corruption bug.\n  - Fix: Replace truthiness filtering with explicit exception checking: `return [r for r in results if not isinstance(r, Exception)]` (or the appropriate exception base class).\n\n* [WARNING] [CONCURRENCY] Unbounded concurrency on large URL lists (at `fan_out`, line 5)\n  - Issue: Every URL in `urls` is scheduled simultaneously via `asyncio.gather`. For large inputs this can exhaust file descriptors, overwhelm target servers, or cause memory pressure. There is no semaphore, batch size, or rate limiter to bound parallelism.\n  - Fix: Add a concurrency limit (e.g., `asyncio.Semaphore`) or process URLs in bounded batches.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9534,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC Incorrect exception filtering in fan_out (at fan_out function)\n  - Issue: Using `return_exceptions=True` with `asyncio.gather` returns exception objects in the results list when tasks fail. The filter `[r for r in results if r]` keeps truthy values, but exception objects are truthy in Python. This means exceptions are silently returned instead of being handled, and the caller receives exception objects mixed with successful results. If `fetch` legitimately returns `None` or other falsy values, those are incorrectly filtered out.\n  - Fix: Either remove `return_exceptions=True` to let exceptions propagate, or explicitly filter exceptions: `return [r for r in results if not isinstance(r, Exception)]`\n\n* [WARNING] RESOURCE_LEAK Unbounded concurrency in fan_out (at fan_out function)\n  - Issue: `asyncio.gather` launches all fetch coroutines concurrently without any semaphore or limit. If `urls` contains thousands of URLs, this could exhaust file descriptors, memory, or trigger rate limiting on the target servers. The function has no mechanism to control concurrency.\n  - Fix: Use `asyncio.Semaphore` to limit concurrent requests, or use `asyncio.TaskGroup` with a bounded worker pool pattern.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11333,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC Incorrect filtering of falsy results (at fan_out)\n    - Issue: The list comprehension `[r for r in results if r]` treats any falsy value (e.g., 0, \"\", [], False) as a failure and removes it from the output. If `fetch(u)` legitimately returns such a value for a valid URL, the caller will incorrectly lose that data.\n    - Fix: Replace the filter with one that only removes exceptions, e.g., `return [r for r in results if not isinstance(r, BaseException)]`, or omit the filter entirely if exceptions should be propagated.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16255,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC fan_out includes exception objects (at fan_out)\n  - Issue: Using `return_exceptions=True` without filtering exceptions causes any exception raised by `fetch` to be returned as an exception instance in the result list. Since exception objects are truthy, they survive the `if r` filter and are returned to the caller, who expects only successful data. This can lead to type errors or silent data corruption when the caller treats the exception as a normal result. Example: a `ValueError` from a malformed URL will appear in the output list.\n  - Fix: Separate exceptions from results and filter them out. For example:\n    ```\n    results = await asyncio.gather(*[fetch(u) for u in urls], return_exceptions=True)\n    return [r for r in results if not isinstance(r, Exception)]\n    ```\n\n* [WARNING] LOGIC fan_out discards falsy results (at fan_out)\n  - Issue: The `if r` filter removes any falsy value, such as empty string `\"\"`, zero `0`, empty list `[]`, or `None`. If `fetch` legitimately returns these values (e.g., an empty JSON object serialized to `{}` or a zero‑count metric), they are silently dropped, breaking the caller’s expectation of a complete result set and causing data loss.\n  - Fix: Preserve falsy values by filtering only exceptions:\n    ```\n    results = await asyncio.gather(*[fetch(u) for u in urls], return_exceptions=True)\n    return [r for r in results if not isinstance(r, Exception)]\n    ```\n\n* [STRUCTURE] fan_out mixes error handling (at fan_out)\n  - Issue: The function promises to return fetch results but also leaks exception objects into the output. Callers must add `isinstance(r, Exception)` checks at every site, coupling error handling with business logic. Changing the error policy (e.g., raising on first error) would require updates across all callers, violating separation of concerns.\n  - Fix: Separate error handling: gather results, extract exceptions, and either raise them or return them separately. Example:\n    ```\n    results = await asyncio.gather(*[fetch(u) for u in urls], return_exceptions=True)\n    exceptions = [r for r in results if isinstance(r, Exception)]\n    if exceptions:\n        raise exceptions[0]   # or return (successful, exceptions) tuple\n    return [r for r in results if not isinstance(r, Exception)]\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 48147,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [ERROR_HANDLING] Exceptions silently leak into results (line 3)\n  - `return_exceptions=True` causes `asyncio.gather` to return exception objects instead of raising. The `if r` filter does NOT remove them because exceptions are truthy in Python. Callers receive `Exception` instances mixed into the result list, which will cause confusing `AttributeError` or similar downstream when treated as normal data.\n  - Fix: Check `isinstance(r, Exception)` explicitly — either re-raise, log, or exclude — and do not rely on truthiness to filter.\n\n* [CRITICAL] [LOGIC] Falsy valid results silently dropped (line 3)\n  - `[r for r in results if r]` drops any falsy but legitimate return value: `None`, `0`, `False`, `\"\"`, `[]`, `{}`. If `fetch` returns `None` for a successful response, that result vanishes without indication.\n  - Fix: Use a sentinel or explicit `r is not None` check instead of truthiness, or return `(success, value)` tuples.\n\n* [WARNING] [CONCURRENCY] No concurrency limit (line 2)\n  - `*[fetch(u) for u in urls]` launches all fetches concurrently with no semaphore or bound. A large `urls` list can open unlimited connections, exhausting file descriptors or overwhelming the target.\n  - Fix: Use `asyncio.Semaphore` or `asyncio.BoundedSemaphore` to cap in-flight requests, or use `asyncio.TaskGroup` / `aiohttp` client session limits.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 25324,
+      "duplicate_of": "inclusionai/ling-3.0-flash-vl:free"
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] CONCURRENCY <Unbounded concurrent fetch> (at asyncio.gather(*[fetch(u) for u in urls]))\n  - Issue: The list comprehension creates a coroutine for every URL before gather, causing all fetches to start simultaneously. If fetch is I/O bound and URLs are numerous, this can exhaust connection pools or CPU, leading to timeouts or denial of service under load.\n  - Fix: Use a semaphore or chunked batching to limit concurrency, e.g., `asyncio.Semaphore(10)` and schedule fetches in batches.\n\n* [WARNING] LOGIC <Incorrect result filtering> (at the list comprehension filter)\n  - Issue: The final list comprehension filters with `if r`, which treats falsy values (None, empty containers) as well as truthy exception objects as keep‑or‑drop. If fetch returns None for failures, those are silently dropped, and exceptions are returned as regular results, causing misleading output or downstream type errors.\n  - Fix: Explicitly check for exceptions, e.g., `if isinstance(r, Exception): raise r` or filter only truthy non‑exception values, such as `if r is not None and not isinstance(r, Exception)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 30690,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [LOGIC] `fan_out` silently discards falsy results and exception objects (in `fan_out`)\n  - Issue: `return_exceptions=True` causes `asyncio.gather` to return `Exception` instances in place of raised errors, but the filter `if r` keeps any truthy value — including `Exception` objects (which are always truthy) — so failures are returned as if they were successful results. Additionally, any legitimately falsy but valid result (e.g. `0`, `\"\"`, `False`, `None`, `[]`) is silently dropped, corrupting the output for callers that expect one result per input URL.\n  - Fix: Separate success from failure explicitly:\n    ```python\n    results = await asyncio.gather(*[fetch(u) for u in urls], return_exceptions=True)\n    return [r for r in results if not isinstance(r, Exception)]\n    ```\n    If falsy valid results must be preserved, filter only on exception type rather than truthiness.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7778,
+      "duplicate_of": "poolside/laguna-xs-2.1:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "async_gather_swallow.py",
+    "exit_code": 0,
+    "wall_s": 48.6,
+    "duplicate_of_backfilled": true
+  }
+}

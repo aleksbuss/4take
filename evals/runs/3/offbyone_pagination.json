@@ -1,0 +1,102 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T08:51:29.359541Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "38bdaad282ae",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 15024
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "page_slice",
+      "title": "Incorrect page indexing in page_slice",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "total_pages",
+      "title": "Off‑by‑one error in total_pages",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC Incorrect page indexing in page_slice (at page_slice)\n    - Issue: The function calculates start as `page * per_page`, treating `page` as 0‑indexed despite the docstring stating 1‑indexed. This skips the first page and shifts all results, e.g., items=[0,1,2,3], page=1, per_page=2 returns [2,3] instead of the expected [0,1].\n    - Fix: Change `start = page * per_page` to `start = (page - 1) * per_page`.\n\n* [CRITICAL] LOGIC Off‑by‑one error in total_pages (at total_pages)\n    - Issue: Uses floor division (`len(items) // per_page`), which undercounts when the item count is not an exact multiple of `per_page`. For 5 items and per_page=2 it returns 2 pages, omitting the third page needed for the remaining item.\n    - Fix: Replace with `(len(items) + per_page - 1) // per_page` (or `math.ceil(len(items) / per_page)`).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9438,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] page_slice off-by-one (page_slice, line 3)\n  - Issue: `page` is documented as 1-indexed, but `start = page * per_page` skips the first page entirely. For `page=1, per_page=5`, this returns `items[5:10]` (the second page's data) instead of `items[0:5]`. Any caller paginating a list will miss the first chunk and return an empty slice on the last page.\n  - Fix: `start = (page - 1) * per_page`\n\n* [CRITICAL] [LOGIC] total_pages truncates partial page (total_pages, line 7)\n  - Issue: Integer division `len(items) // per_page` drops any remainder, so a list of 11 items with `per_page=5` reports 2 pages instead of 3. Callers requesting \"page 3\" would get an empty slice, silently hiding data.\n  - Fix: `return (len(items) + per_page - 1) // per_page` (or `math.ceil(len(items) / per_page)`)",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11658,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC PageSlice Off‑by‑One (page_slice)\n  - Issue: start = page * per_page treats page as 0‑indexed, causing page 1 to start at per_page instead of 0.\n  - Fix: start = (page - 1) * per_page\n\n* [WARNING] LOGIC TotalPages Missing Remainder (total_pages)\n  - Issue: integer division discards remainder, undercounting pages when len(items) % per_page != 0.\n  - Fix: return (len(items) + per_page - 1) // per_page",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 12334,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] [LOGIC] page_slice uses incorrect 1-indexed page calculation (at page_slice function)\n  - Issue: For 1-indexed pages, `start = page * per_page` is wrong. Page 1 would start at index `per_page`, skipping the first `per_page` items. Correct formula is `start = (page - 1) * per_page`.\n  - Fix: Change `start = page * per_page` to `start = (page - 1) * per_page`\n\n* [CRITICAL] [LOGIC] total_pages undercounts pages with remainder (at total_pages function)\n  - Issue: Integer division `len(items) // per_page` discards remainder. With 10 items and per_page=3, returns 3 instead of 4 pages needed. Last partial page is omitted.\n  - Fix: Change to `(len(items) + per_page - 1) // per_page` or use `math.ceil(len(items) / per_page)`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 15016,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "offbyone_pagination.py",
+    "exit_code": 0,
+    "wall_s": 15.5,
+    "duplicate_of_backfilled": true
+  }
+}

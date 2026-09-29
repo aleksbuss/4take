@@ -1,0 +1,100 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:02:31.005081Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "988e333399d5",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 23943,
+    "context": {
+      "files": [
+        "src/notifications/subscribers.js"
+      ],
+      "tokens": 55,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "createUser",
+      "title": "Event name mismatch breaks subscriber handlers",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "CRITICAL": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] LOGIC Event name change breaks user-created subscribers (in `createUser`)\n  - Issue: `createUser` now emits `\"userCreated\"`, but the notification subscribers shown in the reference context listen for `\"user:created\"`. Every successful user creation will therefore skip `sendWelcome` and `trackSignup`, so users receive no welcome email and no signup analytics event. This is a silent behavioral regression caused by the event contract change.\n  - Fix: Emit the existing event name (`bus.emit(\"user:created\", user)`), or update every subscriber and all other producers/consumers in the same change, including tests and external integrations.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 3804
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC Event name mismatch breaks subscriber handlers (at bus.emit in src/users/service.js)\n  - Issue: The event name was changed from `\"user:created\"` to `\"userCreated\"` in the emitter, but the subscribers in `src/notifications/subscribers.js` still listen for `\"user:created\"`. This causes `sendWelcome` and `trackSignup` handlers to never fire, resulting in users not receiving welcome emails and signups not being tracked. The failure is silent—no errors are thrown.\n  - Fix: Either revert the event name to `\"user:created\"` or update the subscribers to listen for `\"userCreated\"`. The simplest fix is to revert: `bus.emit(\"user:created\", user);`\n\nNO_ISSUES_FOUND: The code change introduces a breaking event name mismatch that will silently disable critical subscriber functionality.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9385
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Event name mismatch breaks event listeners (bus.emit in src/users/service.js)\n  - Issue: The service emits \"userCreated\" while subscribers listen for \"user:created\". After the change, the listeners for welcome email and analytics are never triggered, causing silent loss of functionality. The bug manifests on any user creation, leading to missing emails and untracked signups.\n  - Fix: Change `bus.emit(\"userCreated\", user);` back to `bus.emit(\"user:created\", user);` ensuring listeners receive the event.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 20152
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC bus.emit(\"userCreated\", user) (in createUser function)  \n  - Issue: The service emits the event \"userCreated\" while the notification subscribers listen for \"user:created\", causing welcome email and signup tracking to be missed and resulting in incorrect application behavior.  \n  - Fix: Change the emit call to bus.emit(\"user:created\", user); to match the subscriber’s event name.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 23935
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 3140
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 24.6
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:11:03.517048Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "14236218e783",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 18381,
+    "context": {
+      "files": [
+        "app/api.py",
+        "app/mailer.py"
+      ],
+      "tokens": 134,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "find_user",
+      "title": "Changing find_user to return None instead of raising UserNotFound breaks both existing callers",
+      "models": [
+        "cohere/north-mini-code:free",
+        "dots-studio/dots-3-note-preview:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 3
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC <Concise Title> (at find_user)\n    - Issue: The function `find_user` now returns `None` when a user is not found, but callers in `app/api.py` and `app/mailer.py` expect it to raise `UserNotFound` and do not handle `None`. This will cause an `AttributeError` when accessing `user.email` or `user.name` on `None`.\n    - Fix: Revert the change to raise `UserNotFound(user_id)` when `row is None`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9477
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n* [CRITICAL] [ERROR_HANDLING] Changing `find_user` to return `None` instead of raising `UserNotFound` breaks both existing callers (at `app/users.py` diff)\n    - Issue: The diff alters the contract of `find_user`: it now returns `None` when a user is missing. However, `get_profile` in `app/api.py` expects a `UserNotFound` exception to trigger its 404 path; with the change, `user` is `None` and the subsequent `user.email` access raises `AttributeError`. `send_welcome_email` in `app/mailer.py` never checks for `None` and will also raise `AttributeError` on `user.email` for missing users. Both callers are silently broken.\n    - Fix: Restore the original behavior by replacing `return None` with `raise UserNotFound(user_id)`, or update every caller to handle a `None` return value explicitly (e.g., `if user is None: ...`). The revert is the safer, minimal change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 13472
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] [LOGIC] Missing users now return `None` to callers that require exceptions (at `find_user`)\n  - Issue: For a nonexistent `user_id`, `find_user` now returns `None` instead of raising `UserNotFound`. `app.api.get_profile` no longer catches this condition, so `user.email` raises `AttributeError` and a missing user produces a 500 rather than the intended 404. Likewise, `app.mailer.send_welcome_email` dereferences `user.email`, causing the welcome-mail request to fail with an unhandled exception.\n  - Fix: Preserve the failure contract and let callers handle the domain condition:\n    ```python\n    if row is None:\n        raise UserNotFound(user_id)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16309
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC find_user returns None instead of raising (at find_user)\n- Issue: The diff changes `find_user` to return `None` when a user is not found, breaking callers that rely on either an exception or a `User` object. In `app/api.py`, `get_profile` catches `UserNotFound`; with the new behavior no exception is raised, causing `user` to be `None` and subsequent access to `user.email` to raise `AttributeError`. In `app/mailer.py`, `send_welcome_email` directly uses `user.email`, which will also raise `AttributeError`. Both endpoints will crash with a 500 error on a missing user.\n- Fix: Restore the original behavior: when `row is None`, raise `UserNotFound(user_id)`. This preserves the contract of `find_user` and keeps existing callers functional.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18369
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 19.6
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T16:08:12.280541Z",
+  "config": {
+    "models_requested": 8,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "063446befa13",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 40726,
+    "context": {
+      "files": [
+        "cache/lru.py (lines 5-23)"
+      ],
+      "tokens": 154,
+      "dropped": [],
+      "auto": {
+        "cache/lru.py (lines 5-23)": "the rest of class LRUCache; uses _evict_oldest"
+      }
+    }
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "SIMPLICITY",
+      "symbol": "_evict_oldest",
+      "title": "_evict_oldest may leave cache in inconsistent state when capacity is zero",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "_evict_oldest",
+      "title": "_evict_oldest breaks encapsulation by exposing OrderedDict internals",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "_evict_oldest",
+      "title": "Lock contract not enforced on _evict_oldest",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 2038
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC _evict_oldest may leave cache in inconsistent state when capacity is zero (at _evict_oldest)\n    - Issue: When capacity is zero, put() adds an item then immediately calls _evict_oldest() which removes it. However, if multiple threads call put() concurrently on a zero-capacity cache, the lock ensures serial execution but the sequence (insert then evict) could still cause temporary state where _items has one item during put()'s execution. While not incorrect per se, this violates the expectation that a zero-capacity cache should never hold items. More critically, if capacity is negative (invalid but possible), the condition len(self._items) > self.capacity always true, causing continuous eviction attempts on empty cache (harmless due to guard) but wasting cycles.\n    - Fix: Add capacity validation in __init__: if capacity < 0: raise ValueError(\"Capacity must be non-negative\"). For zero capacity, optimize put() to skip insertion entirely when capacity == 0.\n\n[WARNING] STRUCTURE _evict_oldest breaks encapsulation by exposing OrderedDict internals (at _evict_oldest)\n    - Issue: The method directly manipulates self._items (OrderedDict) using popitem(last=False). This leaks the underlying data structure choice, making future changes (e.g., to a custom doubly-linked list + hash map) require modifying this method. Since the method is private, the leak is contained within the class, but it still couples the eviction logic to OrderedDict's API. If the cache implementation changes, _evict_oldest must change accordingly.\n    - Fix: Consider whether the eviction logic belongs in the class at all. Since put() already has the lock and knows when to evict, inline the eviction logic there: replace self._evict_oldest() with if self._items: self._items.popitem(last=False). This removes the private method and keeps the eviction detail where it's used.\n\n[SUGGESTION] SIMPLICITY Redundant guard in _evict_oldest (at _evict_oldest)\n    - Issue: The guard if self._items: is unnecessary because _evict_oldest() is only called from put() when len(self._items) > self.capacity >= 0, guaranteeing at least one item exists. The guard adds negligible overhead but complicates reasoning.\n    - Fix: Remove the guard: def _evict_oldest(self): self._items.popitem(last=False). However, note the structure concern above may warrant inlining instead.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12867
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC _evict_oldest may leave cache in inconsistent state when capacity=0 (at _evict_oldest)\n    - Issue: When capacity is 0, put() calls _evict_oldest() after inserting an item, which removes the item. However, if multiple threads call put() concurrently on the same key, the lock ensures serial execution, but the sequence (insert, move_to_end, evict) for capacity=0 results in the item being inserted then immediately removed. While functionally correct (cache remains empty), it performs unnecessary work. More critically, if capacity is negative (invalid but possible due to lack of validation), the condition len(self._items) > self.capacity may hold even when cache is empty, causing _evict_oldest() to do nothing (due to the if self._items check) while put() still retains the inserted item, violating capacity constraints.\n    - Fix: Add capacity validation in __init__ to ensure capacity >= 0, and in put() change eviction condition to len(self._items) > self.capacity only when self.capacity > 0. Alternatively, handle capacity<=0 as a special case that never stores items.\n\n[WARNING] RESOURCE_LEAK _evict_oldest does not release resources associated with evicted value (at _evict_oldest)\n    - Issue: The _evict_oldest() method removes the key-value pair from the OrderedDict but does not explicitly clean up resources held by the value (e.g., if values contain file handles, network connections, or other resources requiring close()). While Python's garbage collection will eventually reclaim memory, timely resource release is not guaranteed, potentially leading to resource exhaustion under high churn.\n    - Fix: Modify _evict_oldest() to invoke a cleanup callback on the evicted value if the cache is designed to manage resources. Since the current LRUCache is generic, add an optional close() hook or document that users must ensure values are lightweight or self-cleaning.\n\n[SIMPLICITY] Unnecessary conditional in _evict_oldest (at _evict_oldest)\n    - Issue: The if self._items: check is redundant because _evict_oldest() is only called from put() when len(self._items) > self.capacity. Given that capacity is non-negative (assuming proper validation), this condition implies len(self._items) >= 1 when called. However, without capacity validation (as noted above), the check prevents errors but adds negligible overhead. The primary simplicity concern is that the method's safety check duplicates the caller's precondition, creating mild coupling.\n    - Fix: Remove the conditional and rely on the caller's guarantee, or add an assertion (assert self._items) to document the precondition. Given the thread-safe context and current call site, the check can be safely removed if capacity validation is enforced.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 16154
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6038
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [CONCURRENCY] Lock contract not enforced on `_evict_oldest` (at `LRUCache._evict_oldest`)\n  - Issue: The class docstring states private helpers \"expect [the lock] held,\" but `_evict_oldest` is a new private method with no caller-side enforcement. `put` calls it while holding `self._lock`, so it is currently safe, but the contract is implicit and unenforced. Any future caller that invokes `_evict_oldest` without the lock (e.g., a batch-eviction path or a public `evict` method) would introduce a data race on `self._items` (an `OrderedDict` mutation outside the lock), corrupting internal state under concurrent access.\n  - Fix: Add an assertion at the top of `_evict_oldest` to fail fast if the lock is not held, e.g. `assert self._lock.locked()`, or document and enforce the invariant via a decorator that acquires the lock if not already held.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4224
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Incorrect LRU eviction order> (at symbol/line)\n- Issue: _evict_oldest uses popitem(last=False) which removes the oldest inserted entry, but LRU requires evicting the least recently used entry, which is the one that was accessed longest ago. Since put moves the key to the end after insertion, the oldest entry is not necessarily the LRU; this will evict wrong items, causing incorrect cache behavior and potential data loss.\n- Fix: Replace popitem(last=False) with popitem(last=True) to remove the least recently used entry (the first in the OrderedDict after recent accesses).\n\n[WARNING] STRUCTURE <Unnecessary indirection> (at symbol/line)\n- Issue: Introducing a private method _evict_oldest adds a layer of indirection for a single operation that could be inlined within put while holding the lock, increasing method call overhead and reducing code clarity without benefit.\n- Fix: Inline the eviction logic directly in put after moving to end, e.g., `if len(self._items) > self.capacity: self._items.popitem(last=True)`.\nSEVERITY LEVEL: [CRITICAL] for logic, [WARNING] for structure. Since we must list each finding, we have two findings. But the template requires one finding per block. We need separate entries.\n\nWe have two findings: one critical logic, one warning structure.\n\nLet's format each:\n\n* [CRITICAL] LOGIC <Incorrect LRU eviction order> (at symbol/line)\n  - Issue: ...\n  - Fix: ...\n\n* [WARNING] STRUCTURE <Unnecessary indirection> (at symbol/line)\n  - Issue: ...\n  - Fix: ...\n\nCheck severity categories: For critical, category must be one of the listed categories. LOGIC is a category. Good.\n\nFor structure, category is STRUCTURE.\n\nNow ensure each finding is 80-150 words. Let's craft concise but within range.\n\nFirst finding: about 100 words.\n\nSecond: about 80-120 words.\n\nLet's write.\n\n* [CRITICAL] LOGIC <Incorrect LRU eviction order> (at symbol/line)  \n  - Issue: `_evict_oldest` uses `popitem(last=False)` which removes the oldest inserted entry, not the least recently used entry. After `put` moves the key to the end, the oldest entry may have been accessed recently, so evicting it violates LRU semantics, leading to incorrect cache behavior and potential data loss.  \n  - Fix: Change the eviction to `self._items.popitem(last=True)` to remove the least recently used item (the first in the OrderedDict after recent accesses).  \n\n* [WARNING] STRUCTURE <Unnecessary indirection> (at symbol/line)  \n  - Issue: Adding a private `_evict_oldest` method introduces an extra function call and separates eviction logic from `put`, increasing cognitive overhead and maintenance cost for a single operation that could be inlined while holding the lock. This adds indirection without clear benefit.  \n  - Fix: Inline the eviction directly in `put` after moving to end, e.g., `if len(self._items) > self.capacity: self._items.popitem(last=True)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 36490
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 42.1
+  }
+}

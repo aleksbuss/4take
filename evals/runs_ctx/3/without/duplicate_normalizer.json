@@ -1,0 +1,127 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:28:31.230180Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "e5aaf22ee350",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 28710,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "register",
+      "title": "Race Condition in register",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "register",
+      "title": "Email normalization applied only at registration, not at login",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "normalize_email",
+      "title": "Normalization logic duplicated across trust boundaries",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "normalize_email",
+      "title": "Unnecessary indirection",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 3715
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] CONCURRENCY Race Condition in register (register)\n  - Issue: The function performs a non‑atomic check‑then‑create: it first calls `Account.objects.filter(email=email).exists()` and, if false, proceeds to `Account.objects.create(...)`. Concurrent requests can both pass the existence check before either creation, resulting in duplicate accounts or a database `IntegrityError` due to the unique email constraint.\n  - Fix: Replace the two‑step pattern with an atomic operation such as `Account.objects.get_or_create(email=email, defaults={'password_hash': hash_password(password)})`. If `created` is False, raise `ValueError(\"email already registered\")`.\n\n* [WARNING] ERROR_HANDLING Unhandled IntegrityError in register (register)\n  - Issue: If a race condition bypasses the existence check, the subsequent `Account.objects.create` will raise `django.db.IntegrityError` because the email field is unique. This exception is not caught, breaking the API contract and exposing internal database errors.\n  - Fix: Wrap the creation in a try‑except block catching `IntegrityError`. On catch, raise `ValueError(\"email already registered\")` to preserve the intended error semantics.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 25103
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "[CRITICAL] [LOGIC] Email normalization applied only at registration, not at login (at `register` / `normalize_email`)\n- Issue: `normalize_email` lowercases and strips the email only during registration. If login (or any other lookup) compares against the raw, unnormalized input, the same logical address can fail to match — e.g. `\"User@Example.com\"` was stored as `\"user@example.com\"` but a login attempt with `\"USER@EXAMPLE.COM\"` won’t find the account. This is a silent correctness failure: users are locked out of their own accounts depending on casing/whitespace, and the inconsistency is invisible until it bites a real user.\n- Fix: Apply `normalize_email` at every trust boundary that accepts an email (login, password reset, profile update, uniqueness checks) so the canonical form is used consistently for both storage and lookup.\n\n[WARNING] [STRUCTURE] Normalization logic duplicated across trust boundaries (at `normalize_email`)\n- Issue: `normalize_email` is defined in `accounts/signup.py` but will inevitably be needed in `accounts/login.py`, `accounts/password_reset.py`, etc. Each caller must remember to import and call it, so the canonicalization rule is scattered and will drift if the normalization rules change (e.g. adding Unicode NFC folding or domain-specific handling).\n- Fix: Move `normalize_email` into a shared module (e.g. `accounts/utils.py` or `accounts/models.py` as a model method) and have all email-handling code call the single source of truth.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 27757
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Race condition in account registration> (register)\n  - Issue: The register function checks for existing email with a non‑atomic filter then creates the account, allowing two concurrent calls with the same normalized email to both pass the exists check and attempt creation, resulting in duplicate accounts or an IntegrityError. Concrete scenario: two requests simultaneously calling register(\"John@Example.com\",\"pwd\") after normalization to \"john@example.com\" will both see no existing account and proceed to create, violating the uniqueness invariant.\n  - Fix: Wrap the existence check and creation in a single atomic transaction, e.g., use Account.objects.get_or_create(email=email, defaults={'password_hash': hash_password(password)}) or @transaction.atomic.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary indirection> (normalize_email)\n  - Issue: Introducing a separate normalize_email function adds indirection for a trivial transformation that could be inlined, increasing cognitive overhead without benefit and making future changes (e.g., different normalization rules) require edits in multiple places.\n  - Fix: Replace the call with the inline expression `email = email.strip().lower()` directly in register.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 28700
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 29.3
+  }
+}

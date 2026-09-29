@@ -1,0 +1,146 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:11:45.115915Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "0b1ff692a7f0",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 39026,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "switch_branch",
+      "title": "Failed checkout returns an unbound variable",
+      "models": [
+        "inclusionai/ling-3.0-flash-fin:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "CRITICAL",
+      "category": "UNKNOWN",
+      "symbol": null,
+      "title": "[SECURITY] Unvalidated branch name enables command injection",
+      "models": [
+        "inclusionai/ling-3.0-flash-fin:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "INJECTION",
+      "symbol": "switch_branch",
+      "title": "Untrusted branch value is passed directly to Git",
+      "models": [
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "switch_branch",
+      "title": "Checkout mutates shared repository state without serialization",
+      "models": [
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "pass",
+      "title": "Silent Exception Swallowing",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC Failed checkout returns an unbound variable (in `switch_branch`)\n  - Issue: If `run_git(\"checkout\", branch)` raises, the exception is swallowed and execution continues to `json_response` with `output` never assigned, causing an `UnboundLocalError` instead of returning the checkout error. The endpoint consequently cannot report checkout failures and may expose a framework 500 response.\n  - Fix: Remove the exception suppression or return a structured error response in `except`, for example `return json_response({\"error\": str(exc)}, status=500)`.\n\n* [WARNING] INJECTION Untrusted branch value is passed directly to Git (in `switch_branch`)\n  - Issue: `request.json[\"branch\"]` crosses the HTTP trust boundary without validation and becomes a Git argument. A value beginning with `-` can be interpreted as an option rather than a ref, potentially invoking unexpected checkout behavior or destructive options. Subprocess argument separation does not protect against Git option injection.\n  - Fix: Validate the value as an intended branch/ref before invoking Git, reject leading dashes and invalid refs, and invoke checkout with explicit operand delimiters or by resolving the ref first.\n\n* [WARNING] CONCURRENCY Checkout mutates shared repository state without serialization (in `switch_branch`)\n  - Issue: Multiple requests can call `run_git` against the same working tree concurrently. Git’s index, `HEAD`, and working files are shared mutable state, so concurrent checkouts can conflict, fail, or return success for one branch after another request has already changed `HEAD`; one request can also interfere with another request’s files.\n  - Fix: Serialize branch-switch operations per repository, or use isolated worktrees/repositories and update only application-level branch state after checkout succeeds.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 10126
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC `output` Unbound on Exception (at `switch_branch` function)\n  - Issue: When `run_git(\"checkout\", branch)` raises an exception, the `except` block silently passes, but execution continues to `return json_response({\"branch\": branch, \"output\": output})`. Since `output` was never assigned in the exception path, this raises an `UnboundLocalError`, crashing the request. The exception handler provides no fallback value or error response.\n  - Fix: Either assign `output = None` (or error message) in the except block, or return an error response:\n    ```python\n    except Exception as e:\n        output = str(e)\n    return json_response({\"branch\": branch, \"output\": output})\n    ```\n\n* [WARNING] SECURITY Missing Input Validation (at `branch = request.json[\"branch\"]`)\n  - Issue: The `branch` parameter is taken directly from user input without validation. If `run_git` passes this to a shell or filesystem without sanitization, an attacker could supply malicious branch names containing path traversal sequences (e.g., `../../etc/passwd`) or shell metacharacters to escape the intended scope.\n  - Fix: Validate branch names against a strict allowlist pattern before use:\n    ```python\n    import re\n    if not re.match(r'^[a-zA-Z0-9._-]+$', branch):\n        return json_response({\"error\": \"Invalid branch name\"}, status=400)\n    ```\n\n* [WARNING] ERROR_HANDLING Silent Exception Swallowing (at `except Exception: pass`)\n  - Issue: Catching all exceptions with `pass` discards all error information, making debugging impossible and potentially hiding security-relevant failures. The caller receives no indication that the checkout failed.\n  - Fix: Log the exception and return an appropriate error response:\n    ```python\n    except Exception as e:\n        return json_response({\"error\": str(e)}, status=500)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16345
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-fin:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [ERROR_HANDLING] UnboundLocalError on exception path\n- Issue: If `run_git(\"checkout\", branch)` raises an exception, `output` is never assigned, so `json_response({\"branch\": branch, \"output\": output})` raises a `NameError`. The `except Exception: pass` block silently discards the error and then falls through to a line that references a variable that doesn't exist.\n- Fix: Initialize `output = None` before the try block, or move the return inside the try, or capture the exception and return an error response.\n\n[CRITICAL] [SECURITY] Unvalidated branch name enables command injection\n- Issue: `branch` is taken directly from `request.json[\"branch\"]` with no sanitization or allowlist validation. If `run_git` constructs a shell command from this string, an attacker can supply a branch name like `main; rm -rf /` to execute arbitrary commands. Even if `run_git` uses argument passing, an unbounded branch name could check out unintended refs (e.g., `refs/remotes/origin/evil`).\n- Fix: Validate `branch` against a strict pattern (e.g., `^[a-zA-Z0-9_\\-/]+$`) before passing it to `run_git`, and reject any match failure with a 400 response.\n\n[WARNING] [ERROR_HANDLING] Missing key and malformed JSON not handled\n- Issue: `request.json[\"branch\"]` will raise `KeyError` if the request body lacks a `\"branch\"` key, and `request.json` itself may raise a parsing error. Neither is caught, resulting in an unhandled 500 instead of a structured error response.\n- Fix: Use `request.json.get(\"branch\")` with a None check, or wrap JSON parsing in its own try/except returning a 400.\n\n[WARNING] [ERROR_HANDLING] Silent exception swallowing masks failures\n- Issue: `except Exception: pass` means the caller always receives a 200 OK with `{\"branch\": branch, \"output\": output}` even when the checkout failed. The `output` key will be `None` on failure, but there is no indication of the failure itself — the caller cannot distinguish success from error.\n- Fix: Remove the bare except, or capture the exception (`except Exception as e`) and return an error response with the exception message and an appropriate HTTP status code.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 19600
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <UnboundLocalError on exception> (at switch_branch)\n    - Issue: If `run_git` raises an exception, the variable `output` remains undefined, causing an UnboundLocalError when attempting to return it in the JSON response. This occurs for any exception during git checkout (e.g., invalid branch, repository not found).\n    - Fix: Initialize `output` before the try block or return an error response in the except block.\n\n* [WARNING] AUTH_CRYPTO <Potential command injection via branch parameter> (at switch_branch)\n    - Issue: The `branch` parameter is taken directly from `request.json` and passed to `run_git` without validation or sanitization. If `run_git` uses shell=True or improperly constructs the git command (e.g., via string concatenation), an attacker could inject arbitrary commands (e.g., setting branch to `; rm -rf /`).\n    - Fix: Validate the branch name (e.g., allow only alphanumeric characters, hyphens, underscores, and slashes) or ensure `run_git` uses a safe method like `subprocess.run` with arguments as a list and shell=False.\n\n* [ERROR_HANDLING] ERROR_HANDLING <Silent exception swallowing> (at switch_branch)\n    - Issue: The bare `except Exception: pass` catches and ignores all exceptions, including unexpected ones (e.g., KeyError if request.json lacks \"branch\", or AttributeError if request.json is missing). This hides errors and makes debugging difficult, while still attempting to use the undefined `output` variable.\n    - Fix: Catch specific exceptions (e.g., KeyError for missing branch, GitCommandError for git failures) and return appropriate error responses. Avoid bare except clauses.\n\n* [LOGIC] LOGIC <Missing validation for request.json and branch key> (at switch_branch)\n    - Issue: The code assumes `request.json` exists and contains a \"branch\" key. If the request lacks a JSON body or the key, a KeyError will be raised, which is caught by the bare except and silently ignored, leading to the UnboundLocalError on `output` as described above.\n    - Fix: Validate the request content type and presence of required keys before accessing them, returning a 400 error for invalid input* [WARNING] LOGIC <UnboundLocalError on exception> (at switch_branch)\n    - Issue: If `run_git` raises an exception, the variable `output` is never assigned, causing an UnboundLocalError when the function attempts to return `json_response({\"branch\": branch, \"output\": output})`. This occurs for any exception during git checkout (e.g., invalid branch, detached HEAD state).\n    - Fix: Initialize `output` before the try block (e.g., `output = None`) or return an error response in the except block.\n\n* [WARNING] AUTH_CRYPTO <Potential command injection> (at switch_branch)\n    - Issue: The `branch` parameter is taken directly from `request.json` and passed to `run_git` without validation. If `run_git` uses shell=True or constructs commands via string interpolation (common in git wrappers), an attacker could inject arbitrary shell commands (e.g., setting branch to `; rm -rf /`).\n    - Fix: Validate the branch name against a safe pattern (e.g., `^[a-zA-Z0-9./_-]+$`) or ensure `run_git` uses a secure method like `subprocess.run` with arguments as a list and shell=False.\n\n* [ERROR_HANDLING] ERROR_HANDLING <Silent exception swallowing> (at switch_branch)\n    - Issue: The bare `except Exception: pass` catches and ignores all exceptions (including unexpected ones like KeyError if `request.json` lacks \"branch\"), hiding failures and preventing proper error reporting. This also exacerbates the UnboundLocalError issue.\n    - Fix: Replace with specific exception handling (e.g., catch `KeyError` for missing branch, `GitError` for git failures) and return appropriate error responses (e.g., 400 for invalid input, 500 for internal errors). Avoid bare except clauses.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 39017
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 39.6
+  }
+}

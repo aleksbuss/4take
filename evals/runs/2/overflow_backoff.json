@@ -1,0 +1,202 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:24:48.957044Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "468dcb9285ab",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 7,
+    "total_latency_ms": 244361
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor; nvidia held more than one seat: no other vendor answered in time, so agreement between those seats is weaker evidence",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "retry_with_backoff",
+      "title": "Unnecessary sleep after final attempt",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "retry_with_backoff",
+      "title": "Non-Transient Exceptions Are Silently Swallowed",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "retry_with_backoff",
+      "title": "Exponential Backoff Without Jitter Can Lead to Thundering Herd",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "retry_with_backoff",
+      "title": "Hardcoded Backoff Base Limits Flexibility",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "retry_with_backoff",
+      "title": "Function mixes backoff policy with retry loop, reducing reusability",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "retry_with_backoff",
+      "title": "Missing docstring and type hints obscures intent",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [WARNING] LOGIC Unnecessary sleep after final attempt (in retry_with_backoff)\n  - Issue: After the last failed attempt (i = attempts-1), `time.sleep(2 ** i)` executes before the loop exits and raises `ExhaustedRetries()`, wasting up to `2^(attempts-1)` seconds with no retry to follow. For large attempt counts this delay before the exception can be significant (e.g., attempts=64 means a ~10-billion-second pause before the error surfaces).\n  - Fix: Move the sleep before the retry check, or break out of the loop on the last iteration: sleep only when `i < attempts - 1`, or restructure so the sleep happens at the start of the next iteration rather than the end of the current one.\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 12341,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 14425,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [ERROR_HANDLING] Non-Transient Exceptions Are Silently Swallowed (in `retry_with_backoff`)\n  - Issue: The `except` clause only catches `TransientError`, but any other exception raised by `fn()` will propagate immediately without being caught. However, if `fn()` raises a non-`TransientError` exception, it will not be retried and will bubble up directly — which is correct behavior. But the function does not distinguish between retryable and non-retryable errors explicitly, and more critically, if `fn()` raises an exception that is not `TransientError`, it will exit the loop and propagate, which is the intended behavior. The real issue is that the function does not handle the case where `fn()` raises an exception that is a subclass of `TransientError` but should not be retried, or where the caller expects a specific exception type to be retried.\n  - Fix: Ensure that only truly transient exceptions are caught and retried, and consider adding a mechanism to distinguish between retryable and non-retryable errors. For example, catch a broader set of exceptions or use a predicate function to determine retryability.\n\n* [WARNING] [CONCURRENCY] Exponential Backoff Without Jitter Can Lead to Thundering Herd (in `retry_with_backoff`)\n  - Issue: The backoff strategy uses pure exponential backoff (`2 ** i`) without any jitter. In a distributed system, if multiple clients experience failures simultaneously, they will all retry at the same intervals, leading to synchronized retries and potentially overwhelming the service again.\n  - Fix: Add jitter to the backoff delay to randomize retry timing. For example, use `time.sleep((2 ** i) + random.uniform(0, 1))` to introduce randomness and prevent synchronized retries.\n\n* [SUGGESTION] [SIMPLICITY] Hardcoded Backoff Base Limits Flexibility (in `retry_with_backoff`)\n  - Issue: The backoff base is hardcoded as `2`, making it inflexible for different use cases. Some scenarios may require a different base (e.g., `1.5` for slower growth or `3` for faster growth).\n  - Fix: Parameterize the backoff base as an optional argument with a default value, e.g., `def retry_with_backoff(fn, attempts, base=2):` and use `time.sleep(base ** i)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 17029,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Unbounded exponential backoff may cause excessively long sleeps or overflow> (at retry_with_backoff)\n    - Issue: The sleep duration is calculated as 2 ** i seconds, where i grows with each retry. If the caller supplies a large `attempts` value (e.g., >1000), the sleep time can exceed representable float range, leading to `OverflowError` or an effective infinite sleep, causing the program to hang or crash.\n    - Fix: Cap the exponent or use a bounded backoff, e.g., `time.sleep(min(2 ** i, MAX_BACKOFF))` with a reasonable constant like 60 seconds, or use a library that implements bounded exponential backoff with jitter.\n\n* [WARNING] LOGIC <Retry logic only handles TransientError, allowing other exceptions to abort early> (at retry_with_backoff)\n    - Issue: The function catches only `TransientError`. Any other exception raised by `fn` propagates immediately, preventing retries for errors that might also be transient (e.g., network timeouts represented as different exception types). This reduces robustness.\n    - Fix: Either catch a broader base class (e.g., `Exception`) after documenting which errors are considered retryable, or accept a predicate/retryable-exceptions argument to make the behavior explicit and configurable.\n\n* [SIMPLICITY] STRUCTURE <Function mixes backoff policy with retry loop, reducing reusability> (at retry_with_backoff)\n    - Issue: The backoff calculation (`2 ** i`) is hard‑coded inside the retry loop. Changing the backoff strategy (adding jitter, switching to constant delay, or making it configurable) requires editing this function, violating the open‑closed principle and forcing callers that need different policies to duplicate the loop.\n    - Fix: Extract the backoff logic into a separate callable (e.g., `backoff(i)`) passed as a parameter, or use a decorator/generator that yields delays, allowing the retry loop to remain policy‑agnostic.\n\n* [SUGGESTION] SIMPLICITY <Missing docstring and type hints obscures intent> (at retry_with_backoff)\n    - Issue: The function lacks a docstring and type annotations, making it unclear what `fn` should accept/return, what `attempts` means, and which exceptions are considered transient. This increases the cognitive load for future maintainers and raises the risk of misuse.\n    - Fix: Add a docstring describing the retry behavior, the meaning of `attempts`, and the expected exception types, and add type hints such as `def retry_with_backoff(fn: Callable[[], T], attempts: int) -> T:NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 15634,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Concise Title> (at symbol/retry_with_backoff)\n    - Issue: The function discards the original TransientError when retries are exhausted, raising ExhaustedRetries() instead, losing diagnostic information. For example, if fn() repeatedly raises TransientError with a message indicating the cause, the caller only sees ExhaustedRetries() and cannot discern why retries failed.\n    - Fix: Capture the last exception and re-raise it after the loop, e.g., store last_err in the except block and raise it (or chain it) when attempts are exhausted.\n\n* [WARNING] ERROR_HANDLING <Concise Title> (at symbol/retry_with_backoff)\n    - Issue: The function does not validate the attempts argument; a negative or non-integer value leads to an immediate ExhaustedRetries() without any retry, which may be surprising. For example, calling retry_with_backoff(fn, -1) will raise ExhaustedRetries() despite the intention to allow retries.\n    - Fix: Add a check at the start: if not isinstance(attempts, int) or attempts < 1: raise ValueError(\"attempts must be a positive integer\").",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 22435,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "Provider error 503 after 4 retries: Provider returned error",
+      "latency_ms": 41016
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 93571
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 35056
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Empty response from model",
+      "latency_ms": 136983
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 37337
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-pro:free",
+      "error": "Empty response from model",
+      "latency_ms": 107371
+    }
+  ],
+  "_eval": {
+    "snippet": "overflow_backoff.py",
+    "exit_code": 0,
+    "wall_s": 244.8,
+    "duplicate_of_backfilled": true
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T08:57:35.272664Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "ab1c71b0456f",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 21087
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "list_orders",
+      "title": "Unsafe SQL interpolation in list_orders",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 3,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "ALLOWED",
+      "title": "Unused ALLOWED set",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 3
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Unsafe SQL interpolation in list_orders (list_orders function, f-string)\n  - Issue: The sort_field and direction parameters are directly interpolated into the SQL query using an f-string, bypassing parameterization. An attacker can supply values like \"id; DROP TABLE orders;--\" to execute arbitrary SQL, leading to data loss or exfiltration.\n  - Fix: Validate sort_field and direction against a whitelist (e.g., ALLOWED and {\"ASC\",\"DESC\"}) and use parameterized placeholders: cur.execute(\"SELECT * FROM orders WHERE customer_id = %s ORDER BY %s %s\", (customer_id, sort_field, direction))\n\n* [WARNING] STRUCTURE Unused ALLOWED set (ALLOWED variable)\n  - Issue: The module defines ALLOWED = {\"created_at\", \"email\"} but never uses it, creating dead code that misleads future maintenance. If a developer adds a new sortable field, they may incorrectly update ALLOWED expecting it to be used, while the actual validation is missing.\n  - Fix: Either remove ALLOWED if not needed, or incorporate it into the validation of sort_field in list_orders.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11077,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] SQL Injection in list_orders (cur.execute line)\n  - Issue: `sort_field` and `direction` are interpolated directly into the SQL string via f-string, while only `customer_id` is parameterized. An attacker controlling these arguments can inject arbitrary SQL (e.g., `sort_field=\"id; DROP TABLE users; --\"` or `direction=\"ASC; ALTER TABLE orders ADD COLUMN backdoor INT\"`), achieving full query manipulation. The module-level `ALLOWED` set at the top of the file is never referenced, indicating an abandoned or forgotten mitigation.\n  - Fix: Validate both arguments against an allowlist before query construction:\n    ```python\n    ALLOWED_FIELDS = {\"created_at\", \"email\"}\n    ALLOWED_DIRS = {\"ASC\", \"DESC\"}\n    def list_orders(conn, customer_id, sort_field, direction):\n        if sort_field not in ALLOWED_FIELDS or direction not in ALLOWED_DIRS:\n            raise ValueError(\"invalid sort field or direction\")\n        cur = conn.cursor()\n        cur.execute(\n            f\"SELECT * FROM orders WHERE customer_id = %s ORDER BY {sort_field} {direction}\",\n            (customer_id,),\n        )\n        return cur.fetchall()\n    ```\n\n* [WARNING] [STRUCTURE] Misleading and incomplete ALLOWED set (module level)\n  - Issue: `ALLOWED = {\"created_at\", \"email\"}` is defined at module scope but never used by `list_orders`, creating dead code that signals (incorrectly) that input validation exists. Even if adopted, it is incomplete — it provides no allowlist for `direction` (ASC/DESC), so a developer relying on it would leave the second injection vector unmitigated. This couples future readers to a false sense of safety.\n  - Fix: Remove the dead `ALLOWED` constant and define properly scoped, complete allowlists (`ALLOWED_FIELDS`, `ALLOWED_DIRS`) inside the function as shown above, or delete it entirely if validation is handled elsewhere.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11836,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION SQL injection via sort_field and direction (at list_orders)\n    - Issue: The function builds the query with f‑string interpolation of the unsanitized `sort_field` and `direction` parameters, enabling an attacker to inject arbitrary SQL (e.g., passing `sort_field=\"created_at; DROP TABLE orders--\"`).\n    - Fix: Whitelist‑validate `sort_field` against `ALLOWED` and ensure `direction` is either `\"ASC\"` or `\"DESC\"` before constructing the query, or use a safe identifier‑quoting function provided by the DB driver.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 13232,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] SQL injection via unvalidated sort_field and direction (at `list_orders`, lines using f-string in `cur.execute`)\n  - Issue: `sort_field` and `direction` are interpolated directly into the SQL query via f-string, allowing arbitrary SQL injection. For example, `sort_field=\"email; DROP TABLE users; --\"` or `direction=\"ASC; SELECT * FROM secrets\"` would execute attacker-controlled SQL. The `ALLOWED` set defined above the function is never referenced, so the intended whitelist mitigation is dead code.\n  - Fix: Validate both parameters against whitelists before interpolating:\n    ```python\n    if sort_field not in ALLOWED:\n        raise ValueError(f\"invalid sort field: {sort_field}\")\n    if direction not in {\"ASC\", \"DESC\"}:\n        raise ValueError(f\"invalid direction: {direction}\")\n    ```\n    Then keep the f-string interpolation for the validated identifiers (which cannot be parameterized as prepared-statement placeholders).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18885,
+      "duplicate_of": "inclusionai/ling-3.0-flash-vl:free"
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] INJECTION SQL Injection in ORDER BY clause (at list_orders function)\n  - Issue: The `sort_field` and `direction` parameters are directly interpolated into the SQL query string without validation. An attacker can inject arbitrary SQL via these parameters (e.g., `sort_field=\"created_at; DROP TABLE orders; --\"`). The `ALLOWED` set is defined but never used for validation, making the function vulnerable to SQL injection attacks that can read, modify, or delete database contents.\n  - Fix: Validate both parameters against allowed values before interpolation:\n    ```python\n    ALLOWED_FIELDS = {\"created_at\", \"email\"}\n    ALLOWED_DIRECTIONS = {\"ASC\", \"DESC\"}\n    \n    if sort_field not in ALLOWED_FIELDS:\n        raise ValueError(f\"Invalid sort field: {sort_field}\")\n    if direction.upper() not in ALLOWED_DIRECTIONS:\n        raise ValueError(f\"Invalid direction: {direction}\")\n    ```\n\n* [WARNING] ERROR_HANDLING Unused validation constant (at module level)\n  - Issue: The `ALLOWED` set is defined but never referenced in the function, suggesting the validation logic was intended but not implemented. This creates a false sense of security and will likely cause confusion for future maintainers who may assume validation is happening.\n  - Fix: Either remove the unused `ALLOWED` constant or use it to validate the `sort_field` parameter.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21080,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "sqli_order_by.py",
+    "exit_code": 0,
+    "wall_s": 21.5,
+    "duplicate_of_backfilled": true
+  }
+}

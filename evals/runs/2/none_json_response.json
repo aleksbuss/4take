@@ -1,0 +1,116 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:17:45.203769Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "99c9b53936e4",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 32436
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "fetchProfile",
+      "title": "Missing profile data causes runtime error",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "fetchProfile",
+      "title": "Path injection via unsanitized id in URL construction",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 3
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Missing profile data causes runtime error> (at fetchProfile)\n    - Issue: If the response body lacks a `profile` property or `profile.displayName` is not a string, accessing `.displayName.trim()` throws TypeError, crashing the function on valid input (e.g., user with no profile).\n    - Fix: Safely extract profile and provide fallbacks:\n      ```js\n      const profile = body.profile ?? {};\n      const name = (profile.displayName ?? '').trim() || 'Unknown';\n      const avatar = profile.avatarUrl || '/static/default.png';\n      return { name, avatar };\n      ```\n\n* [WARNING] INJECTION <Unencoded user ID in URL path> (at fetchProfile)\n    - Issue: The `id` is interpolated directly into the URL path without encoding. If `id` contains characters like spaces, `#`, `?`, or `../`, the resulting request may be malformed or lead to unintended path traversal, depending on the HTTP client.\n    - Fix: Encode the ID before insertion:\n      ```js\n      const res = await client.get(`/users/${encodeURIComponent(id)}`);\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10192,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [INJECTION] Path injection via unsanitized `id` in URL construction (fetchProfile, `client.get(`/users/${id}`)`)\n- Issue: If `id` originates from user input and contains `../`, `%2e%2e/`, or query-string characters (e.g., `id = \"123?role=admin\"`), the constructed URL `/users/${id}` becomes a path-traversal or query-injection vector. The function performs no validation or encoding on `id` before interpolation.\n- Fix: Validate `id` against an allowlist (e.g., `/^\\d+$/`) or use `encodeURIComponent(id)` and the URL constructor: `new URL(`/users/${encodeURIComponent(id)}`, baseUrl)`.\n\n[WARNING] [ERROR_HANDLING] No null guard on `body.profile` before property access (fetchProfile, `body.profile.displayName.trim()`)\n- Issue: If the API returns a response body without a `profile` key (e.g., 404 error JSON, empty body, or a schema change), `body.profile` is `undefined` and `.displayName.trim()` throws a `TypeError`. The `||` fallback on `avatarUrl` never executes because the crash happens one line above it.\n- Fix: Add a guard before accessing the chain: `if (!body?.profile) throw new Error(\"invalid profile response\");` or use optional chaining with a default: `body?.profile?.displayName?.trim() ?? \"Unknown\"`.\n\n[WARNING] [ERROR_HANDLING] No HTTP status check before calling `res.json()` (fetchProfile, `res.json()`)\n- Issue: If `client.get` resolves even on non-2xx responses (common with raw `fetch`-like clients), `res.json()` will attempt to parse an error body (often HTML) and throw, or silently return malformed data that lacks `profile`. The function never inspects `res.status` or `res.ok`.\n- Fix: Add `if (!res.ok) throw new Error(`fetch failed: ${res.status}`);` before `res.json()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21632,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] INJECTION /users/${id} path injection (at fetchProfile function)\n  - Issue: The `id` parameter is directly interpolated into the URL path without sanitization. An attacker-controlled `id` containing path traversal sequences (e.g., `../admin`, `%2e%2e%2f`) or special characters (`?`, `#`) could manipulate the request path, potentially accessing unauthorized resources or bypassing intended routing.\n  - Fix: Validate `id` against a strict pattern (e.g., numeric or UUID) before interpolation: `if (!/^\\d+$/.test(id)) throw new Error('Invalid id');` or use `encodeURIComponent(id)` if arbitrary strings are allowed.\n\n* [WARNING] ERROR_HANDLING Missing error handling and response validation (at fetchProfile function)\n  - Issue: The function lacks try-catch, HTTP status validation, and null checks. If `client.get()` throws, returns a non-200 status, or the response lacks `body.profile.displayName`, the function will crash with an unhandled exception or TypeError, propagating a cryptic error to the caller.\n  - Fix: Wrap in try-catch, check `res.ok`, and validate structure: `if (!res.ok) throw new Error('Fetch failed'); const body = await res.json(); if (!body?.profile?.displayName) throw new Error('Invalid response');`\n\n* [WARNING] ERROR_HANDLING Unsafe property access on potentially undefined values (at fetchProfile function)\n  - Issue: Accessing `body.profile.displayName` without verifying `body.profile` exists will throw TypeError if the API returns an unexpected structure (e.g., `{ profile: null }` or missing `profile` key).\n  - Fix: Use optional chaining with fallback: `name: (body.profile?.displayName || '').trim()` or validate and throw a descriptive error.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21986,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Missing response validation in fetchProfile (fetchProfile)\n  - Issue: The function assumes `body.profile` exists and that `body.profile.displayName` is a string. If the API returns a missing or null profile (e.g., a deleted account or an error payload), accessing `.displayName` or calling `.trim()` throws a `TypeError`, crashing the caller. This is a correctness defect that manifests whenever the response shape deviates from the expected contract.\n  - Fix: Validate the response shape before using it, e.g.:\n\n    const profile = body?.profile;\n    if (!profile || typeof profile.displayName !== 'string') {\n      throw new Error('Invalid profile data');\n    }\n    const name = profile.displayName.trim();\n\n* [CRITICAL] INJECTION Missing input sanitization for id in fetchProfile (fetchProfile)\n  - Issue: The function directly interpolates the `id` parameter into the URL `/users/${id}`. If `id` is user‑controlled and not validated or encoded, an attacker can supply a value like `\"../../etc/passwd\"` to traverse outside the intended resource path, potentially exposing sensitive files on the server. This is a classic path‑traversal injection.\n  - Fix: Ensure `id` is a safe identifier (e.g., numeric) and let the HTTP client encode the path, or use a parameterized request method that automatically escapes special characters.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 32429,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Undefined profile property access> (at function body)\n  - Issue: body.profile may be undefined or null, causing a TypeError when accessing displayName; e.g., server returns { profile: null } for any id, leading to crash.\n  - Fix: const profile = body.profile; if (!profile) return { name: \"\", avatar: \"/static/default.png\" }; return { name: profile.displayName.trim(), avatar: profile.avatarUrl || \"/static/default.png\" };\n\n* [WARNING] INJECTION <Path traversal via id> (at template literal)\n  - Issue: id is interpolated directly into the URL path; a malicious id like \"..%2fetc/passwd\" can cause path traversal if the backend resolves the path, leading to unauthorized resource access.\n  - Fix: Validate/sanitize id, e.g., if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error(\"Invalid id\"); or use URL encoding safely.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 20125,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "none_json_response.js",
+    "exit_code": 0,
+    "wall_s": 32.8,
+    "duplicate_of_backfilled": true
+  }
+}

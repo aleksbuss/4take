@@ -1,0 +1,136 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:22:00.271642Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "5c184b8d731e",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 37814
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "search_users",
+      "title": "SQL injection via term parameter",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "search_users",
+      "title": "Cursor not closed",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "search_users",
+      "title": "Unescaped LIKE wildcards cause incorrect search results",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] SQL injection via `term` parameter (line 4)\n  - Issue: `term` is concatenated directly into the SQL string, allowing arbitrary SQL execution. Input like `'; DROP TABLE users; --` or `' OR '1'='1` breaks out of the LIKE clause and executes attacker-controlled SQL.\n  - Fix: Use a parameterized query: `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", (f\"%{term}%\", limit))`\n\n* [CRITICAL] [INJECTION] SQL injection via `limit` parameter (line 5)\n  - Issue: `limit` is concatenated as a raw string into the LIMIT clause. If `limit` originates from user input (e.g., a query parameter), an attacker can inject trailing SQL such as `10; DROP TABLE users; --`.\n  - Fix: Pass `limit` as a bound parameter (as shown above). If `limit` must remain a raw SQL fragment (rare), validate it as a positive integer before concatenation.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 5112,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION SQL injection via term and limit concatenation (search_users)\n  - Issue: The function builds the query by directly interpolating the user‑supplied `term` and `limit` into the SQL string. An attacker can break out of the `LIKE` clause or inject arbitrary SQL, e.g. `term = \"' OR 1=1 --\"` returns all rows, or `limit = \"10; DROP TABLE users --\"` could delete the table. This violates the trust boundary between input and the database.\n  - Fix: Use a parameterized query: `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE %s ORDER BY created_at DESC LIMIT %s\", (f\"%{term}%\", limit))`\n\n* [WARNING] RESOURCE_LEAK Cursor not closed (search_users)\n  - Issue: The cursor returned by `conn.cursor()` is never explicitly closed. While Python's DB‑API may garbage‑collect it, leaving it open can keep database resources (e.g., server‑side result sets) allocated until the connection is released, increasing load and risking exhaustion under high call volume.\n  - Fix: Ensure the cursor is closed, e.g.:\n\n```python\ncur = conn.cursor()\ntry:\n    cur.execute(...)\n    rows = cur.fetchall()\nfinally:\n    cur.close()\nreturn [...]\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 14674,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION SQL injection via unsanitized term and limit parameters (at search_users)\n    - Issue: The function builds the query by directly concatenating user‑supplied `term` and `limit` strings. An attacker can supply `term = \"' OR '1'='1\"` or `limit = \"0; DROP TABLE users;--\"` to alter query logic or execute arbitrary SQL, leading to data leakage, corruption, or loss.\n    - Fix: Use parameterized queries: `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE %s ORDER BY created_at DESC LIMIT %s\", (f\"%{term}%\", limit))` (or DB‑specific placeholder).\n\n* [WARNING] LOGIC Unescaped LIKE wildcards cause incorrect search results (at search_users)\n    - Issue: The search term is used directly in a LIKE pattern without escaping `%` and `_`. A user searching for a literal percent sign (`%`) will get all rows instead of only those containing `%`, producing wrong results.\n    - Fix: Escape wildcards before building the pattern, e.g., `safe_term = term.replace('%', '\\\\%').replace('_', '\\\\_')` and use `LIKE %s ESCAPE '\\\\'` with the escaped term.\n\n* [WARNING] RESOURCE_LEAK Database cursor not closed (at search_users)\n    - Issue: The cursor obtained via `conn.cursor()` is never closed, leaving a server‑side resource open until garbage collection, which can exhaust connections under load.\n    - Fix: Use a context manager or explicit close: `with conn.cursor() as cur: ...` or add `cur.close()` after fetching rows.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 17573,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] SQL injection via `term` parameter (search_users)\n  - Issue: `term` is concatenated directly into the SQL string without parameterization. A caller passing `term = \"' OR 1=1 --\"` or a UNION-based payload returns or exfiltrates arbitrary data from the users table.\n  - Fix: Replace string concatenation with a parameterized query: `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", (f\"%{term}%\", limit))` (adjust placeholder style for the DB driver).\n\n* [CRITICAL] [INJECTION] SQL injection via `limit` parameter (search_users)\n  - Issue: `limit` is concatenated into the query via `str(limit)` with no validation or parameterization. If `limit` originates from user input (e.g., a query parameter), a value like `\"0; DROP TABLE users\"` can execute arbitrary SQL depending on driver support for stacked queries.\n  - Fix: Pass `limit` as a bound parameter alongside `term`, and/or validate it as a positive integer before use.\n\n* [WARNING] [RESOURCE_LEAK] Cursor never closed (search_users)\n  - Issue: `cur` is created but never closed. Under load or repeated calls, this can exhaust the connection's cursor pool or hold locks on the underlying database connection.\n  - Fix: Use `with conn.cursor() as cur:` or call `cur.close()` in a `finally` block after `fetchall()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 25734,
+      "duplicate_of": "inclusionai/ling-3.0-flash-vl:free"
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [CRITICAL] [INJECTION] Unparameterized input enables SQL injection (search_users)\n  - Issue: `term` is concatenated directly into the SQL string. Input such as `x' OR 1=1 --` produces a query that can return all users or alter the statement. The `limit` value is also concatenated and can cause malformed or injected SQL if attacker-controlled.\n  - Fix: Use bound parameters for both values, e.g. `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", (f\"%{term}%\", limit))`; validate `limit` as a bounded nonnegative integer.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 12072,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION <SQL injection via term in LIKE pattern> (at search_users function)\n  - Issue: The term parameter is concatenated directly into the SQL string, allowing an attacker to inject arbitrary SQL (e.g., term = \"'; DROP TABLE users;--\") which breaks out of the quoted LIKE pattern and executes unintended commands.\n  - Fix: Use parameterized queries: query = \"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\"; cur.execute(query, (f\"%{term}%\", limit))\n\n* [WARNING] BOUNDS <Unvalidated limit causing invalid SQL or resource exhaustion> (at search_users function)\n  - Issue: The limit argument is converted to string without validation; negative or non‑integer values produce invalid SQL (e.g., LIMIT -1) or cause the database to fetch an unbounded number of rows, leading to potential denial‑of‑service.\n  - Fix: Validate that limit is a positive integer before concatenation, e.g., if not isinstance(limit, int) or limit <= 0: raise ValueError(\"limit must be positive\"); then use the same parameterized query.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 34567,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "sqli_user_search.py",
+    "exit_code": 0,
+    "wall_s": 38.2,
+    "duplicate_of_backfilled": true
+  }
+}

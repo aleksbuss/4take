@@ -1,0 +1,88 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T08:56:25.747463Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "2a1ac2f8ce88",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 27649
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "hit",
+      "title": "Lost update on hit increment",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [CONCURRENCY] Lost update on hit increment (at `self.counts[key] += 1`)\n  - Issue: `self.counts[key] += 1` is a read-modify-write executed outside the lock. Two threads calling `hit` on the same key simultaneously can both read the same value (e.g., 0), both compute +1, and both write 1 — one hit is silently lost. This is a data race on shared mutable state with no synchronization, producing incorrect counts under any concurrent load.\n  - Fix: Move the increment inside the locked section so the entire check-initialize-increment-return sequence is atomic:\n    ```python\n    def hit(self, key):\n        with self.lock:\n            if key not in self.counts:\n                self.counts[key] = 0\n            self.counts[key] += 1\n            return self.counts[key]\n    ```\n\n* [WARNING] [CONCURRENCY] TOCTOU on key existence check (at `if key not in self.counts`)\n  - Issue: The membership check `if key not in self.counts` runs outside the lock. Two threads can both observe the key as absent, both enter their respective `with self.lock` blocks, and both set `self.counts[key] = 0`. The second initialization is redundant and resets a key that may already have been incremented by the first thread if the interleaving places the increment between the two lock acquisitions. While the lost-update on the increment is the more severe symptom, this check-then-act pattern is a separate race that the same lock should cover.\n  - Fix: Already resolved by the fix above — moving the entire body under `with self.lock` eliminates both races in one change.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.\n\nWait — I found issues. Let me correct: the two findings above are valid. The final line should not say NO_ISSUES_FOUND.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 12690,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] CONCURRENCY Race‑condition causing lost increments (at hit)\n    - Issue: The existence check `if key not in self.counts:` is performed outside the lock, and the increment `self.counts[key] += 1` is also outside the lock. Two threads can both observe a missing key, one initializes it to 0 under the lock, then both read the stale value 0 and increment it, resulting in a final count of 1 instead of 2.\n    - Fix: Protect the entire check‑and‑update sequence with the lock:\n        with self.lock:\n            if key not in self.counts:\n                self.counts[key] = 0\n            self.counts[key] += 1\n            return self.counts[key]",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16043,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] CONCURRENCY Race Condition on Count Increment (def hit)\n  - Issue: The check `if key not in self.counts:` and the increment `self.counts[key] += 1` are not atomic. Concurrent threads can both see the key missing, each reset the count to 0 inside the lock, then both increment, causing the count to be incorrect (e.g., many concurrent hits may overwrite the count to 0 and only reflect the number of threads that entered the initialization path). The increment itself is also non‑atomic, risking lost updates.\n  - Fix: Protect the entire operation with the lock:\n\n```\ndef hit(self, key):\n    with self.lock:\n        self.counts[key] = self.counts.get(key, 0) + 1\n        return self.counts[key]\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 24651,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CONCURRENCY Race condition in hit() method (at `hit` method)\n  - Issue: The check-then-act pattern `if key not in self.counts` is performed outside the lock, and the increment `self.counts[key] += 1` is also outside the lock. This creates a TOCTOU race where multiple threads can simultaneously see a missing key, all initialize it to 0, and all increment from 0, causing lost increments. Additionally, the `+=` operation is not atomic—two threads can read the same value, increment it, and write back, losing one count.\n  - Fix: `with self.lock:\\n        self.counts[key] = self.counts.get(key, 0) + 1\\n        return self.counts[key]`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 27642,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "race_counter_increment.py",
+    "exit_code": 0,
+    "wall_s": 28.1,
+    "duplicate_of_backfilled": true
+  }
+}

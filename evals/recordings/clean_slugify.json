@@ -1,0 +1,132 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:11:32.135379Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "fe1dc71780a5",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 47709
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "slugify",
+      "title": "Truncation can produce an empty slug for non-empty input",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "LOGIC",
+      "symbol": "slugify",
+      "title": "Truncation loses trailing hyphens",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "slugify",
+      "title": "Redundant rstrip(\"-\") after strip(\"-\")",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [SUGGESTION] LOGIC <Truncation loses trailing hyphens> (in slugify function)\n  - Issue: When truncating a slug longer than max_length, the function strips trailing hyphens after slicing, potentially returning a shorter string than max_length and breaking the length guarantee for inputs ending with hyphens.\n  - Fix: Remove trailing hyphens before truncation and truncate to max_length without stripping, e.g., `return slug[:max_length].rstrip(\"-\")` → `return slug[:max_length].rstrip(\"-\")` is already present; ensure truncation occurs before rstrip, or use `return slug[:max_length].rstrip(\"-\")` after ensuring length, but better: `return slug[:max_length].rstrip(\"-\")` is fine; however need to ensure that after truncation, rstrip does not reduce length below max_length, which it may. Better: `return slug[:max_length].rstrip(\"-\")` may be okay, but to guarantee length, truncate first then strip: `return slug[:max_length].rstrip(\"-\")` is current; issue is that rstrip may remove needed characters. Actually need to strip before truncation? Let's think: If slug length > max_length, we want result <= max_length. If we slice then rstrip, result may be < max_length, violating guarantee? The spec says never longer than max_length, not exactly max_length, so it's okay if shorter. But losing trailing hyphens may be undesirable but not a correctness bug. However could cause wrong result if user expects slug to end with hyphen? Not a critical bug. Maybe no issue.\n\nGiven analysis, maybe no issues found. Let's double-check: Are there any security concerns? No. Structure? Fine. Simplicity? Fine.\n\nThus likely NO_ISSUES_FOUND.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 22112,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 32864,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 3995,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [LOGIC] Truncation can produce an empty slug for non-empty input (at `slugify`)\n  - Issue: When the input contains no ASCII alphanumeric characters (e.g. `\"   \"` or `\"é\"`), `ascii_only` becomes empty or all-dash, so `slug` is `\"\"`. The `len(slug) <= max_length` branch returns `\"\"` directly. A caller expecting a non-empty slug for non-empty input gets an empty string, which can break URL generation or uniqueness assumptions downstream.\n  - Fix: After computing `slug`, if it is empty, fall back to a default like `\"-\"` or raise a `ValueError` depending on the contract; at minimum document that empty input yields empty output.\n\n* [SUGGESTION] [SIMPLICITY] Redundant `rstrip(\"-\")` after `strip(\"-\")` (at `slugify`)\n  - Issue: `slug = _NON_SLUG.sub(\"-\", ascii_only).strip(\"-\")` already removes leading/trailing dashes. The final `slug[:max_length].rstrip(\"-\")` only handles the case where truncation cuts mid-dash-run, but `strip` already guarantees no trailing dashes in the untruncated case. The `rstrip` is only meaningful post-truncation, so it is not fully redundant, but the two-step dash handling could be unified.\n  - Fix: Keep the `rstrip` only on the truncated branch (it is already there), but consider a single helper that strips dashes after any slicing to avoid future drift. No functional bug, just minor structural clarity.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8095,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 39203,
+      "duplicate_of": "inclusionai/ling-3.0-flash-sante:free"
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Empty slug returned for input containing no alphanumerics> (at slugify)\n    - Issue: If the input contains no characters that survive to lowercase ASCII alphanumerics (e.g., value = \"!!!\"), the slug becomes an empty string after stripping dashes. The function then returns that empty string, which may be unexpected for callers expecting a non‑empty slug.\n    - Fix: After stripping, if slug is empty, return a fallback such as \"n/a\" or raise a ValueError indicating the input cannot be slugified. For example: if not slug: return \"n/a\" (or raise).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 39602,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "clean_slugify.py",
+    "exit_code": 0,
+    "wall_s": 48.1,
+    "duplicate_of_backfilled": true
+  }
+}

@@ -1,0 +1,180 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:33:43.782355Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "931533ff040e",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 7,
+    "total_latency_ms": 238459
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor; nvidia held more than one seat: no other vendor answered in time, so agreement between those seats is weaker evidence",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "BOUNDS",
+      "symbol": "save_user_config",
+      "title": "TOCTOU symlink race between existence check and open",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "SUGGESTION": 1,
+        "CRITICAL": 3
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 4,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "save_user_config",
+      "title": "Incorrect permission check for file removal",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "save_user_config",
+      "title": "os.chmod after write exposes sensitive data in world-readable window",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "save_user_config",
+      "title": "Atomic operation for safe replacement",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC Incorrect permission check for file removal (at save_user_config)\n    - Issue: The function checks os.access(path, os.W_OK) to decide if the file can be removed, but removing a file requires write and execute permission on the containing directory, not write permission on the file itself. This can lead to false PermissionError raises or unnecessary failures when the file is not writable but the directory permits deletion.\n    - Fix: Remove the os.access check; attempt os.remove inside a try block and catch PermissionError or OSError to handle genuine removal failures.\n\n* [WARNING] BOUNDS Time-of-check-time-of-use (TOCTOU) race between existence check and file operations (at save_user_config)\n    - Issue: Between os.path.exists(path) and os.remove(path) (and later open), an attacker could replace the path with a symlink or change the file type, causing the function to remove the wrong file or write to an unintended target.\n    - Fix: Use os.open with flags os.O_CREAT | os.O_EXCL | os.O_WRONLY to atomically create the file, or open with 'x' mode (exclusive creation) after removing the old file via a try-except, ensuring no intervening changes.\n\n* [WARNING] RESOURCE_LEAK Potential file descriptor leak if os.remove raises after open (at save_user_config)\n    - Issue: If os.remove(path) succeeds but the subsequent open raises an exception (e.g., IsADirectoryError), the function exits without closing any opened file handle, though none is opened yet. However, if we change to open before removal to avoid TOCTOU, we must ensure cleanup on error.\n    - Fix: Use a try/finally block or context manager to guarantee the file handle is closed on error, or better, open the file with 'x' mode after removing the old file in the same try block.\n\n* [SUGGESTION] SIMPLICITY Redundant existence check and manual removal can be replaced by opening with 'w' mode, which truncates (at save_user_config)\n    - Issue: The code explicitly removes an existing file before opening for write, but opening with 'w' already truncates the file to zero length, making the remove step unnecessary and adding complexity.\n    - Fix: Delete the os.path.exists and os.remove block; simply open with 'w' (or 'x' if you need to fail if file exists) and set permissions afterward. This reduces code and eliminates race conditions related to removal.\n\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 15099,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [CONCURRENCY] TOCTOU symlink race between existence check and open (at `save_user_config`, `os.path.exists` → `open`)\n  - Issue: Between `os.path.exists(path)` returning `False` and `open(path, \"w\")` executing, an attacker can create a symlink at `path` pointing to an arbitrary target (e.g., `/etc/shadow`). The `open` call follows the symlink and writes `blob` to the symlink's target, enabling arbitrary file overwrite. A symmetric race exists between `os.remove(path)` and `open(path, \"w\")`.\n  - Fix: Eliminate the check-then-act pattern. Use `os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)` to atomically create the file while refusing symlinks, then wrap the fd with `os.fdopen` for writing.\n\n* [WARNING] [LOGIC] `os.chmod` after write exposes sensitive data in world-readable window (at `save_user_config`, `fh.write` → `os.chmod`)\n  - Issue: The file is written with default umask permissions (potentially `0644`) before `os.chmod(path, 0o600)` is called. If `blob` contains secrets, any local user can read the file during that window. On a busy system or with slow I/O, this window is non-trivial.\n  - Fix: Set permissions atomically during creation via the mode argument of `os.open` (as above), or call `os.chmod(path, 0o600)` before writing (though this still leaves a small window).\n\n* [WARNING] [ERROR_HANDLING] `os.remove` raises unhandled exception when `path` is a directory (at `save_user_config`, `os.remove(path)`)\n  - Issue: If `path` points to a directory, `os.path.exists` returns `True`, `os.access` may return `True`, but `os.remove(path)` raises `IsADirectoryError` (or `PermissionError` on Windows). This exception propagates uncaught, leaving the function's contract unclear.\n  - Fix: Either add `os.path.isfile(path)` to the guard condition, or catch the exception and raise a more descriptive error.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 51239,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] CORRECTNESS Data loss on write failure after removal (at save_user_config)\n    - Issue: The function deletes the existing file before writing the new blob. If an error occurs during the write (e.g., disk full, permission error after removal), the original file is permanently lost and the new file may be incomplete or absent, resulting in silent data corruption.\n    - Fix: Write to a temporary file in the same directory, then atomically rename it over the target after successful write and chmod, preserving the original on failure.\n\n* [CRITICAL] SECURITY Symlink TOCTOU race between removal and open (at save_user_config)\n    - Issue: After checking existence and permissions, the function removes the file and then opens it for writing. An attacker can replace the path with a symlink to a sensitive file in the window between removal and open, causing the subsequent write (and chmod) to affect arbitrary files.\n    - Fix: Open the file with os.O_CREAT | os.O_EXCL | os.O_WRONLY (or use tempfile.NamedTemporaryFile with delete=False) to create a new file atomically, then rename it over the target after writing and setting permissions.\n\n* [WARNING] CORRECTNESS Unhandled IsADirectoryError when path is a directory (at save_user_config)\n    - Issue: If path exists and is a directory, os.remove(path) raises IsADirectoryError, which is not caught, causing the function to crash unexpectedly instead of reporting a clear error.\n    - Fix: Before removal, check if path is a directory with os.path.isdir and raise an appropriate error (e.g., IsADirectoryError) or handle it.\n\n* [WARNING] SECURITY Use of os.access introduces TOCTOU permission race (at save_user_config)\n    - Issue: The permission check via os.access(path, os.W_OK) can become stale before os.remove, allowing a race where the file becomes unwritable after the check but before removal, leading to unexpected PermissionError or removal failure.\n    - Fix: Remove the explicit os.access check; rely on the exception from os.remove (or the open) to handle permission issues, catching OSError and translating to PermissionError if* [CRITICAL] CORRECTNESS Data loss on write failure after removal (at save_user_config)\n    - Issue: The function deletes the existing file before writing the new blob. If an error occurs during the write (e.g., disk full, permission error after removal), the original file is permanently lost and the new file may be incomplete or absent, resulting in silent data corruption.\n    - Fix: Write to a temporary file in the same directory, then atomically rename it over the target after successful write and chmod, preserving the original on failure.\n\n* [CRITICAL] SECURITY Symlink TOCTOU race between removal and open (at save_user_config)\n    - Issue: After checking existence and permissions, the function removes the file and then opens it for writing. An attacker can replace the path with a symlink to a sensitive file in the window between removal and open, causing the subsequent write (and chmod) to affect arbitrary files.\n    - Fix: Open the file with os.O_CREAT | os.O_EXCL | os.O_WRONLY (or use tempfile.NamedTemporaryFile with delete=False) to create a new file atomically, then rename it over the target after writing and setting permissions.\n\n* [WARNING] CORRECTNESS Unhandled IsADirectoryError when path is a directory (at save_user_config)\n    - Issue: If path exists and is a directory, os.remove(path) raises IsADirectoryError, which is not caught, causing the function to crash unexpectedly instead of reporting a clear error.\n    - Fix: Before removal, check if path is a directory with os.path.isdir and raise an appropriate error (e.g., IsADirectoryError) or handle it.\n\n* [WARNING] SECURITY Use of os.access introduces TOCTOU permission race (at save_user_config)\n    - Issue: The permission check via os.access(path, os.W_OK) can become stale before os.remove, allowing a race where the file becomes unwritable after the check but before removal, leading to unexpected PermissionError or removal failure.\n    - Fix: Remove the explicit os.access check; rely on the exception from os.remove (or the open) to handle permission issues, catching OSError and translating to PermissionError if needed.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 63344,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] [AUTH_CRYPTO] TOCTOU race between access check and file creation (save_user_config)\n  - Issue: Between `os.access(path, os.W_OK)` and `os.remove(path)`/`open(path, \"w\")`, an attacker can replace the path with a symlink to a privileged file (e.g., `/etc/passwd`). The subsequent `open(path, \"w\")` follows the symlink and truncates the target, causing arbitrary file overwrite. The `os.chmod` then sets permissions on the symlink target. This is a classic TOCTOU/symlink race.\n  - Fix: Open the file with `O_NOFOLLOW` to refuse symlinks, and use `os.open` with `O_CREAT | O_WRONLY | O_TRUNC | O_NOFOLLOW` and explicit mode `0o600` in a single atomic call. Remove the `os.access` check entirely, relying on the open call to fail with `PermissionError` if the file is not writable.\n\n* [WARNING] [LOGIC] Permission check is redundant and misleading (save_user_config)\n  - Issue: `os.access` checks the real user's permissions, not the effective user's. If the process runs setuid or with elevated privileges, `os.access` may return `False` even though `open` would succeed, or vice versa. This creates inconsistent behavior where the function raises `PermissionError` when it could have written, or proceeds when it shouldn't.\n  - Fix: Remove the `os.access` check and let `open()` raise `PermissionError` naturally if the file cannot be written. This aligns the check with the actual operation and avoids the real-vs-effective UID discrepancy.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16304,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION <Path traversal allows arbitrary file write> (function save_user_config)\n  - Issue: The function trusts the `path` argument without sanitizing or restricting it, allowing an attacker to supply paths like `../../etc/shadow` to write or overwrite arbitrary files. This can lead to data corruption or privilege escalation when the saved config is later read by privileged code.\n  - Fix: Validate that `path` is within an allowed directory (e.g., using `os.path.realpath` and checking a base directory) or reject paths containing `..` components before any file operations.\n\n* [WARNING] LOGIC <Race condition in file deletion> (function save_user_config)\n  - Issue: The check `os.path.exists(path)` followed by `os.remove(path)` is not atomic; another process could create or modify the file between the check and removal, causing deletion of an unintended file or a `FileNotFoundError`. This can corrupt configuration or cause silent failures.\n  - Fix: Use `os.replace` or `os.unlink` after acquiring an exclusive lock, or perform the delete in a single `os.remove` call wrapped in a try/except to handle the case where the file disappears.\n\n* [SUGGESTION] STRUCTURE <Atomic operation for safe replacement> (function save_user_config)\n  - Issue: The current logic reads, deletes, writes, and chmods in separate steps, increasing the window for race conditions and partial updates. A more robust design would write to a temporary file and then rename it atomically.\n  - Fix: Create a temporary file (e.g., `path + \".tmp\"`), write `blob` to it, then `os.replace(tmp_path, path)` and set permissions on the final file. This eliminates the race and ensures the file is fully written before becoming visible.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 31291,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "Provider error 503 after 4 retries: Provider returned error",
+      "latency_ms": 44244
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 80248
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 111181
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 42385
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 36736
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-pro:free",
+      "error": "Empty response from model",
+      "latency_ms": 115818
+    }
+  ],
+  "_eval": {
+    "snippet": "toctou_config_write.py",
+    "exit_code": 0,
+    "wall_s": 238.9,
+    "duplicate_of_backfilled": true
+  }
+}

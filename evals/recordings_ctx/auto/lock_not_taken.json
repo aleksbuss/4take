@@ -1,0 +1,138 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T11:22:11.072115Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "656049806476",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 41949,
+    "context": {
+      "files": [
+        "limits/counter.py (lines 6-23)"
+      ],
+      "tokens": 157,
+      "dropped": [],
+      "auto": {
+        "limits/counter.py (lines 6-23)": "the rest of class RateCounter"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "reset",
+      "title": "reset modifies shared _counts and _windows without acquiring self._lock, racing with hit and count which both hold the lock. A concurrent hit can append to a deque after it's been popped, or count can read a half-removed key. Fix: wrap the pops in with self._lock",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "count",
+      "title": "Missing atomicity between count and reset",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "_counts",
+      "title": "State leakage via defaultdict",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "defaultdict",
+      "title": "Unnecessary defaultdict for windows",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] CONCURRENCY `reset` bypasses the counter lock (at `RateCounter.reset`)\n  - Issue: `hit` and `count` synchronize access through `self._lock`, but `reset` mutates both dictionaries without acquiring it. A concurrent `reset` can remove a key between `hit`’s `_counts[key] += 1` and `_windows[key].append(...)`, or interleave with a new `hit`; the hit can then be lost, and the two counters can diverge. For example, `hit(k)` may increment `_counts[k]` after `reset(k)` removes `_windows[k]`, leaving a permanent count without a corresponding window event.\n  - Fix: Perform both removals while holding the same mutex, e.g. `with self._lock: self._counts.pop(key, None); self._windows.pop(key, None)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 11979
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] CONCURRENCY `reset` modifies shared `_counts` and `_windows` without acquiring `self._lock`, racing with `hit` and `count` which both hold the lock. A concurrent `hit` can append to a deque after it's been popped, or `count` can read a half-removed key. Fix: wrap the pops in `with self._lock:`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15084
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Missing atomicity between count and reset> (at symbol/line)\n  - Issue: The `count` method reads `self._windows[key]` while holding the lock, but `reset` also acquires the same lock and removes the key entirely. If `count` is executing concurrently with `reset`, it may copy a deque that will be deleted before the sum is computed, leading to inconsistent or missing data. The current lock ordering does not guarantee that `count` sees a stable view of the window.\n  - Fix: Acquire the lock in `count` as a separate context (already done) and ensure `reset` waits for any ongoing `count` to finish before deleting the key, e.g., by using a separate lock or by moving the deletion outside the lock after confirming no other thread holds it.\n\n* [WARNING] STRUCTURE <State leakage via defaultdict> (at symbol/line)\n  - Issue: The `_counts` and `_windows` defaultdicts retain entries for keys that have been reset if a subsequent `hit` occurs after reset; however, the reset method only removes the key from the dicts, not resetting any per‑key invariants (e.g., cumulative count). Callers may assume that after `reset` the counter starts from zero, but the next `hit` will increment a previously absent key, which is correct, yet the design couples the lifetime of the key to the lifetime of the defaultdict entry, making future changes (e.g., adding a per‑key TTL) error‑prone.\n  - Fix: Replace the per‑key defaultdicts with a structure that can be cleanly cleared per key (e.g., a regular dict mapping key to a dedicated container) or add a method that resets the container’s internal state without deleting the key, preserving any higher‑level invariants.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary defaultdict for windows> (at symbol/line)\n  - Issue: Using `defaultdict(deque)` adds indirection and hidden default behavior for a use case where the key must be explicitly managed (reset). A plain `dict` mapping keys to `deque` objects would make the reset operation clearer and avoid the implicit creation of empty deques on accidental key access.\n  - Fix: Change `self._windows = defaultdict(deque)` to `self._windows = {}` and initialize an empty deque for a key when first needed, e.g., `self._windows.setdefault(key, deque())`. This reduces hidden state and aligns the data structure with the explicit reset semantics.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 32818
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CONCURRENCY Race condition in `reset` method (at `reset`)\n  - Issue: The `reset` method modifies shared state (`_counts`, `_windows`) without acquiring `self._lock`, while all other methods (`hit`, `count`) protect their access with the same lock. Under concurrent access, a thread calling `hit` or `count` can observe inconsistent state or corrupt data structures. For example, Thread A could be in the middle of `hit`'s locked section when Thread B calls `reset` and pops from both dicts, leaving `_counts` and `_windows` out of sync or causing KeyError during subsequent access.\n  - Fix: Wrap the operations with the lock:\n    ```python\n    def reset(self, key):\n        \"\"\"Forget everything recorded for `key`.\"\"\"\n        with self._lock:\n            self._counts.pop(key, None)\n            self._windows.pop(key, None)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 41911
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 44.5
+  }
+}

@@ -1,0 +1,9 @@
+diff --git a/web/auth_handlers.py b/web/auth_handlers.py
+--- a/web/auth_handlers.py
++++ b/web/auth_handlers.py
+@@ -14,4 +14,7 @@ async def on_login(request, user):
+     await audit.record("login", user_id=user.id, ip=request.client.host)
++    refresh_session(user.id)
++    if user.role == "admin" or "owner":
++        request.session["can_manage"] = True
+     return redirect("/dashboard")

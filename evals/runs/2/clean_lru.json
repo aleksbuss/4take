@@ -1,0 +1,119 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:31:12.591042Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "9627ee82c7f3",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 53599
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "put",
+      "title": "Non-atomic read-modify-write in put",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "SUGGESTION": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "LRUCache",
+      "title": "OrderedDict usage",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7702,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [SUGGESTION] SIMPLICITY <OrderedDict usage> (class LRUCache)\n  - Issue: Using `OrderedDict` adds unnecessary complexity; Python 3.7+ dict maintains insertion order, so `move_to_end`/`popitem` can be replaced with `pop(key)` and re‑insert, reducing indirection and making the intent clearer.\n  - Fix: Replace `self._data: OrderedDict` with a regular `dict` and adjust `get`/`put` logic accordingly.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16649,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 1833,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 47042,
+      "duplicate_of": "nex-agi/nex-n2.5-mini:free"
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [CONCURRENCY] Non-atomic read-modify-write in `put` (at `LRUCache.put`)\n  - Issue: `put` performs a check-then-act sequence (`if key in self._data`, `move_to_end`, assignment, length check, `popitem`) with no synchronization. Under concurrent access, two threads can interleave between the membership check and the assignment, causing duplicate entries, lost updates, or eviction of the wrong item. The `get` method's `move_to_end` is similarly unsafe.\n  - Fix: Guard all access to `self._data` with a `threading.Lock` (or `RLock`), acquiring it in both `get` and `put` around the entire critical section.\n\n* [SUGGESTION] [SIMPLICITY] Redundant membership check in `put` (at `LRUCache.put`)\n  - Issue: The `if key in self._data` branch calls `move_to_end` before the unconditional `self._data[key] = value`. When the key already exists, `OrderedDict.__setitem__` does not move it to the end, so the explicit `move_to_end` is needed for correctness — but the two-step pattern is subtle and easy to break during future edits.\n  - Fix: Remove the `if key in self._data` branch and instead call `self._data.move_to_end(key)` unconditionally after assignment, or simply accept that `OrderedDict` does not auto-promote on update and document the invariant clearly.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 6550,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 23490,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "clean_lru.py",
+    "exit_code": 0,
+    "wall_s": 54.0,
+    "duplicate_of_backfilled": true
+  }
+}

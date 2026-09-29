@@ -1,0 +1,12 @@
+diff --git a/jobs/timing.py b/jobs/timing.py
+--- a/jobs/timing.py
++++ b/jobs/timing.py
+@@ -1,6 +1,6 @@
+ import time
+
+
+ def elapsed(started_at):
+-    """Seconds since `started_at`, a time.monotonic() reading."""
+-    return time.monotonic() - started_at
++    """Milliseconds since `started_at`, a time.monotonic() reading."""
++    return (time.monotonic() - started_at) * 1000

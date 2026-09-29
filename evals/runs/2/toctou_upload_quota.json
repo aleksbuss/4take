@@ -1,0 +1,109 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:34:33.278354Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "ac396b55405f",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 47057
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "accept_upload",
+      "title": "Quota check is not atomic with write and usage bump",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 4,
+        "SUGGESTION": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [CONCURRENCY] Quota check is not atomic with write and usage bump (accept_upload, lines 2–7)\n- Issue: Between `store.bytes_used(user)` and `store.write(key, payload)`, and again between `store.write` and `store.bump_usage`, a concurrent caller for the same user can interleave. Two simultaneous uploads can both pass the quota check, both write, and both bump — resulting in total usage exceeding `store.quota(user)` by an unbounded amount. Any system enforcing a quota as a hard limit is bypassed under concurrent load.\n- Fix: Perform the check, reservation, write, and bump inside a single atomic operation on `store` (e.g., an `insert_with_quota_check` method), or hold a per-user lock across the entire sequence so no two uploads for the same user can interleave between the check and the bump.\n\n[WARNING] [ERROR_HANDLING] Usage bump failure after successful write causes quota drift (accept_upload, line 7)\n- Issue: If `store.write(key, payload)` succeeds but `store.bump_usage(user, len(payload))` raises or fails, the payload is persisted but the usage counter is not incremented. Over time this silently desynchronizes tracked usage from actual storage, allowing future uploads beyond the true quota. The error path swallows the failure — the caller receives a valid `key` while the store is now in an inconsistent state.\n- Fix: Wrap write and bump in a try/except that deletes the written key on bump failure, or use a store method that performs both atomically. At minimum, propagate the exception and roll back the written key.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9793,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Quota check race condition> (accept_upload)\n  - Issue: `used = store.bytes_used(user)` and `if used + len(payload) > store.quota(user):` read the usage and quota separately; another thread could modify usage between these calls, allowing the upload to exceed the quota. This can cause silent over‑usage or resource exhaustion.\n  - Fix: Perform a single atomic check, e.g., `if store.bytes_used(user) + len(payload) > store.quota(user): raise QuotaExceeded(user)`, or lock the store during the check.\n\n* [WARNING] RESOURCE_LEAK <Potential key reservation leak> (accept_upload)\n  - Issue: `key = store.reserve_key(user)` reserves a key before `store.write(key, payload)` succeeds. If `store.write` fails (e.g., due to payload size, encoding, or storage error), the reserved key remains allocated but never written, leading to a leak that may accumulate.\n  - Fix: Wrap the reservation and write in a try/except, and roll back the reservation on failure, e.g., `try: key = store.reserve_key(user); store.write(key, payload); store.bump_usage(user, len(payload)); return key except: store.release_key(key)`.\n\n* [WARNING] ERROR_HANDLING <Inconsistent usage update on write failure> (accept_upload)\n  - Issue: `store.bump_usage(user, len(payload))` is called after `store.write`. If `store.write` raises, usage is incremented without a corresponding successful write, corrupting the usage accounting.\n  - Fix: Move the usage bump inside the same try block after a successful write, or use a transactional approach that rolls back the usage on any exception.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary separate bump_usage call> (accept_upload)\n  - Issue: `store.bump_usage(user, len(payload))` duplicates the quota check logic; the store could handle usage increment internally after a successful write, removing the need for the caller to manage it.\n  - Fix: Remove the explicit bump call and let `store.write` manage usage, or make `bump_usage` idempotent and atomic with the write.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 25091,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CORRECTNESS Race condition in quota enforcement (at `accept_upload`)\n  - Issue: The quota check (`used + len(payload) > store.quota(user)`) and subsequent write (`store.write(key, payload)`) are not atomic. Between the check and the write, concurrent uploads can pass the same quota check, allowing the total usage to exceed the quota. For example, if user has 90/100 bytes used and two 15-byte uploads arrive concurrently, both pass the 105-byte check, both write 15 bytes, resulting in 120 bytes used—exceeding quota by 20 bytes.\n  - Fix: Move the quota check inside the write operation or use a lock/transaction to make the check-and-write atomic. Alternatively, have `store.reserve_key` return a key only if quota permits, making reservation and write a single atomic operation.\n\n* [WARNING] CORRECTNESS Missing rollback on write failure (at `store.write(key, payload)`)\n  - Issue: If `store.write` fails after `reserve_key` succeeds, the reserved key is leaked (never cleaned up) and `bump_usage` is never called, but the caller has no way to know the write failed vs succeeded. The function assumes write always succeeds.\n  - Fix: Wrap in try/except and clean up the reserved key on write failure, or have `reserve_key` return a context manager that cleans up on exception.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 41222,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] LOGIC Race condition in quota enforcement (at accept_upload function)\n  - Issue: Between the quota check (`used + len(payload) > store.quota(user)`) and `store.bump_usage(user, len(payload))`, concurrent uploads for the same user can both pass the check, allowing the user to exceed their quota. If two threads call this function simultaneously with payloads that individually fit but together exceed quota, both will be accepted.\n  - Fix: Move the quota check into the store layer as an atomic operation, or use a lock around the entire check-and-update sequence.\n\n* [WARNING] ERROR_HANDLING Missing error handling for store operations (at accept_upload function)\n  - Issue: If `store.write(key, payload)` fails after `store.reserve_key(user)` succeeds, or if `store.bump_usage(user, len(payload))` fails after the write, the system state becomes inconsistent (orphaned key or incorrect usage count). The function provides no rollback or cleanup mechanism.\n  - Fix: Wrap operations in try/except with appropriate cleanup, or ensure store methods are atomic and handle their own rollback.\n\n* [WARNING] LOGIC Integer overflow potential in quota check (at accept_upload function)\n  - Issue: The expression `used + len(payload)` can overflow in languages with fixed-size integers, potentially bypassing the quota check. While Python's arbitrary-precision integers prevent this, this pattern is a common vulnerability in other languages and should be noted for portability.\n  - Fix: Check `len(payload) > store.quota(user) - used` instead, or use a checked arithmetic library.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 46081,
+      "duplicate_of": "poolside/laguna-xs-2.1:free"
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] CONCURRENCY TOCTOU race in quota check (accept_upload)\n  - Issue: The function reads `store.bytes_used(user)` and `store.quota(user)`, then later calls `store.write(key, payload)`. Between the check and the write, another concurrent invocation can also pass the quota test, causing the combined usage to exceed the quota and breaking the invariant.\n  - Fix: Make the quota check and write atomic, e.g., move quota enforcement into `store.write` or protect the whole sequence with a lock/transaction so that no other thread can interleave.\n\n* [WARNING] RESOURCE_LEAK Reserved key leaked if write fails (accept_upload)\n  - Issue: If `store.write(key, payload)` raises an exception (disk full, network error, etc.), the function propagates the error, leaving the key reserved by `store.reserve_key(user)` without cleanup. The reserved key may hold allocated storage or other resources, causing a leak.\n  - Fix: Wrap `store.write` in a try‑except, and on exception call `store.release_key(key)` (or equivalent cleanup) before re‑raising. This ensures the reservation is reclaimed if the write cannot complete.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 47051,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [CONCURRENCY] Race condition between quota check and usage bump (at accept_upload)\n    - Issue: Two concurrent calls for the same user can both pass the quota check before either calls bump_usage, leading to total usage exceeding quota without raising QuotaExceeded.\n    - Fix: Perform the quota check, reservation, write, and bump inside a single atomic operation in the store (e.g., store.accept_upload) or protect the critical section with a per-user lock.\n\n* [WARNING] [RESOURCE_LEAK] Reserved key not released on write failure (at accept_upload)\n    - Issue: If store.write(key, payload) raises an exception after store.reserve_key(user) succeeds, the reserved key is never released, leaking a resource.\n    - Fix: Wrap the write in a try/finally block that calls store.release_key(key) on failure, or have reserve_key return a context manager that automatically releases the key.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 26704,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "toctou_upload_quota.py",
+    "exit_code": 0,
+    "wall_s": 47.5,
+    "duplicate_of_backfilled": true
+  }
+}

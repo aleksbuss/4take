@@ -1,0 +1,15 @@
+diff --git a/deploy/views.py b/deploy/views.py
+--- a/deploy/views.py
++++ b/deploy/views.py
+@@ -1 +1,11 @@
+ from deploy.git_tools import run_git
++from deploy.http import json_response
++
++
++def switch_branch(request):
++    branch = request.json["branch"]
++    try:
++        output = run_git("checkout", branch)
++    except Exception:
++        pass
++    return json_response({"branch": branch, "output": output})

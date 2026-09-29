@@ -1,0 +1,17 @@
+diff --git a/accounts/signup.py b/accounts/signup.py
+--- a/accounts/signup.py
++++ b/accounts/signup.py
+@@ -1,9 +1,14 @@
+ from accounts.models import Account
+ from accounts.passwords import hash_password
+
+
++def normalize_email(address):
++    return address.strip().lower()
++
++
+ def register(email, password):
++    email = normalize_email(email)
+     if Account.objects.filter(email=email).exists():
+         raise ValueError("email already registered")
+     return Account.objects.create(email=email, password_hash=hash_password(password))

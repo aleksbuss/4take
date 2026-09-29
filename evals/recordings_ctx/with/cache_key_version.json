@@ -1,0 +1,104 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T10:59:17.846805Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "c66e189f5b62",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 32320,
+    "context": {
+      "files": [
+        "profiles/events.py"
+      ],
+      "tokens": 41,
+      "dropped": []
+    }
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "profile_cache_key",
+      "title": "Cache invalidation targets a key the reader no longer uses",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 1,
+        "WARNING": 3
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC Cache invalidation targets a key the reader no longer uses (`profile_cache_key`, `on_profile_updated`)\n  - Issue: Reads now use `profile:v2:{user_id}`, but the provided `on_profile_updated` still deletes `profile:{user_id}`. After any profile update, the v2 entry survives for the full 24-hour TTL, so subsequent reads return stale authorization/profile data and the application may trust an outdated role, status, or identity.\n  - Fix: Centralize key construction and use it from both read and invalidation paths, for example `redis.delete(profile_cache_key(user_id))` in `on_profile_updated`. Avoid duplicating the Redis key format across modules.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4787
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC <Concise Title> (at profile_cache_key)\n    - Issue: The cache key format changed to include a schema version (v2), but the cache invalidation in profiles/events.py still uses the old key format (without version). When a profile is updated, on_profile_updated deletes the old key (profile:{user_id}) but the active cache uses the new key (profile:v2:{user_id}), leaving stale data in cache until TTL expiry. Concrete scenario: after a profile update, subsequent reads return the pre-update profile from the versioned cache key.\n    - Fix: Update the invalidation key in profiles/events.py to match the new format: redis.delete(f\"profile:v{SCHEMA_VERSION}:{user_id}\"). Alternatively, move SCHEMA_VERSION to a shared location and import it in events.py.\n\n[WARNING] STRUCTURE <Concise Title> (at SCHEMA_VERSION)\n    - Issue: The SCHEMA_VERSION constant is defined in profiles/cache.py but is required by the cache invalidation logic in profiles/events.py (shown in reference context). This creates a cross-module dependency where events.py must know about cache internals (the versioned key format) to invalidate correctly. If SCHEMA_VERSION changes, events.py must be updated simultaneously, increasing coupling and risk of inconsistency during deployment.\n    - Fix: Move SCHEMA_VERSION to a shared module (e.g., profiles.constants) and import it in both cache.py and events.py. This centralizes the version definition and reduces coupling.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 17327
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "[WARNING] [LOGIC] New cache entries are never invalidated (at `profile_cache_key`)\n- Issue: `profile_cache_key` now writes to `profile:v2:{user_id}`, but the referenced `on_profile_updated` invalidates only `profile:{user_id}`. After a profile update, a previously cached v2 entry remains valid, so `get_cached_profile` can silently return stale data.\n- Fix: Update `on_profile_updated` to delete both `profile:{user_id}` and `profile:v2:{user_id}` (preferably in one Redis pipeline).\n<CPA_DONE>",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5155
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[WARNING] LOGIC Stale cache due to key format mismatch (at profile_cache_key)\n- Issue: The profile_cache_key now returns “profile:v2:{user_id}” while the invalidation routine on_profile_updated still deletes “profile:{user_id}”. After a profile update, the versioned cache entry remains, so subsequent reads serve stale data. This breaks the cache invalidation contract and can cause data consistency errors.\n- Fix: Update on_profile_updated to delete the versioned key, e.g.:\n\n```python\ndef on_profile_updated(user_id):\n    from profiles.cache import profile_cache_key\n    redis.delete(profile_cache_key(user_id))\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 32312
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Version mismatch after schema bump> (profile_cache_key, get_cached_profile)\n- Issue: profile_cache_key now includes schema version prefix, but on_profile_updated still deletes the old key without version, causing cached profiles to be removed while get_cached_profile looks for a key with version prefix, leading to missed cache entries and potential data loss or stale reads.\n- Fix: Update on_profile_updated to delete the versioned key: redis.delete(f\"profile:v{SCHEMA_VERSION}:{user_id}\")\n\n[WARNING] STRUCTURE <Stale key accumulation> (profile_cache_key, SCHEMA_VERSION)\n- Issue: The schema version constant is introduced but old keys without the version prefix remain indefinitely, causing storage bloat and potential key space exhaustion as the number of versions grows.\n- Fix: Add a periodic cleanup routine that deletes keys not matching the current SCHEMA_VERSION pattern, or migrate existing keys on version change.\n\n[SUGGESTION] SIMPLICITY <Unnecessary indirection> (SCHEMA_VERSION constant)\n- Issue: The project already uses a versioned key scheme; introducing a separate constant adds indirection without clear benefit, increasing cognitive load and maintenance cost.\n- Fix: Replace the constant with a literal version string (e.g., \"2\") directly in the key construction to eliminate the extra variable.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 19596
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 32.7
+  }
+}

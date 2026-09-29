@@ -1,0 +1,86 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:02:04.395420Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "988e333399d5",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 18825,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "createUser",
+      "title": "Renamed event breaks existing subscribers",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-fin:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 3
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] LOGIC Renamed event breaks existing subscribers (`createUser`)\n  - Issue: `createUser` now emits `\"userCreated\"` instead of the established `\"user:created\"` contract. Any existing consumer subscribed to `user:created`—for analytics, provisioning, or cache invalidation—will silently stop receiving user-creation events, while `emit` itself still reports success.\n  - Fix: Preserve the existing event name unless the rename is accompanied by updates to every producer and consumer, preferably with a compatibility transition that emits both names during migration.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 3605
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-fin:free",
+      "served_provider": "Novita",
+      "content": "[WARNING] [CORRECTNESS] Event name rename breaks silent listeners (at line 11)\n\n- Issue: The event name was changed from `\"user:created\"` to `\"userCreated\"`. Any subscriber registered for the old `\"user:created\"` event will silently stop receiving notifications, causing downstream logic (e.g., notification, audit logging, cache invalidation) to be skipped without error. This is a breaking change to the event contract with no compile-time or runtime indication.\n- Fix: Either update all listeners from `\"user:created\"` to `\"userCreated\"`, or keep the original event name if the rename was unintentional. If a rename is intentional, grep the codebase for `\"user:created\"` and update every `bus.on(\"user:created\", ...)` or `bus.subscribe(\"user:created\", ...)` call accordingly.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5398
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.\n\nThis is a straightforward event naming convention change from `user:created` to `userCreated`. The change maintains the same functionality - emitting an event with the user object. Without visibility into other files that may listen for this event, I cannot assess whether this breaks existing listeners, but the change itself is syntactically correct and introduces no security or correctness issues.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 17751
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] LOGIC Event name mismatch (bus.emit at line 8)\n  - Issue: The event emitted changed from `\"user:created\"` to `\"userCreated\"`. Any listeners registered for `\"user:created\"` will not receive the notification, causing missing side‑effects such as welcome emails, audit logs, or downstream processing that depends on this event.\n  - Fix: Restore the original event name (or update all listeners) so the service emits a consistent event. For example, change back to `bus.emit(\"user:created\", user);`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18816
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 19.4
+  }
+}

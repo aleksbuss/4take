@@ -1,0 +1,110 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:41:26.773026Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "9627ee82c7f3",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 4,
+    "total_latency_ms": 100260
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8981,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10456,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 24637,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-pro:free",
+      "served_model": "nex-agi/nex-n2.5-pro:free",
+      "served_provider": "Nex AGI",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 5645,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Capacity validation allows zero capacity leading to infinite growth>\n  - Issue: The __init__ method only checks `capacity < 1`, allowing `capacity == 0`. With zero capacity, `len(self._data) > 0` is false initially, so no eviction occurs, causing unbounded insertion and memory growth (quadratic behavior) on any put operations, violating the bounded cache contract.\n  - Fix: Change the capacity check to `if capacity <= 0:` to reject zero capacity.\n\n* [WARNING] STRUCTURE <OrderedDict directly exposes mutable state>\n  - Issue: The `_data` attribute is an `OrderedDict` stored publicly, allowing callers to manipulate the cache (e.g., reorder keys, clear entries) outside the class, breaking the LRU invariant and causing incorrect eviction behavior.\n  - Fix: Make `_data` private (e.g., `self._data: OrderedDict = OrderedDict()`) and expose only the intended public methods.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18490,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 64487,
+      "duplicate_of": "poolside/laguna-s-2.1:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 10942
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 47748
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "Provider error 503 after 4 retries: Provider returned error",
+      "latency_ms": 42673
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 40991
+    }
+  ],
+  "_eval": {
+    "snippet": "clean_lru.py",
+    "exit_code": 0,
+    "wall_s": 100.7,
+    "duplicate_of_backfilled": true
+  }
+}

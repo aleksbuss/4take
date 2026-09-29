@@ -1,0 +1,132 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T11:25:27.441833Z",
+  "config": {
+    "models_requested": 7,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "14236218e783",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 48428,
+    "context": {
+      "files": [
+        "app/api.py",
+        "app/mailer.py"
+      ],
+      "tokens": 134,
+      "dropped": [],
+      "auto": {
+        "app/api.py": "uses find_user",
+        "app/mailer.py": "uses find_user"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "find_user",
+      "title": "find_user returns None",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "find_user",
+      "title": "find_user contract changed",
+      "models": [
+        "cohere/north-mini-code:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "send_welcome_email",
+      "title": "send_welcome_email has no error handling for missing user",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC `find_user` Breaks All Missing-User Callers (at `find_user`)\n  - Issue: Returning `None` for a missing user violates the established exception-based contract. For any nonexistent ID, `get_profile` no longer catches `UserNotFound` and crashes on `user.email`; `send_welcome_email` likewise crashes on `user.email`. The change converts a handled 404 into a direct runtime failure and bypasses the expected control flow.\n  - Fix: Preserve the original contract by raising `UserNotFound(user_id)` when no row exists. If optional lookup is desired, introduce a separate clearly named API rather than changing the behavior of all existing callers.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4080
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC `find_user` return value change breaks callers (at `find_user` in app/users.py)\n  - Issue: Changing `find_user` to return `None` instead of raising `UserNotFound` breaks both callers. In `app/api.py`, `get_profile` catches `UserNotFound` but will now receive `None`, causing `user.email` access to raise `AttributeError` instead of returning 404. In `app/mailer.py`, `send_welcome_email` directly accesses `user.email` on the result, which will crash with `AttributeError` when user not found.\n  - Fix: Either revert to raising `UserNotFound` or update callers to check for `None`: `user = find_user(user_id); if user is None: return {\"error\": \"not found\"}, 404`\n\n* [WARNING] ERROR_HANDLING `send_welcome_email` has no error handling for missing user (at `send_welcome_email` in app/mailer.py)\n  - Issue: The function calls `find_user(user_id)` and immediately accesses `user.email` without checking if user exists. With the new `None` return, any non-existent user_id will cause `AttributeError: 'NoneType' object has no attribute 'email'`, crashing the email sending process.\n  - Fix: Add guard: `user = find_user(user_id); if user is None: return` or raise appropriate exception.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8355
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] ERROR_HANDLING find_user returns None (at find_user)\n- Issue: The function find_user now returns None when the user is not found, breaking its contract that callers expect an exception. get_profile catches UserNotFound to return a 404; with the change it receives None and attempts to access user.email, raising AttributeError. send_welcome_email suffers the same crash. This is a correctness defect that causes unhandled exceptions on valid input.\n- Fix: Restore the original behavior: when row is None, raise UserNotFound(user_id). The callers already handle the exception correctly.\n\n[WARNING] STRUCTURE find_user contract changed (at find_user)\n- Issue: The function's semantics have shifted from raising an exception to returning None, violating the Liskov substitution principle and creating coupling. Callers that rely on the exception must be updated, and any future change to find_user risks breaking multiple modules.\n- Fix: Keep the exception‑raising behavior. If a nullable return is needed, introduce a separate helper (e.g., find_user_or_none) or add a flag parameter, preserving the existing API for existing callers.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8355
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [CORRECTNESS] find_user contract change breaks callers (at app/users.py:find_user)\n  - Issue: Switching from `raise UserNotFound` to `return None` violates the established interface. `app/api.py:get_profile` catches `UserNotFound` to return 404, but now receives `None` and crashes with `AttributeError` on `user.email`. `app/mailer.py:send_welcome_email` similarly crashes on `user.email` instead of letting `UserNotFound` propagate.\n  - Fix: Restore `raise UserNotFound(user_id)` and keep callers exception-based, or update every caller to handle `None` — but the latter requires changes in both shown files.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8822
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 39595
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 49.2
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T11:08:21.787523Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "cd5fe483ae7f",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 15772,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "AUTH_CRYPTO",
+      "symbol": "can_manage",
+      "title": "Membership precedence grants management access to every user",
+      "models": [
+        "cohere/north-mini-code:free",
+        "dots-studio/dots-3-note-preview:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] AUTH_CRYPTO Membership precedence grants management access to every user (`web/auth_handlers.py`, `on_login`)\n  - Issue: `user.role == \"admin\" or \"owner\"` evaluates as `user.role == \"admin\" or True` because a non-empty string is truthy. Consequently, every successfully authenticated user—including roles that should have neither privilege—receives `request.session[\"can_manage\"] = True` and may pass downstream management authorization checks.\n  - Fix: Use explicit membership: `if user.role in {\"admin\", \"owner\"}:`.\n\n* [WARNING] LOGIC Privileged session state is not cleared for unprivileged logins (`web/auth_handlers.py`, `on_login`)\n  - Issue: `can_manage` is only assigned when the current role qualifies. If a session already contains `can_manage=True`—for example, the user previously held an administrative role, or the session is reused after a role downgrade—logging in as a regular user leaves that stale privilege intact. This can cause authorization checks elsewhere to continue granting management access after the account loses the role.\n  - Fix: Set the value on every successful login, for example `request.session[\"can_manage\"] = user.role in {\"admin\", \"owner\"}`, rather than conditionally adding it.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6457
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] AUTH_CRYPTO Privilege escalation via flawed role check (if user.role == \"admin\" or \"owner\":)\n  - Issue: The condition `if user.role == \"admin\" or \"owner\":` is parsed as `(user.role == \"admin\") or \"owner\"`. The literal string `\"owner\"` is truthy, so the entire expression always evaluates to `True`. Consequently, `request.session[\"can_manage\"] = True` is set for any user, granting admin‑like privileges incorrectly.\n  - Fix: Replace with a proper role test, e.g., `if user.role == \"admin\" or user.role == \"owner\":` or `if user.role in (\"admin\", \"owner\"):`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 11714
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] AUTH_CRYPTO Incorrect authorization condition grants manage permissions to all users (at if user.role == \"admin\" or \"owner\":)\n    - Issue: The condition `user.role == \"admin\" or \"owner\"` always evaluates to True because the string \"owner\" is truthy. This causes every user, regardless of role, to be granted `can_manage` permission, leading to privilege escalation for non-admin/owner users.\n    - Fix: Change the condition to properly check the user's role against both values, e.g., `if user.role in (\"admin\", \"owner\"):` or `if user.role == \"admin\" or user.role == \"owner\":`.\n\n* [WARNING] AUTH_CRYPTO Incorrect authorization condition grants manage permissions to all users (at if user.role == \"admin\" or \"owner\":)\n    - Issue: The condition `user.role == \"admin\" or \"owner\"` always evaluates to True because the string \"owner\" is truthy. This causes every user, regardless of role, to be granted `can_manage` permission, leading to privilege escalation for non-admin/owner users.\n    - Fix: Change the condition to properly check the user's role against both values, e.g., `if user.role in (\"admin\", \"owner\"):` or `if user.role == \"admin\" or user.role == \"owner\":`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12360
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n* [CRITICAL] [LOGIC] Privilege escalation: `can_manage` granted to every user (at `on_login`, added lines)\n\n    - Issue: The expression `user.role == \"admin\" or \"owner\"` is parsed as `(user.role == \"admin\") or (\"owner\")`. The bare string `\"owner\"` is always truthy, so the entire condition is always `True` regardless of `user.role`. The intent was clearly `user.role == \"admin\" or user.role == \"owner\"` (or `user.role in (\"admin\", \"owner\")`). As written, `request.session[\"can_manage\"] = True` executes for every single user who logs in, silently conferring management privileges on non-admin/non-owner accounts. This is a missing-authorization defect: any authenticated user can reach management surfaces that should be restricted.\n    - Fix: `if user.role in (\"admin\", \"owner\"): request.session[\"can_manage\"] = True` — or better, derive the flag from a role/permission set rather than a hardcoded branch, so the check stays in one place and cannot be mis-typed again.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15765
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 16.2
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:37:15.321677Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "14236218e783",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 29567,
+    "context": {
+      "files": [
+        "app/api.py",
+        "app/mailer.py"
+      ],
+      "tokens": 134,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "find_user",
+      "title": "find_user violates its existing not-found contract",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 4,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] [LOGIC] `find_user` violates its existing not-found contract (at `find_user`)\n  - Issue: A missing ID now returns `None` instead of raising `UserNotFound`, but existing callers rely on that exception. For example, `get_profile` catches `UserNotFound` and returns 404; with the modified implementation, the exception is bypassed and `user.email` raises `AttributeError`, producing a server error instead. `send_welcome_email` likewise dereferences `None`.\n  - Fix: Preserve the exception contract: `if row is None: raise UserNotFound(user_id)`. If `None` is the intended new contract, update every caller to explicitly check and handle it.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 2401
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC find_user returns None instead of raising UserNotFound (at find_user)\n- Issue: The change makes find_user return None when the user is not found, but callers in get_profile and send_welcome_email expect either a User object or an exception. get_profile will attempt to access user.email on None, raising AttributeError; send_welcome_email similarly crashes. This breaks the API contract and leads to runtime errors.\n- Fix: Revert the change: raise UserNotFound(user_id) when row is None, preserving existing exception‑based error handling.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9161
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC `find_user` return value change breaks callers (at `find_user` in app/users.py)\n  - Issue: Changing `find_user` to return `None` instead of raising `UserNotFound` breaks all callers. In `app/api.py`, `get_profile` catches `UserNotFound` but will now receive `None`, causing an `AttributeError` when accessing `user.email`. In `app/mailer.py`, `send_welcome_email` directly accesses `user.email` without null checks, also causing `AttributeError`. Both callers silently fail with unhandled exceptions instead of proper error handling.\n  - Fix: Either revert to raising `UserNotFound`, or update all callers to handle `None` return value with appropriate error handling.\n\n* [WARNING] ERROR_HANDLING `send_welcome_email` lacks error handling for missing user (at `send_welcome_email` in app/mailer.py)\n  - Issue: The function calls `find_user` and immediately accesses `user.email` without checking if user exists. If `find_user` returns `None` (as changed), this causes `AttributeError`. Even with the original exception-raising behavior, the `UserNotFound` exception is not caught, potentially crashing the application or leaving users without welcome emails.\n  - Fix: Add try/except for `UserNotFound` or check for `None` return value before accessing user attributes.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 14900
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <find_user returns None instead of raising UserNotFound> (app/users.py line where `return None`)\n- Issue: The function now returns `None` for a missing user, but `api.py` catches only `UserNotFound` and `mailer.py` expects a user object; both will attempt to access `user.email`/`user.name` leading to AttributeError or a 200 response with missing data. Concrete scenario: a request with a non‑existent `user_id` bypasses the 404 handling and causes a server error or incorrect profile data.\n- Fix: Replace `return None` with `raise UserNotFound(user_id)` to preserve the exception contract.\n\n[WARNING] STRUCTURE <Error handling moved from function to callers> (app/users.py, api.py, mailer.py)\n- Issue: By returning `None` instead of raising, the responsibility for detecting missing users is shifted to each caller, causing duplicated null‑checks and increasing the risk that one caller forgets to handle the case. This coupling makes any future change to error handling require updates in multiple places, violating the single‑source‑of‑truth principle and leading to maintenance drift.\n- Fix: Revert `find_user` to raise `UserNotFound` (or return a proper optional type) and update callers to handle the exception or None consistently.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 29559
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 30.1
+  }
+}

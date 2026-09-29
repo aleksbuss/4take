@@ -1,0 +1,104 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T11:04:38.219397Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "314158d73d18",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 29669,
+    "context": {
+      "files": [
+        "billing/coupons.py"
+      ],
+      "tokens": 96,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "apply_coupon",
+      "title": "Incorrect discount calculation",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "SIMPLICITY",
+      "symbol": "apply_coupon",
+      "title": "Unnecessary quantize",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 14749
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 19661
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Incorrect discount calculation> (apply_coupon)\n  - Issue: _apply_percentage computes the amount after discount (total * (100 - percent) / 100) but apply_coupon intends to apply a percentage discount, so the result should be total * (1 - percent/100). The current implementation is mathematically correct for a discount, but the function name and usage suggest it applies the discount directly, which could mislead callers; more critically, if MAX_PERCENT were changed to >100, the calculation would produce negative totals, breaking invariants.\n  - Fix: Return total * (Decimal(100) - percent) / Decimal(100) is correct for discount; ensure validation prevents percent > 100 or adjust logic to total * (Decimal(100) - percent) / Decimal(100) remains safe.\n\n[WARNING] SIMPLICITY <Unnecessary quantize> (apply_coupon)\n  - Issue: The quantize to \"0.01\" forces two‑decimal precision on the discounted total, which may hide rounding errors and adds a fixed‑point constraint that is unnecessary for a pure arithmetic operation; this adds cost (extra Decimal operation) without clear benefit.\n  - Fix: Remove the .quantize(Decimal(\"0.01\")) call, returning the raw Decimal result.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 28559
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 29662
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 30.1
+  }
+}

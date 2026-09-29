@@ -1,0 +1,96 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T11:19:12.693984Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "616516c27b6d",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 20501,
+    "context": {
+      "files": [
+        "app/settings.py"
+      ],
+      "tokens": 64,
+      "dropped": [],
+      "auto": {
+        "app/settings.py": "module settings"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "fetch_profile",
+      "title": "Undefined PROFILE_API_TIMEOUT_MS setting",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC Undefined setting causes AttributeError (at clients/profiles.py: in fetch_profile function)\n    - Issue: The code uses `settings.PROFILE_API_TIMEOUT_MS` which is not defined in app.settings (reference context shows only PROFILE_API_TIMEOUT_SECONDS). This will raise AttributeError on every call to fetch_profile, crashing the application.\n    - Fix: Replace `settings.PROFILE_API_TIMEOUT_MS` with `settings.PROFILE_API_TIMEOUT_SECONDS` to use the existing timeout setting in seconds.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6968
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC `fetch_profile` references a nonexistent timeout setting (in `fetch_profile`)\n  - Issue: Every invocation raises `AttributeError` because `app.settings` defines `PROFILE_API_TIMEOUT_SECONDS`, not `PROFILE_API_TIMEOUT_MS`. Profile fetching therefore fails before any HTTP request is made, including for valid user IDs.\n  - Fix: Convert the existing seconds-based setting before passing it to `httpx`: `timeout = settings.PROFILE_API_TIMEOUT_SECONDS`, or rename the configuration consistently if milliseconds are the intended unit.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8163
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] [LOGIC] Undefined PROFILE_API_TIMEOUT_MS setting (at fetch_profile)\n  - Issue: The function fetch_profile references settings.PROFILE_API_TIMEOUT_MS, which does not exist; settings only defines PROFILE_API_TIMEOUT_SECONDS. This causes an AttributeError on every call, crashing the service. The division by 1000 also suggests a mistaken assumption about units.\n  - Fix: Replace `timeout = settings.PROFILE_API_TIMEOUT_MS / 1000` with `timeout = settings.PROFILE_API_TIMEOUT_SECONDS`, removing the unnecessary conversion.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12995
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC `fetch_profile` timeout configuration (at `fetch_profile` function)\n  - Issue: The code references `settings.PROFILE_API_TIMEOUT_MS` which does not exist in the settings module. The reference context shows `PROFILE_API_TIMEOUT_SECONDS` is defined, but the code attempts to access a non-existent `PROFILE_API_TIMEOUT_MS` attribute. This will raise an `AttributeError` at runtime when `fetch_profile` is called.\n  - Fix: Change `settings.PROFILE_API_TIMEOUT_MS` to `settings.PROFILE_API_TIMEOUT_SECONDS` and remove the division by 1000:\n    ```python\n    timeout = settings.PROFILE_API_TIMEOUT_SECONDS\n    ```\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 20485
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 22.1
+  }
+}

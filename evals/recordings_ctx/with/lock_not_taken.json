@@ -1,0 +1,128 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T11:08:03.578854Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "656049806476",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 42133,
+    "context": {
+      "files": [
+        "limits/counter.py"
+      ],
+      "tokens": 222,
+      "dropped": []
+    }
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "reset",
+      "title": "Race condition in RateCounter.count",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 3,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": null,
+      "title": "Unbounded memory growth in _counts and _windows",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] CONCURRENCY: `reset()` updates counter state without the mutex (at `RateCounter.reset`)\n  - Issue: `hit()` performs both mutations under `self._lock`, but `reset()` pops from `_counts` and `_windows` independently without acquiring it. A thread switch between the two pops can allow a concurrent `hit(key)` to increment `_counts` and append to `_windows`; the subsequent `_windows.pop()` then deletes the new event while `_counts` retains its increment. Although `count()` uses `_windows`, later reset/state changes can observe inconsistent state, and the documented “forget everything recorded” operation is not atomic with hits.\n  - Fix: Acquire `self._lock` around both removals:\n    ```python\n    with self._lock:\n        self._counts.pop(key, None)\n        self._windows.pop(key, None)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4983
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC Missing lock in reset method (at reset)\n    - Issue: The reset method accesses shared state (_counts and _windows) without holding the lock, while hit and count methods use the lock. Concurrent calls to reset with hit or count could lead to inconsistent state or lost updates.\n    - Fix: Wrap the reset method body in `with self._lock:` to ensure atomic access to the shared dictionaries.\n\n[WARNING] RESOURCE_LEAK Unbounded memory growth in _counts and _windows (at _counts and _windows)\n    - Issue: The reset method only removes entries for a specific key, but there is no mechanism to evict stale keys. Over time, _counts and _windows will accumulate entries for keys that are no longer active, causing memory leaks.\n    - Fix: Implement periodic cleanup (e.g., in hit or count) to remove keys with no recent activity, or use a bounded data structure like LRU cache for the dictionaries.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 17502
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "[WARNING] [CONCURRENCY] `reset` races with concurrent `hit` (at `reset`)\n- Issue: `reset` removes both records without acquiring `_lock`, while `hit` mutates them under the lock. If `hit` appends after `reset` pops the entries, the key is recreated and its new hit remains visible; `count(key)` can return 1 even though `reset` promised to forget everything.\n- Fix: Hold `self._lock` while popping both `_counts` and `_windows`, matching the locking used by `hit` and `count`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 3063
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "[WARNING] CONCURRENCY <Reset races with hit and can leave stale state> (RateCounter.reset)\n - Issue: `reset()` mutates `_counts` and `_windows` without acquiring `self._lock`, while `hit()` and `count()` use that lock. For example, if `hit()` has passed the lock acquisition but `reset()` pops both entries, `hit()` can subsequently append a new hit; if `reset()` pops `_windows` after `hit()` appends, the two structures become inconsistent. Thus a key reset may fail to clear recent hits or expose mismatched count data.\n - Fix: Acquire `self._lock` around both `pop` calls so reset is linearizable with `hit()` and `count()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nex-agi/nex-n2.5-mini:free",
+      "latency_ms": 39053
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] CONCURRENCY Race condition in RateCounter.count (at RateCounter.count)\n- Issue: The count method copies self._windows[key] under lock, then sums the list outside the lock. Between copying and summing, concurrent hit operations may append new entries to the deque, causing those hits to be omitted from the total. This yields an undercount on concurrent workloads, breaking the rate‑limiting invariant.\n- Fix: Compute the total while holding the lock:\n    with self._lock:\n        cutoff = time.monotonic() - self.window_seconds\n        total = sum(hits for stamp, hits in self._windows[key] if stamp >= cutoff)\n    return total\n\n[CRITICAL] CONCURRENCY Race condition in RateCounter.reset (at RateCounter.reset)\n- Issue: reset removes entries from _counts and _windows without acquiring self._lock, allowing concurrent hit or count operations to modify the dicts simultaneously. This can corrupt internal state, raise KeyError, or cause inconsistent counts.\n- Fix: Protect the removal with the same lock:\n    with self._lock:\n        self._counts.pop(key, None)\n        self._windows.pop(key, None)",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 42126
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Race condition in reset> (line 33)\n- Issue: reset acquires _lock while count may be reading _windows[key] without holding lock, causing inconsistent view and potential stale data; also count releases lock before computing sum, allowing other threads to modify _windows during summation, leading to incorrect counts.\n- Fix:\n```python\ndef reset(self, key):\n    with self._lock:\n        self._counts.pop(key, None)\n        self._windows.pop(key, None)\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 23827
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 42.5
+  }
+}

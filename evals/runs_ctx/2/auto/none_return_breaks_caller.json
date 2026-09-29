@@ -1,0 +1,99 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T16:04:06.501315Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "14236218e783",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 31769,
+    "context": {
+      "files": [
+        "app/api.py",
+        "app/mailer.py"
+      ],
+      "tokens": 134,
+      "dropped": [],
+      "auto": {
+        "app/api.py": "uses find_user",
+        "app/mailer.py": "uses find_user"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "find_user",
+      "title": "find_user returns None instead of raising UserNotFound",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-s-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] LOGIC Missing users no longer raise the documented exception (at `find_user`)\n  - Issue: `find_user` now returns `None` for an unknown ID, but both reference callers still expect `UserNotFound`: `get_profile` catches that exception and therefore dereferences `None` at `user.email`, turning the intended 404 into a 500; `send_welcome_email` likewise crashes at `user.email`. Any valid request for a deleted or nonexistent user triggers this.\n  - Fix: Preserve the lookup contract and raise `UserNotFound(user_id)` when no row exists. If optional lookup semantics are required, add a separately named API that explicitly returns `None` and update every caller to handle it.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5836
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] [LOGIC] `find_user` returns `None` instead of raising `UserNotFound` (at `find_user`)\n  - Issue: The function now returns `None` on a missing user, but its contract — and both callers — expect `UserNotFound` to be raised. `app/api.py:get_profile` catches `UserNotFound` to return a 404; with `None` returned, it falls through to `user.email`, raising an `AttributeError` (500) instead of a 404. `app/mailer.py:send_welcome_email` calls `find_user` and immediately accesses `user.email` with no `None` check, so a missing user produces an `AttributeError` instead of a clear failure. This silently breaks the documented exception-based contract and corrupts error handling at every call site.\n  - Fix: Restore `raise UserNotFound(user_id)` in the `if row is None:` branch. If a `None`-returning variant is genuinely desired, add a separate function (e.g. `get_user_or_none`) and update both callers explicitly; do not change the semantics of `find_user` in place.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 26305
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <find_user returns None instead of raising UserNotFound (app/users.py)>\n  - Issue: The function now returns None for a missing user, causing get_profile to skip its UserNotFound handling and attempt to access user.email/name on a None object, resulting in an AttributeError crash on valid (non‑existent) user_id and breaking the expected exception contract.\n  - Fix: Replace “return None” with “raise UserNotFound(user_id)” to restore the exception contract.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 28610
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] [ERROR_HANDLING] find_user returns None instead of raising UserNotFound (at find_user)\n- Issue: The function find_user now returns None when a user is not found, breaking callers that expect UserNotFound to be raised. In app/api.get_profile and app/mailer.send_welcome_email, the code assumes a User object, leading to AttributeError on None, causing 500 errors.\n- Fix: Revert to raising UserNotFound(user_id) when row is None, preserving existing error handling contract.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 31759
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 32.6
+  }
+}

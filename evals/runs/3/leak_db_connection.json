@@ -1,0 +1,158 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T07:04:39.896260Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "bb9a736a368a",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 8,
+    "total_latency_ms": 97873
+  },
+  "warning": "nvidia held more than one seat: no other vendor answered in time, so agreement between those seats is weaker evidence",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "RESOURCE_LEAK",
+      "symbol": "run_migration",
+      "title": "Connection and cursor not released on statement execution error",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 3,
+        "SUGGESTION": 1,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "commit",
+      "title": "No rollback on commit or execute failure",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "run_migration",
+      "title": "Migration logic tightly coupled to raw pool API",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[WARNING] [RESOURCE_LEAK] Connection leaked on execution failure (at `cur.execute(stmt)` / `pool.release(conn)`)\n- Issue: If any `cur.execute(stmt)` raises, control exits the function before `pool.release(conn)` is reached. The connection is never returned to the pool and any partial transaction remains open, silently degrading pool capacity with each subsequent failure until exhaustion.\n- Fix: Wrap the execute loop and commit in a `try`/`except` that calls `conn.rollback()` followed by `pool.release(conn)` in a `finally` block, or use a context manager that guarantees release.\n\n[WARNING] [ERROR_HANDLING] No rollback on commit or execute failure (at `conn.commit()`)\n- Issue: If `conn.commit()` itself fails after statements have already executed, the function propagates the exception without rolling back the partially-applied statements or releasing the connection. Callers cannot distinguish \"all applied and committed\" from \"some applied, none committed.\"\n- Fix: After catching the exception from `commit`, call `conn.rollback()` before re-raising or releasing, and consider returning a status indicator rather than relying solely on exception flow.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9176,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK <Connection not released on exception> (at run_migration)\n  - Issue: If any `cur.execute(stmt)` raises, the loop exits early and `pool.release(conn)` is never called, leaving the connection checked out of the pool and causing a leak; the subsequent `conn.commit()` may also fail, further corrupting the transaction.\n  - Fix:\n    ```python\n    try:\n        for stmt in statements:\n            cur.execute(stmt)\n        conn.commit()\n    finally:\n        pool.release(conn)\n    ```\n\n* [WARNING] LOGIC <Premature commit on statement failure> (at run_migration)\n  - Issue: `conn.commit()` is called after the loop regardless of whether any statement failed; if an execute raises, the transaction may be in an inconsistent state and committing can raise an error or silently corrupt data, leading to wrong results the caller will trust.\n  - Fix:\n    ```python\n    try:\n        for stmt in statements:\n            cur.execute(stmt)\n        conn.commit()\n    except Exception:\n        conn.rollback()\n        raise\n    ```\n\n* [SUGGESTION] SIMPLICITY <Unnecessary manual transaction handling> (at run_migration)\n  - Issue: The function manually manages commit/rollback and connection lifecycle, adding boilerplate that can be replaced by a context‑manager pattern (e.g., `with pool.connection() as conn:`) which guarantees release and proper commit/rollback, reducing code weight without changing behavior.\n  - Fix:\n    ```python\n    def run_migration(pool, statements):\n        with pool.connection() as conn:\n            with conn.cursor() as cur:\n                for stmt in statements:\n                    cur.execute(stmt)\n                conn.commit()\n        return len(statements)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21714,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [RESOURCE_LEAK] Connection and cursor not released on exception (at `run_migration`)\n  - Issue: If any `cur.execute(stmt)` raises, `conn.commit()` and `pool.release(conn)` are skipped, leaking the connection and cursor. Subsequent calls exhaust the pool, causing timeouts or failures under load.\n  - Fix: Wrap the body in `try/finally` to guarantee `pool.release(conn)` and `cur.close()` execute even on exception.\n\n* [WARNING] [ERROR_HANDLING] Transaction not rolled back on failure (at `run_migration`)\n  - Issue: On exception, the transaction remains open with uncommitted changes, leaving the database in a partially-migrated state. Callers may retry or assume success, corrupting schema integrity.\n  - Fix: Add `conn.rollback()` in the `except` block before re-raising, ensuring atomicity of the migration batch.\n\n* [SUGGESTION] [STRUCTURE] Migration logic tightly coupled to raw pool API (at `run_migration`)\n  - Issue: Direct use of `pool.acquire()`/`pool.release()` and `conn.cursor()` forces every caller to replicate resource management. If the pool implementation changes (e.g., context-manager API), all call sites break.\n  - Fix: Use `with pool.acquire() as conn:` and `with conn.cursor() as cur:` to delegate cleanup to the pool and cursor, reducing coupling and eliminating manual release logic.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10397,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] RESOURCE_LEAK Connection and cursor not released on statement execution error (at run_migration)\n    - Issue: If any statement in `statements` raises an exception (e.g., a syntax error or constraint violation), the function exits before `pool.release(conn)` and `cur.close()` are called. The acquired connection and its cursor remain checked out from the pool, eventually exhausting the pool under repeated failures and causing the application to hang when trying to acquire new connections.\n    - Fix: Execute the statements inside a `try` block, roll back the transaction on exception, and release resources in a `finally` block:\n        ```python\n        def run_migration(pool, statements):\n            conn = pool.acquire()\n            cur = conn.cursor()\n            try:\n                for stmt in statements:\n                    cur.execute(stmt)\n                conn.commit()\n            except Exception:\n                conn.rollback()\n                raise\n            finally:\n                cur.close()\n                pool.release(conn)\n            return len(statements)\n        ```\n\n* [CRITICAL] LOGIC Transaction left open after partial execution failure (at run_migration)\n    - Issue: When an exception occurs during `cur.execute(stmt)`, the loop aborts before `conn.commit()`. The connection is left with an open transaction containing any statements that succeeded prior to the failure. If the connection is later reused (e.g., by the pool without an explicit rollback), those uncommitted changes may become visible to other operations or cause lock contention, leading to incorrect behavior or deadlocks.\n    - Fix: Ensure a rollback is performed on any error before re‑raising, as shown in the corrected version above. The `except` block calls `conn.rollback()` to abort the transaction, preventing partial effects from persisting.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 27445,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "",
+      "latency_ms": 12446
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "",
+      "latency_ms": 39893
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "",
+      "latency_ms": 39894
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 58929
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 34650
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "error": "",
+      "latency_ms": 41413
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-pro:free",
+      "error": "",
+      "latency_ms": 6761
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 38937
+    }
+  ],
+  "_eval": {
+    "snippet": "leak_db_connection.py",
+    "exit_code": 0,
+    "wall_s": 98.3,
+    "duplicate_of_backfilled": true
+  }
+}

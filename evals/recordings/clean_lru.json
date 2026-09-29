@@ -1,0 +1,142 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:10:41.985360Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "9627ee82c7f3",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 73131
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": null,
+      "title": "Least-recently-used eviction relies on OrderedDict insertion order, which can be broken by subclassing or custom OrderedDict behavior",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "get",
+      "title": "Race condition in get/put under concurrent access",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": null,
+      "title": "Using OrderedDict adds a heavy standard-library dependency for a simple LRU semantics that can be implemented with a dict + doubly linked list, increasing code complexity and maintenance cost",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "put",
+      "title": "Eviction policy is hardcoded to LRU, coupling capacity management to a specific strategy",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8508,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Least-recently-used eviction relies on OrderedDict insertion order, which can be broken by subclassing or custom OrderedDict behavior> (at symbol/line)\n  - Issue: If a subclass overrides OrderedDict methods (e.g., __setitem__) or replaces the _data with a different mapping that does not preserve insertion order, the eviction logic may remove the wrong entry, violating the LRU invariant.\n  - Fix: Store a separate doubly-linked list or use collections.deque to maintain order explicitly, ensuring eviction always removes the true least recently used item regardless of mapping behavior.\n\n* [SUGGESTION] SIMPLICITY <Using OrderedDict adds a heavy standard-library dependency for a simple LRU semantics that can be implemented with a dict + doubly linked list, increasing code complexity and maintenance cost> (at symbol/line)\n  - Issue: The current implementation couples ordering logic to OrderedDict, making the class harder to reason about and modify; a custom structure would be lighter and more explicit.\n  - Fix: Replace OrderedDict with a dict and a manual linked list (or use collections.deque) to track usage order, reducing indirection and clarifying intent.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21560,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 2821,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [CONCURRENCY] Race condition in get/put under concurrent access (LRUCache.get, LRUCache.put)\n  - Issue: `get` and `put` perform non-atomic read-modify-write sequences (`move_to_end`, assignment, `popitem`) on the shared `OrderedDict`. Under concurrent threads, two `put` calls can both pass the capacity check and evict different entries, or `get` can observe a partially-updated state, leading to lost updates or inconsistent LRU ordering.\n  - Fix: Guard all access to `self._data` with a `threading.Lock` (or use a thread-safe structure), acquiring it for the duration of each `get`/`put` operation.\n\n* [SUGGESTION] [STRUCTURE] Eviction policy is hardcoded to LRU, coupling capacity management to a specific strategy (LRUCache.put)\n  - Issue: The eviction logic (`popitem(last=False)`) is embedded directly in `put`, making it impossible to swap in a different policy (e.g., FIFO, MRU) without modifying the class. This violates separation of concerns and forces future changes to touch the core cache logic.\n  - Fix: Extract eviction into a strategy interface or pass an eviction callable, allowing `put` to delegate eviction without knowing the policy.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 22454,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] CONCURRENCY <Missing thread safety> (at class LRUCache)\n    - Issue: OrderedDict is not thread-safe; concurrent calls to put/get can corrupt internal state (e.g., size exceeding capacity, lost updates, or incorrect eviction) leading to cache correctness violations under multi‑threaded use.\n    - Fix: Add a threading.RLock (or threading.Lock) and protect all accesses to self._data with the lock, or document that the cache is not thread‑safe and must be externally synchronized.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 28461,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 50668
+    }
+  ],
+  "_eval": {
+    "snippet": "clean_lru.py",
+    "exit_code": 0,
+    "wall_s": 73.6,
+    "duplicate_of_backfilled": true
+  }
+}

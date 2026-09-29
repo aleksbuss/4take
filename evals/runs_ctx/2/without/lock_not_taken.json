@@ -1,0 +1,109 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:03:24.061746Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "656049806476",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 50417,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "reset",
+      "title": "RateCounter.reset is not atomic across its two dictionaries",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "reset",
+      "title": "Unbounded Counter Growth",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] CONCURRENCY: `RateCounter.reset` is not atomic across its two dictionaries (at `RateCounter.reset`)\n  - Issue: With concurrent `hit()` and `reset()` calls, `reset()` can remove `self._counts[key]`, then a concurrent hit can recreate or update the count before `self._windows.pop(key, None)` runs. The final state can contain a count without its corresponding window (or vice versa), so subsequent limit calculations can produce incorrect results. The same interleaving can also make a concurrent `get()` observe a partially reset counter.\n  - Fix: Protect all counter mutations and reads with the same lock, or store the count and window together in one per-key state object and replace/remove that single state atomically.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5362
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Unbounded Counter Growth> (line 30)\n  - Issue: The `reset` method only removes entries for `key` from `_counts` and `_windows`, but does not reset the per-key hit counters (`_hits`) or timestamps, allowing a malicious caller to force unbounded memory growth by repeatedly calling `reset` with new keys while maintaining high hit counts for existing keys. This creates a resource exhaustion vulnerability where memory usage grows linearly with the number of distinct keys processed.\n  - Fix: Add `self._hits.pop(key, None)` to the `reset` method to fully clear all state associated with `key`.\n\n* [WARNING] STRUCTURE <State Leak via Partial Reset> (line 30)\n  - Issue: The `reset` method only clears `_counts` and `_windows` for `key`, but leaves `_hits[key]` intact, violating the invariant that `reset` should \"forget everything recorded for `key`\". This creates inconsistent state where subsequent calls to `get_rate` for `key` may return stale or incorrect values, requiring callers to handle partial resets or risk logic errors.\n  - Fix: Add `self._hits.pop(key, None)` to the `reset` method to ensure complete state removal.\n* [CRITICAL] LOGIC <Unbounded Counter Growth> (line 30)\n  - Issue: The `reset` method only removes entries for `key` from `_counts` and `_windows`, but does not reset the per-key hit counters (`_hits`) or timestamps, allowing a malicious caller to force unbounded memory growth by repeatedly calling `reset` with new keys while maintaining high hit counts for existing keys. This creates a resource exhaustion vulnerability where memory usage grows linearly with the number of distinct keys processed.\n  - Fix: Add `self._hits.pop(key, None)` to the `reset` method to fully clear all state associated with `key`.\n\n* [WARNING] STRUCTURE <State Leak via Partial Reset> (line 30)\n  - Issue: The `reset` method only clears `_counts` and `_windows` for `key`, but leaves `_hits[key]` intact, violating the invariant that `reset` should \"forget everything recorded for `key`\". This creates inconsistent state where subsequent calls to `get_rate` for `key` may return stale or incorrect values, requiring callers to handle partial resets or risk logic errors.\n  - Fix: Add `self._hits.pop(key, None)` to the `reset` method to ensure complete state removal.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6098
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 43698
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 50407
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "latency_ms": 12004
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 51.0
+  }
+}

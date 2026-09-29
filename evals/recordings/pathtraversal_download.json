@@ -1,0 +1,98 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:18:51.370518Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "8b93eaecd064",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 21533
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "read_report",
+      "title": "Path traversal in read_report",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [INJECTION] Path traversal in read_report (read_report)\n- Issue: `name` is joined directly into `ROOT` with no containment check. An input like `../../etc/passwd` makes `full` resolve outside `/srv/reports`, and `os.path.isfile` passes for any readable file on the system, so `read_report(\"../../etc/passwd\")` returns its bytes. The `FileNotFoundError` guard only confirms existence, not scope.\n- Fix: Resolve and verify containment before opening:\n  ```python\n  full = os.path.realpath(os.path.join(ROOT, name))\n  if os.path.commonpath([ROOT, full]) != ROOT:\n      raise ValueError(name)\n  if not os.path.isfile(full):\n      raise FileNotFoundError(name)\n  ```\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 3466,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Path traversal via name argument (read_report)\n  - Issue: The function joins ROOT with the user‑supplied name without validation. An attacker can provide an absolute path (e.g., \"/etc/passwd\") or a relative path containing \"..\" (e.g., \"../../etc/shadow\") to read files outside the intended directory. Because os.path.isfile follows symlinks, a symlink inside ROOT pointing outside also bypasses the check, enabling arbitrary file read.\n  - Fix: Normalize the resolved path and ensure it stays under ROOT: real_path = os.path.realpath(os.path.join(ROOT, name)); if not real_path.startswith(os.path.realpath(ROOT)): raise ValueError(\"Invalid report name\"). This blocks absolute paths, \"..\" sequences, and symlink escapes.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7232,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] INJECTION Path traversal allows reading arbitrary files (at read_report)\n    - Issue: The function joins user‑supplied `name` with `ROOT` without validating that the resulting path stays inside the intended directory. An attacker can supply `name` such as `\"../../../etc/passwd\"` or an absolute path like `\"/etc/passwd\"` to read files outside `/srv/reports`, leading to information disclosure.\n    - Fix: Resolve the joined path and ensure it is contained within `ROOT` before opening, e.g.:\n        full = os.path.join(ROOT, name)\n        full = os.path.normpath(full)\n        if not full.startswith(os.path.normpath(ROOT) + os.sep) and full != os.path.normpath(ROOT):\n            raise FileNotFoundError(name)\n        if not os.path.isfile(full):\n            raise FileNotFoundError(name)\n        with open(full, \"rb\") as fh:\n            return fh.read()",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16733,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [INJECTION] Path traversal via unsanitized `name` parameter (in `read_report`)\n\n- Issue: `os.path.join(ROOT, name)` does not prevent directory traversal. If `name` is `../../etc/passwd`, the resolved path becomes `/srv/reports/../../etc/passwd` → `/etc/passwd`, bypassing the intended `ROOT` boundary. The `os.path.isfile` check will pass and the function will return arbitrary file contents from the filesystem.\n- Fix: Validate the resolved path stays within `ROOT` after normalization:\n  ```python\n  full = os.path.realpath(os.path.join(ROOT, name))\n  if not full.startswith(os.path.realpath(ROOT) + os.sep):\n      raise PermissionError(name)\n  ```\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18176,
+      "duplicate_of": "inclusionai/ling-3.0-flash-vl:free"
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] SECURITY Path Traversal Vulnerability (at read_report function)\n  - Issue: The function accepts arbitrary `name` parameter and uses `os.path.join()` without validating the resulting path stays within `ROOT`. An attacker can pass `../../../etc/passwd` or `../../other_dir/secret` to read files outside `/srv/reports`. `os.path.join(\"/srv/reports\", \"../etc/passwd\")` produces `/srv/reports/../etc/passwd` which resolves to `/etc/passwd`.\n  - Fix: Resolve the path and verify it's within ROOT:\n    ```python\n    def read_report(name):\n        full = os.path.realpath(os.path.join(ROOT, name))\n        if not full.startswith(os.path.realpath(ROOT) + os.sep) and full != os.path.realpath(ROOT):\n            raise FileNotFoundError(name)\n        if not os.path.isfile(full):\n            raise FileNotFoundError(name)\n        with open(full, \"rb\") as fh:\n            return fh.read()\n    ```\n\n* [WARNING] CORRECTNESS TOCTOU Race Condition (at read_report function)\n  - Issue: Time-of-check-time-of-use vulnerability exists between `os.path.isfile()` check and `open()` call. An attacker could replace the file with a symlink between these operations, causing the function to read an unintended file or fail unexpectedly.\n  - Fix: Use exception handling instead of pre-checking:\n    ```python\n    def read_report(name):\n        full = os.path.realpath(os.path.join(ROOT, name))\n        if not full.startswith(os.path.realpath(ROOT) + os.sep) and full != os.path.realpath(ROOT):\n            raise FileNotFoundError(name)\n        try:\n            with open(full, \"rb\") as fh:\n                return fh.read()\n        except FileNotFoundError:\n            raise FileNotFoundError(name)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21524,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "pathtraversal_download.py",
+    "exit_code": 0,
+    "wall_s": 22.0,
+    "duplicate_of_backfilled": true
+  }
+}

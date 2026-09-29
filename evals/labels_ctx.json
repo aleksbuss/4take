@@ -1,0 +1,158 @@
+{
+  "_about": "Cross-file corpus: each review is a diff whose defect lives between files. A cross_file label is named only by a finding that names what the context holds (the affected caller, the helper's behaviour, the real setting), and every one of its keywords is absent from the reviewed diff, so the diff alone cannot supply it. suspect lists the words a reviewer uses to warn about the same break without the context ('callers may break'); a finding matching either list flags the defect. The gap between flagged and named is how far a diff-only review gets by inference. local labels are defects visible in the diff itself; they measure that context does not cost the findings a diff-only review makes. Cases with no labels are clean controls: the diff looks suspect alone and the context shows it is fine. The suspect lists were written before any recording of this corpus existed. Corrected after the first recording (evals/recordings_ctx), before any other: not-awaited is located at refresh_session, the call every reviewer that found it pointed at, not at on_login; 'decline' is no longer a tuple-truthy keyword, because it matched 'card decline' in findings about unhandled exceptions; and score.py stopped reading backticks and suggested fixes. The first recording scored 7/12 flagged and 3/12 named without context, 10/12 and 10/12 with it, before these corrections.",
+  "none_return_breaks_caller": [
+    {
+      "id": "none-return-callers",
+      "kind": "cross_file",
+      "symbol": "find_user",
+      "severity": "CRITICAL",
+      "keywords": ["send_welcome_email", "get_profile", "mailer", "api.py"],
+      "suspect": ["caller", "attributeerror", "nonetype", "breaking", "backward", "contract"],
+      "note": "find_user returns None instead of raising; send_welcome_email dereferences .email, and get_profile's except UserNotFound no longer fires, so both crash with AttributeError."
+    }
+  ],
+  "units_seconds_to_ms": [
+    {
+      "id": "units-ms",
+      "kind": "cross_file",
+      "symbol": "elapsed",
+      "severity": "CRITICAL",
+      "keywords": ["check_stalled", "watchdog", "timeout_seconds"],
+      "suspect": ["caller", "breaking", "backward", "unit", "seconds"],
+      "note": "elapsed() now returns milliseconds; check_stalled compares it with TIMEOUT_SECONDS = 30, so every job is cancelled after 30 ms."
+    }
+  ],
+  "swapped_positional_args": [
+    {
+      "id": "swapped-args",
+      "kind": "cross_file",
+      "symbol": "transfer",
+      "severity": "CRITICAL",
+      "keywords": ["payinvoice", "refundorder", "billing.js"],
+      "suspect": ["positional", "argument order", "parameter order", "reorder", "signature", "call site", "breaking"],
+      "note": "transfer's parameters were reordered; payInvoice and refundOrder still pass (from, to, amount) positionally, so an account object becomes the amount."
+    },
+    {
+      "id": "assign-in-guard",
+      "kind": "local",
+      "symbol": "transfer",
+      "severity": "CRITICAL",
+      "keywords": ["assignment", "=== 0", "== 0", "negative"],
+      "note": "if (amount = 0) assigns rather than compares, and the positive-amount check is gone: zero and negative transfers go through."
+    }
+  ],
+  "event_renamed": [
+    {
+      "id": "event-renamed",
+      "kind": "cross_file",
+      "symbol": "createUser",
+      "severity": "WARNING",
+      "keywords": ["sendwelcome", "tracksignup", "subscribers.js"],
+      "suspect": ["listener", "subscriber", "handler", "user:created", "breaking", "renam"],
+      "note": "The event is now emitted as userCreated; sendWelcome and trackSignup still listen on user:created and silently stop firing."
+    }
+  ],
+  "lock_not_taken": [
+    {
+      "id": "reset-unlocked",
+      "kind": "cross_file",
+      "symbol": "reset",
+      "severity": "WARNING",
+      "keywords": ["self._lock", "_lock"],
+      "suspect": ["lock", "thread", "race", "concurren", "atomic"],
+      "note": "Every other method of RateCounter holds self._lock and the counter is shared across threads; reset mutates both dicts without it."
+    }
+  ],
+  "duplicate_normalizer": [
+    {
+      "id": "duplicate-normalizer",
+      "kind": "cross_file",
+      "symbol": "normalize_email",
+      "severity": "WARNING",
+      "keywords": ["identity.py", "accounts.identity", "find_account", "already defined"],
+      "suspect": ["duplicat", "gmail", "inconsistent", "canonical", "shadow", "elsewhere"],
+      "note": "accounts.identity.normalize_email already exists and folds Gmail dots and plus-suffixes; signup's weaker copy stores addresses that find_account never matches."
+    }
+  ],
+  "config_key_mismatch": [
+    {
+      "id": "missing-setting",
+      "kind": "cross_file",
+      "symbol": "fetch_profile",
+      "severity": "CRITICAL",
+      "keywords": ["profile_api_timeout_seconds"],
+      "suspect": ["attributeerror", "not defined", "undefined", "does not exist", "doesn't exist", "no attribute", "no such setting"],
+      "note": "settings defines PROFILE_API_TIMEOUT_SECONDS, not PROFILE_API_TIMEOUT_MS: every call raises AttributeError."
+    }
+  ],
+  "missing_await": [
+    {
+      "id": "not-awaited",
+      "kind": "cross_file",
+      "symbol": "refresh_session",
+      "severity": "CRITICAL",
+      "keywords": ["not awaited", "never awaited", "missing await", "coroutine"],
+      "note": "refresh_session is async; called without await it never runs, so the session id is not rotated at login (session fixation). The keywords are already the words a diff-only review would use, so it has no suspect list: context confirms this one rather than revealing it."
+    },
+    {
+      "id": "or-always-true",
+      "kind": "local",
+      "symbol": "on_login",
+      "severity": "CRITICAL",
+      "keywords": ["always true", "always truthy", "non-empty string", "or \"owner\"", "or 'owner'"],
+      "note": "user.role == \"admin\" or \"owner\" is always true: every user gets can_manage."
+    }
+  ],
+  "tuple_as_bool": [
+    {
+      "id": "tuple-truthy",
+      "kind": "cross_file",
+      "symbol": "checkout",
+      "severity": "CRITICAL",
+      "keywords": ["tuple", "truthy", "always true", "(ok, error)"],
+      "note": "charge returns (ok, error), a non-empty tuple that is always truthy: declined charges mark the order paid. No suspect list, for the reason missing_await has none."
+    }
+  ],
+  "nested_commit": [
+    {
+      "id": "inner-commit",
+      "kind": "cross_file",
+      "symbol": "import_order",
+      "severity": "WARNING",
+      "keywords": ["already committed", "commits internally", "commits each", "commits every", "commits after", "commit inside", "commits inside", "own commit", "inner commit", "nested commit", "calls session.commit"],
+      "note": "add_line_item commits on every call, so the rollback cannot undo lines already added: a failed import leaves a partial order. 'partial' is deliberately not a keyword: the except clause catching only KeyError and ValueError is a different atomicity gap a diff-only review can see, and it is described in the same words."
+    }
+  ],
+  "shell_helper_injection": [
+    {
+      "id": "shell-helper",
+      "kind": "cross_file",
+      "symbol": "switch_branch",
+      "severity": "CRITICAL",
+      "keywords": ["shell=true", "shell injection", "subprocess", "joined into"],
+      "suspect": ["command injection", "injection", "sanitiz", "unvalidated", "untrusted"],
+      "note": "run_git joins its arguments into one string and runs it with shell=True, so a branch name from the request is shell command injection."
+    },
+    {
+      "id": "swallowed-unbound",
+      "kind": "local",
+      "symbol": "switch_branch",
+      "severity": "WARNING",
+      "keywords": ["unboundlocalerror", "nameerror", "swallow", "undefined", "unbound"],
+      "note": "except Exception: pass swallows the failure, and output is then unbound when it is returned."
+    }
+  ],
+  "cache_key_version": [
+    {
+      "id": "invalidation-key",
+      "kind": "cross_file",
+      "symbol": "profile_cache_key",
+      "severity": "WARNING",
+      "keywords": ["on_profile_updated", "events.py", "redis.delete"],
+      "suspect": ["invalidat", "stale", "old key format"],
+      "note": "on_profile_updated still deletes profile:{id}; cached entries now live under profile:v2:{id} and are never invalidated, so profiles stay stale for the full TTL."
+    }
+  ],
+  "ctx_clean_validated_upstream": [],
+  "ctx_clean_locked_by_caller": []
+}

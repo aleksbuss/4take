@@ -1,0 +1,12 @@
+diff --git a/limits/counter.py b/limits/counter.py
+--- a/limits/counter.py
++++ b/limits/counter.py
+@@ -27,3 +27,8 @@ class RateCounter:
+             window = list(self._windows[key])
+         total = sum(hits for stamp, hits in window if stamp >= cutoff)
+         return total
++
++    def reset(self, key):
++        """Forget everything recorded for `key`."""
++        self._counts.pop(key, None)
++        self._windows.pop(key, None)

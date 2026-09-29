@@ -1,0 +1,139 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:38:33.009153Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "fad207a14935",
+    "responses_received": 7,
+    "distinct_models": 4,
+    "responses_failed": 4,
+    "total_latency_ms": 199946
+  },
+  "warning": "3 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "fan_out",
+      "title": "Exception objects pass through result filter",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-pro:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [LOGIC] Exception objects pass through result filter (fan_out)\n- Issue: `return_exceptions=True` causes `asyncio.gather` to place exception objects into `results` instead of raising them. The subsequent `if r` filter removes only falsy values (None, 0, \"\"), but exception objects are truthy, so they survive the filter and are returned to the caller as if they were valid fetch results. Any consumer iterating over the return value receives exception instances instead of data, leading to silent misbehavior or crashes at the call site.\n- Fix: Explicitly filter out exceptions: `return [r for r in results if r and not isinstance(r, Exception)]`\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7765,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC Incorrect filtering of results drops falsy valid outputs and retains exceptions (at fan_out)\n    - Issue: The function uses `return_exceptions=True` to capture exceptions as objects, then filters results with `if r`, which removes any falsy legitimate return values (e.g., 0, \"\", [], False) while keeping exception objects because they are truthy. Consequently, callers may receive exceptions mixed with valid data or lose valid falsy outputs.\n    - Fix: Filter out exceptions only: `return [r for r in results if not isinstance(r, Exception)]` (or propagate exceptions by removing `return_exceptions=True` and handling them elsewhere).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8995,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC fan_out incorrectly treats falsy results as failures and returns exceptions as successful results (at fan_out)\n    - Issue: The filter `[r for r in results if r]` discards any falsy return value from `fetch` (e.g., empty string, 0, False) even if it is a valid successful result, and it retains exception objects because they are truthy, causing callers to receive exceptions as if they were successful responses.\n    - Fix: Filter out only exceptions, preserving all other values: `return [r for r in results if not isinstance(r, BaseException)]`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11426,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] LOGIC fan_out silently drops falsy successful results and returns exception objects (at function body)\n  - Issue: With `return_exceptions=True`, `asyncio.gather` returns exception objects for failed fetches. The filter `if r` removes falsy values like `None`, `0`, `\"\"`, `[]`, `False` which could be legitimate results, while keeping exception objects (which are truthy). Callers receive unexpected exception objects mixed with successful results, and valid falsy data is lost.\n  - Fix: `return [r for r in results if not isinstance(r, Exception)]`\n\n* [WARNING] ERROR_HANDLING fan_out provides no way to distinguish failures from successes (at function body)\n  - Issue: The function returns a flat list mixing successful results and exception objects. Callers must manually iterate and check `isinstance(r, Exception)` to handle errors, creating boilerplate at every call site. There's no indication which URLs succeeded or failed, making error recovery impossible without additional context.\n  - Fix: Return a dict mapping URLs to results, or return `(successes, failures)` tuple, or use `asyncio.as_completed` with explicit error handling per URL.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19365,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-pro:free",
+      "served_model": "nex-agi/nex-n2.5-pro:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] [LOGIC] Successful falsy values and fetch failures are silently discarded (at `fan_out`)\n  - Issue: `if r` removes legitimate results such as `None`, `False`, `0`, `\"\"`, and `[]`. It also hides every exception returned by `gather(return_exceptions=True)`. For example, two fetches returning `None` and `\"ok\"` produce only `[\"ok\"]`, making partial failure indistinguishable from successful filtering.\n  - Fix: Preserve falsy successes and filter only exception objects:\n    ```python\n    return [r for r in results if not isinstance(r, BaseException)]\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 49441,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Incorrect result filtering with return_exceptions=True> (function fan_out)\n  - Issue: Using `return_exceptions=True` returns exception objects as results, but the subsequent `if r` filter treats exceptions as truthy and keeps them, while also discarding legitimate falsy results (e.g., empty list, 0, False). Caller will receive exceptions or wrong results, violating expected behavior.\n  - Fix: Filter out exceptions explicitly and only keep successful non‑exception results, e.g.:\n    ```python\n    results = await asyncio.gather(*[fetch(u) for u in urls], return_exceptions=True)\n    return [r for r in results if not isinstance(r, Exception) and r]\n    ```\n\n* [WARNING] STRUCTURE <Unbounded concurrency may cause resource exhaustion> (function fan_out)\n  - Issue: `asyncio.gather` launches a task for every URL without any concurrency limit, allowing unbounded parallelism that can exhaust network sockets, CPU, or memory under high URL count, leading to crashes or degraded performance.\n  - Fix: Introduce a semaphore or bounded worker pool, e.g.:\n    ```python\n    semaphore = asyncio.Semaphore(100)  # adjust limit as needed\n    async def bounded_fetch(u):\n        async with semaphore:\n            return await fetch(u)\n    results = await asyncio.gather(*[bounded_fetch(u) for u in urls], return_exceptions=True)\n    ```\n\nNO_ISSUES_FOUND:",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 24091,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] [LOGIC] Exception objects leak into results (at `fan_out`)\n  - Issue: `return_exceptions=True` causes `asyncio.gather` to return exception instances as values instead of raising. Exception objects are truthy, so the `if r` filter does not remove them. The caller receives a list containing `Exception`/`BaseException` instances mixed with successful results, and has no way to distinguish them without type-checking each element. For example, if `fetch(\"http://bad.host\")` raises `ConnectionError`, that exception object appears in the returned list and the caller will trust it as a valid result.\n  - Fix: Filter out exceptions explicitly: `return [r for r in results if not isinstance(r, BaseException) and r]`\n\n* [WARNING] [CONCURRENCY] Unbounded concurrency with no semaphore (at `fan_out`)\n  - Issue: `asyncio.gather(*[fetch(u) for u in urls])` starts every fetch simultaneously. For large `urls` lists this can exhaust file descriptors, memory, or remote server connection limits, causing cascading failures or hangs. There is no backpressure mechanism.\n  - Fix: Wrap `fetch` with an `asyncio.Semaphore` to cap concurrent operations, or accept a `max_concurrency` parameter and apply it inside the function.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 146847,
+      "duplicate_of": "poolside/laguna-xs-2.1:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "Provider error 503 after 4 retries: Provider returned error",
+      "latency_ms": 39633
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 71717
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 40755
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 38024
+    }
+  ],
+  "_eval": {
+    "snippet": "async_gather_swallow.py",
+    "exit_code": 0,
+    "wall_s": 200.3,
+    "duplicate_of_backfilled": true
+  }
+}

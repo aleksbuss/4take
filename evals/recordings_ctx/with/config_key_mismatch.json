@@ -1,0 +1,114 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T10:59:55.940004Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "616516c27b6d",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 12276,
+    "context": {
+      "files": [
+        "app/settings.py"
+      ],
+      "tokens": 64,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "fetch_profile",
+      "title": "fetch_profile references non-existent setting",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "fetch_profile",
+      "title": "Hardcoded timeout in original code",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC `fetch_profile` references non-existent setting (at `fetch_profile` function)\n  - Issue: The code accesses `settings.PROFILE_API_TIMEOUT_MS` but the settings module defines `PROFILE_API_TIMEOUT_SECONDS`. This attribute mismatch causes an AttributeError at runtime when `fetch_profile` is called, crashing the application.\n  - Fix: Change `PROFILE_API_TIMEOUT_MS` to `PROFILE_API_TIMEOUT_SECONDS` and remove the division by 1000:\n    ```python\n    timeout = settings.PROFILE_API_TIMEOUT_SECONDS\n    ```\n\n* [WARNING] STRUCTURE Hardcoded timeout in original code (at `fetch_profile` function)\n  - Issue: The original hardcoded `timeout=10` duplicated configuration that should have been centralized in settings. While the fix attempts to address this, it introduces a new bug by using the wrong setting name.\n  - Fix: Use the correct setting name `PROFILE_API_TIMEOUT_SECONDS` directly without the millisecond conversion.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5527
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC Undefined timeout variable and incorrect conversion (at fetch_profile)\n- Issue: The code references settings.PROFILE_API_TIMEOUT_MS, which does not exist; the setting is PROFILE_API_TIMEOUT_SECONDS. Dividing seconds by 1000 yields an incorrect timeout (e.g., 0.01 seconds for default), causing a NameError and premature timeout.\n- Fix: Replace with `timeout = settings.PROFILE_API_TIMEOUT_SECONDS` (no division).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9438
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC `fetch_profile` reads a nonexistent timeout setting (at `fetch_profile`)\n  - Issue: `fetch_profile` now accesses `settings.PROFILE_API_TIMEOUT_MS`, but `app.settings` defines `PROFILE_API_TIMEOUT_SECONDS`, not `PROFILE_API_TIMEOUT_MS`. Every invocation will raise `AttributeError` before making the request, breaking all profile fetches and any caller that relies on them.\n  - Fix: Use the existing setting and convert its unit correctly: `timeout = settings.PROFILE_API_TIMEOUT_SECONDS` (or rename the configuration to `_MS` everywhere and keep the `/ 1000` conversion).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9579
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "[WARNING] [ERROR_HANDLING] Undefined profile timeout setting (at `timeout` assignment)\n- Issue: `settings.PROFILE_API_TIMEOUT_MS` is not defined in `app.settings.py`, which exposes `PROFILE_API_TIMEOUT_SECONDS` instead. Every profile request now raises `AttributeError` before `httpx.get` runs, making the client unusable.\n- Fix: Use the existing setting: `timeout = settings.PROFILE_API_TIMEOUT_SECONDS`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6035
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 6233
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 12.7
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T17:17:31.307785Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "063446befa13",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 8,
+    "total_latency_ms": 206378,
+    "context": {
+      "files": [
+        "cache/lru.py"
+      ],
+      "tokens": 205,
+      "dropped": []
+    }
+  },
+  "warning": "nvidia held more than one seat: no other vendor answered in time, so agreement between those seats is weaker evidence",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": null,
+      "title": "Evicting the only item when capacity is zero",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 1913
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7312
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4545
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Evicting the only item when capacity is zero> (at symbol/line)\n  - Issue: When capacity is zero, put adds a key, then evicts the oldest entry (the only item), resulting in an empty cache. This violates the invariant that a key added under capacity zero should remain absent, causing incorrect cache state and potential downstream logic errors.\n  - Fix:\n    if self._items:\n        self._items.popitem(last=False)",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 58906
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "Empty response from model",
+      "latency_ms": 41134
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 56364
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 76493
+    },
+    {
+      "model": "openrouter/qwen/qwen3.8-27b:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 36494
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 34488
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 39982
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "error": "Empty response from model",
+      "latency_ms": 24946
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 207.0
+  }
+}

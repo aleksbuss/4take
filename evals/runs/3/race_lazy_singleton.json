@@ -1,0 +1,136 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T08:57:11.752606Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "d8f40b17fb4e",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 43604
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "get_client",
+      "title": "Race condition in lazy singleton initialization",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "CRITICAL": 1,
+        "WARNING": 4
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "get_client",
+      "title": "Stale configuration after first call",
+      "models": [
+        "cohere/north-mini-code:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "_client",
+      "title": "Global mutable singleton hampers testability and configuration",
+      "models": [
+        "cohere/north-mini-code:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [CONCURRENCY] Race condition in lazy singleton initialization (get_client)\n  - Issue: The check `if _client is None` and the subsequent assignment are not atomic. Under concurrent calls, two or more threads can both observe `_client is None`, each create and connect their own `HttpClient`, and the last assignment wins — other callers receive a different (or partially initialized) instance. This can cause duplicate connections, inconsistent state, or callers using a client whose `connect()` has not completed.\n  - Fix: Guard the initialization with a lock (e.g., `threading.Lock`) or use `__new__`-level synchronization to make the check-and-create sequence atomic.\n\n* [WARNING] [ERROR_HANDLING] Broken client left in global state after failed connect (get_client)\n  - Issue: If `HttpClient(config)` succeeds but `_client.connect()` raises, `_client` is already set to a non-None reference to a partially-initialized client. All subsequent calls to `get_client` return this broken instance without retrying `connect()`, silently surfacing connection failures at call time rather than at initialization time.\n  - Fix: Set `_client = None` in a `finally` block if `connect()` fails, so the next call retries creation, or raise immediately and let the caller handle it.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7494,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [CONCURRENCY] Race condition in lazy initialization of HttpClient (at get_client)\n    - Issue: Multiple threads may concurrently observe _client as None and each create a separate HttpClient instance, leading to multiple connections and resource waste; the final _client reference may refer to only one of them, leaking the others.\n    - Fix: Guard the creation with a threading lock (e.g., `import threading; _lock = threading.Lock()`) and check _client again inside the lock, or initialize the client at module import time.\n\n* [WARNING] [ERROR_HANDLING] Half-initialized client returned on connection failure (at get_client)\n    - Issue: If HttpClient.connect() raises an exception, _client is still assigned to the newly created HttpClient object, which is not connected; callers receive a client that appears valid but will fail on use, and the failed client is never cleaned up, causing a resource leak.\n    - Fix: Wrap the creation and connection in a try block; on exception, set _client back to None (or delete the instance) and re‑raise, ensuring callers see a clear error and no leaked resources.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11211,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [CONCURRENCY] Race condition in lazy initialization (at get_client)\n  - Issue: Multiple threads may concurrently evaluate `if _client is None:` and each create a separate `HttpClient`, resulting in multiple client instances and redundant connections.\n  - Fix: Guard the creation with a lock, e.g.,  \n    ```python\n    import threading\n    _lock = threading.Lock()\n    def get_client(config):\n        global _client\n        if _client is None:\n            with _lock:\n                if _client is None:\n                    _client = HttpClient(config)\n                    _client.connect()\n        return _client\n    ```\n\n* [WARNING] [ERROR_HANDLING] Client returned in failed connection state (at get_client)\n  - Issue: If `HttpClient.connect()` raises after `_client = HttpClient(config)`, the global `_client` holds an unconnected client; subsequent calls return this broken client without retrying, causing silent failures.\n  - Fix: Assign `_client` only after a successful connect, or clear it on failure:  \n    ```python\n    def get_client(config):\n        global _client\n        if _client is None:\n            client = HttpClient(config)\n            try:\n                client.connect()\n            except Exception:\n                # Optionally log and re-raise\n                raise\n            _client = client\n        return _client\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 17649,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] CONCURRENCY Race condition on lazy client initialization (at _client, get_client)\n  - Issue: The global `_client` is read and written without atomicity. When two threads concurrently call `get_client`, both may observe `_client is None`, each instantiating a new `HttpClient`, calling `connect()`, and assigning the result to `_client`. The later assignment overwrites the earlier client, leaving the first client unconnected or leaked, and potentially causing duplicate connections, increased resource usage, and inconsistent state. This defect only manifests under concurrent load, making it a classic race condition.\n  - Fix: Protect the initialization with a lock. Example:\n    ```python\n    import threading\n    _client = None\n    _lock = threading.Lock()\n    def get_client(config):\n        global _client\n        if _client is None:\n            with _lock:\n                if _client is None:          # double‑check\n                    _client = HttpClient(config)\n                    _client.connect()\n        return _client\n    ```\n\n* [WARNING] LOGIC Stale configuration after first call (at get_client)\n  - Issue: `get_client` accepts a `config` argument but caches the first client indefinitely. If a caller later invokes `get_client` with a different configuration (e.g., new host, credentials, or timeout), the function returns the original client, which was created with the earlier config. This leads to the client using outdated settings, causing authentication failures, incorrect routing, or unexpected behavior. The bug is latent until configuration changes occur.\n  - Fix: Either enforce immutability of config after first use (document that the config argument is ignored after the first call) or re‑initialize when config differs. A simple approach:\n    ```python\n    def get_client(config):\n        global _client, _config\n        if _client is None or _config != config:\n            _client = HttpClient(config)\n            _client.connect()\n            _config = config\n        return _client\n    ```\n\n* [WARNING] STRUCTURE Global mutable singleton hampers testability and configuration (at _client)\n  - Issue: The module‑level `_client` forces a singleton pattern, coupling all callers to a single shared instance. This makes unit testing difficult because mocks cannot be injected without patching globals, and it complicates scenarios where multiple distinct configurations are needed (e.g., multi‑tenant services). The global state also becomes a single point of failure; resetting or reconfiguring the client requires global side effects.\n  - Fix: Remove the global variable and adopt dependency injection. Provide a factory function `create_client(config)` that returns a new `HttpClient`, and let callers pass the client where needed. If a singleton is required, encapsulate it in a class with a class‑level method that uses a lock and stores the config, but keep the interface explicit rather than relying on an implicit module variable.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21436,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] [CONCURRENCY] Race during singleton initialization (`get_client`)\n  - Issue: The `_client is None` check and subsequent assignment are not atomic. Two threads can both observe `None`, construct and connect separate clients, then overwrite each other’s result. With different configurations, one caller may receive a client created for the other caller, and the discarded connection may remain open.\n  - Fix: Guard the entire check/create/connect sequence with a lock and assign the initialized client only after successful construction.\n\n* [WARNING] [ERROR_HANDLING] Failed connections remain cached (`get_client`)\n  - Issue: If `connect()` raises, the failed object remains assigned to `_client`. Subsequent calls skip `connect()` and return the unusable client instead of retrying.\n  - Fix: Construct locally, connect successfully, then assign it to `_client`; otherwise remove or reset the cached client before propagating the exception.\n\n* [WARNING] [LOGIC] Configuration changes are ignored (`get_client`)\n  - Issue: Once `_client` is non-`None`, every later call returns the original client regardless of the supplied `config`. Calls using different endpoints, authentication settings, or timeouts will silently reuse the first configuration.\n  - Fix: Invalidate the singleton when configuration changes, or cache clients by a stable configuration key while retaining synchronization around access.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 25948,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] CONCURRENCY <Global _client not thread‑safe> (function get_client)\n  - Issue: Concurrent calls may race on the assignment and connect call, spawning multiple HttpClient instances or a partially‑initialized client, causing incorrect state or resource leaks under load.\n  - Fix: Introduce a threading.Lock around the check‑and‑create block, e.g. `with lock: if _client is None: _client = HttpClient(config); _client.connect()`.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary global state> (function get_client)\n  - Issue: The global _client couples all callers to a single mutable instance, forcing every caller to rely on hidden state and making configuration changes impossible after the first call; this adds indirection for a trivial singleton.\n  - Fix: Remove the global and make get_client accept the config (or a client) as a parameter, or encapsulate the client in a class that manages its own lifecycle.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19405,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "race_lazy_singleton.py",
+    "exit_code": 0,
+    "wall_s": 44.0,
+    "duplicate_of_backfilled": true
+  }
+}

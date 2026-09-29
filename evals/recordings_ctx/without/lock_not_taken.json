@@ -1,0 +1,95 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T11:07:19.021808Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "656049806476",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 33319,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "reset",
+      "title": "RateCounter.reset performs a non-atomic removal",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] CONCURRENCY `RateCounter.reset` performs a non-atomic removal (at `RateCounter.reset`)\n  - Issue: `self._counts.pop(...)` and `self._windows.pop(...)` expose an intermediate state. If a concurrent increment or query occurs between these operations, it can update only one mapping; a subsequent `get` may then combine counts from different reset epochs and return a stale or inflated result. This is especially relevant if callers expect a single reset operation to have a linearization point.\n  - Fix: Perform both removals under the same lock and synchronization mechanism used by increment/read operations, or store each key’s count and window in one shared entry so one removal invalidates both consistently.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5347
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [CONCURRENCY] Reset method not thread-safe with concurrent reads (at reset method)\n    - Issue: If one thread calls `reset(key)` while another thread is executing `get_hit_rate(key)` (or any other method that reads `self._windows[key]` or `self._counts[key]`), the key may be removed from the dictionaries between the read and the use, causing a `KeyError`. This race can lead to incorrect results or exceptions under concurrent load.\n    - Fix: Add a threading lock (e.g., `self._lock = threading.RLock()` in `__init__`) and acquire it in `reset`, `get_hit_rate`, and any other method that accesses `self._windows` or `self._counts` to guarantee atomic updates and reads.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 22138
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 32171
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "liquid/lfm-2.5-2.6b:free",
+      "served_provider": "Liquid",
+      "content": "The change adds a `reset` method to `RateCounter` that removes a key's entries from both `_counts` and `_windows` dictionaries. The implementation is correct and handles the edge case where the key doesn't exist (using `.pop(key, None)`). There are no security concerns, and the structure is clean—this is a straightforward, well-intentioned addition that fits naturally into the class. The method performs exactly what the docstring describes: forgetting everything recorded for a specific key.\n\nNo correctness, security, or structural issues exist. The code is concise and does not introduce any regressions.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 33312
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] CONCURRENCY <Reset race condition on _windows and _counts> (class RateCounter)\n  - Issue: Concurrent calls to reset and other methods may cause race conditions; _windows.pop and _counts.pop are not atomic with respect to other operations, leading to possible KeyError or inconsistent state under load.\n  - Fix: Introduce a threading.Lock around the reset body to ensure exclusive access.\n\n* [SUGGESTION] SIMPLICITY <Redundant pop calls> (class RateCounter.reset)\n  - Issue: The method performs two separate pop operations; a single dict.clear(key) would be clearer and avoid potential race windows.\n  - Fix: Replace the two pop lines with `self._counts.clear(key, None)` and `self._windows.clear(key, None)` (or use dict.pop with default in a loop).\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 25423
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 33.7
+  }
+}

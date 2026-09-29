@@ -1,0 +1,12 @@
+diff --git a/shop/checkout.py b/shop/checkout.py
+--- a/shop/checkout.py
++++ b/shop/checkout.py
+@@ -20,6 +20,8 @@ def checkout(order, card):
+     total = order.subtotal + order.shipping - order.discount
+-    receipt = payments.charge_card(card, total)
+-    order.mark_paid(receipt.id)
++    if payments.charge(card, total):
++        order.mark_paid()
++    else:
++        order.mark_failed()
+     return order

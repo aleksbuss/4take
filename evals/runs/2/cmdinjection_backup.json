@@ -1,0 +1,162 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:11:32.545243Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "aac9e77b0bd3",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 4,
+    "total_latency_ms": 122572
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "archive_directory",
+      "title": "Command Injection via os.system with unsanitized inputs",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "archive_directory",
+      "title": "No validation of src or error handling for tar failure",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "archive_directory",
+      "title": "Silent failure of archiving operation",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "archive_directory",
+      "title": "Shell Execution Instead of Native Library",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] Command Injection via os.system with unsanitized inputs (archive_directory, cmd construction)\n  - Issue: Both `src` and `dest_name` are interpolated directly into a shell command string via f-string and passed to `os.system()`. An attacker controlling either parameter can inject arbitrary shell commands. For example, `dest_name=\"x; rm -rf /\"` produces `tar czf /var/backups/x; rm -rf /.tar.gz ...`, executing the injected command. `src=\"foo; cat /etc/shadow\"` similarly injects into the command.\n  - Fix: Replace `os.system` with `subprocess.run([\"tar\", \"czf\", f\"/var/backups/{dest_name}.tar.gz\", src])` using a list argument (no shell interpretation), and validate/sanitize both `src` and `dest_name` (e.g., allowlist of path characters).\n\n* [CRITICAL] [INJECTION] Path Traversal via dest_name in file path (archive_directory, cmd construction)\n  - Issue: `dest_name` is embedded directly into the output path `/var/backups/{dest_name}.tar.gz` without validation. A value like `../../etc/cron.d/malicious` writes the tarball outside `/var/backups/`, enabling arbitrary file overwrite or path traversal attacks.\n  - Fix: Validate `dest_name` against a strict pattern (e.g., `re.fullmatch(r'[A-Za-z0-9_\\-]+', dest_name)`) before constructing the path, or use `os.path.basename(dest_name)`.\n\n* [WARNING] [ERROR_HANDLING] No validation of src or error handling for tar failure (archive_directory)\n  - Issue: The function does not verify that `src` exists or is a directory before invoking `tar`, and `os.system()` return codes are silently propagated without any check or logging. Callers cannot distinguish between \"archived successfully,\" \"source not found,\" or \"permission denied\" without inspecting the raw exit code themselves.\n  - Fix: Check `os.path.isdir(src)` before archiving, and raise or log a meaningful error when `os.system()` returns a non-zero exit code.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11918,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] INJECTION Command injection via unsanitized input (at archive_directory)\n  - Issue: The src and dest_name parameters are directly interpolated into a shell command string; if either contains shell metacharacters (e.g., `;`, `|`, `$()`), an attacker can execute arbitrary commands with the privileges of the process.\n  - Fix: Use subprocess.run with a list of arguments and avoid shell=True; validate or sanitize inputs (e.g., restrict dest_name to alphanumerics and use os.path.basename) before constructing the command.\n\n* [WARNING] ERROR_HANDLING Silent failure of archiving operation (at archive_directory)\n  - Issue: The return value of os.system (exit status) is ignored, so errors such as missing tar binary, insufficient permissions, or invalid paths are not reported, causing the caller to believe the archive succeeded when it did not.\n  - Fix: Capture the return code and raise an exception (or return False) if it is non‑zero, e.g., `ret = os.system(cmd); if ret != 0: raise RuntimeError(f'archiving failed with exit code {ret}')`.\n\n* [WARNING] LOGIC Directory traversal in destination filename (at archive_directory)\n  - Issue: dest_name is used directly in the target path without validation; a value like `../../etc/passwd` results in the archive being written outside /var/backups, allowing an attacker to overwrite or create files in unintended locations.\n  - Fix: Restrict dest_name to a safe base name (e.g., using os.path.basename) and optionally reject any path separators or dot‑dot sequences before forming the destination path.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 13910,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] INJECTION Command Injection via Unsanitized Parameters (at archive_directory function)\n  - Issue: Both `src` and `dest_name` are directly interpolated into a shell command executed via `os.system()`. An attacker can inject arbitrary commands using inputs like `src=\"/tmp; rm -rf /\"` or `dest_name=\"backup; cat /etc/passwd #\"`, achieving remote code execution with the privileges of the process.\n  - Fix: Use Python's `tarfile` module instead of shelling out:\n```python\nimport tarfile\ndef archive_directory(src, dest_name):\n    dest_path = f\"/var/backups/{dest_name}.tar.gz\"\n    with tarfile.open(dest_path, \"w:gz\") as tar:\n        tar.add(src)\n    return 0\n```\n\n* [CRITICAL] AUTH_CRYPTO Path Traversal in Archive Destination (at archive_directory function)\n  - Issue: The `dest_name` parameter is not validated, allowing path traversal sequences like `../` to write archives to arbitrary filesystem locations. Input `dest_name=\"../../../tmp/malicious\"` would write outside `/var/backups/`.\n  - Fix: Validate `dest_name` contains only safe characters and resolve against the expected directory:\n```python\nimport os\nimport tarfile\ndef archive_directory(src, dest_name):\n    if not dest_name.replace('_', '').replace('-', '').isalnum():\n        raise ValueError(\"Invalid destination name\")\n    dest_path = os.path.join(\"/var/backups\", f\"{dest_name}.tar.gz\")\n    if not os.path.abspath(dest_path).startswith(\"/var/backups/\"):\n        raise ValueError(\"Path traversal detected\")\n    with tarfile.open(dest_path, \"w:gz\") as tar:\n        tar.add(src)\n    return 0\n```\n\n* [STRUCTURE] Shell Execution Instead of Native Library (at archive_directory function)\n  - Issue: Using `os.system()` forces callers to handle shell escaping, error codes, and platform differences manually. The `tarfile` module provides a native, cross-platform API that eliminates shell injection risks entirely and returns proper Python exceptions on failure.\n  - Fix: Replace the entire function body with the `tarfile` implementation shown above.\n\n* [CORRECTNESS] Missing Input Validation and Error Handling (at archive_directory function)\n  - Issue: The function does not verify that `src` exists or is a directory, nor does it handle the case where `/var/backups/` is unwritable. Callers receive only an exit code from `os.system()` with no context about what failed.\n  - Fix: Add proper validation and exception handling:\n```python\nimport os\nimport tarfile\n\ndef archive_directory(src, dest_name):\n    if not os.path.isdir(src):\n        raise ValueError(f\"Source path does not exist or is not a directory: {src}\")\n    if not dest_name.replace('_', '').replace('-', '').isalnum():\n        raise ValueError(\"Invalid destination name\")\n    \n    dest_path = os.path.join(\"/var/backups\", f\"{dest_name}.tar.gz\")\n    with tarfile.open(dest_path, \"w:gz\") as tar:\n        tar.add(src)\n    return 0\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 42009,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Command Injection via src and dest_name (archive_directory)\n  - Issue: The function directly interpolates user‑controlled src and dest_name into a shell command passed to os.system. An attacker who controls either argument can break out of the tar command and execute arbitrary code. For example, src='.; rm -rf /' or dest_name='backup; cat /etc/passwd' would cause the shell to run the malicious commands.",
+      "finish_reason": "length",
+      "truncated": true,
+      "latency_ms": 122564,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION /cmd_injection (archive_directory cmd construction)\n  - Issue: The f‑string builds a shell command with untrusted src and dest_name, allowing arbitrary command execution (e.g., src=\"; rm -rf /\") and path traversal (dest_name=\"../../etc/passwd\"), leading to code execution or unauthorized file writes.\n  - Fix: Use subprocess.run with a list of arguments and avoid shell=True, e.g., subprocess.run([\"tar\", \"czf\", f\"/var/backups/{dest_name}.tar.gz\", src], check=True).\n\n* [CRITICAL] AUTH_CRYPTO /path_traversal (dest_name handling)\n  - Issue: dest_name is interpolated directly into the tar output path, enabling path traversal attacks that write outside /var/backups (e.g., dest_name=\"../../../../etc/shadow\").\n  - Fix: Validate dest_name to ensure it contains only safe characters and prevents '..' components, or sanitize before use.\n\n* [WARNING] LOGIC /error_handling (missing error propagation)\n  - Issue: os.system returns only the exit status; any tar failure is silently ignored, causing incorrect assumption that the archive succeeded and potentially leaving partial or corrupted backups.\n  - Fix: Capture the return code and raise an exception or return a boolean indicating success, e.g., if os.system(cmd) != 0: raise RuntimeError(\"Archive failed\").\n\n* [SUGGESTION] SIMPLICITY /overengineering (shell tar vs stdlib)\n  - Issue: Using a shell‑invoked tar adds unnecessary complexity and security risk; Python’s tarfile module can perform the same operation without a subprocess, reducing attack surface.\n  - Fix: Replace the os.system call with tarfile.open(...).write(), handling compression and paths in pure Python.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 35762,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 2119
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "Provider error 503 after 4 retries: Provider returned error",
+      "latency_ms": 52412
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 40445
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 40609
+    }
+  ],
+  "_eval": {
+    "snippet": "cmdinjection_backup.py",
+    "exit_code": 0,
+    "wall_s": 125.0,
+    "duplicate_of_backfilled": true
+  }
+}

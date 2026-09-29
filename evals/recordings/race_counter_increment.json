@@ -1,0 +1,102 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:20:27.278272Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "2a1ac2f8ce88",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 18994
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "hit",
+      "title": "Race condition in hit() method",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "hit",
+      "title": "Lock scope too narrow",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC Race condition in hit() method (at HitCounter.hit)\n  - Issue: The check-then-lock pattern creates a race condition where concurrent calls can lose increments. Thread A checks `key not in self.counts`, then Thread B initializes and increments the same key, then Thread A overwrites the count to 0 and increments to 1, losing Thread B's update. Additionally, the increment `self.counts[key] += 1` is outside the lock, allowing lost updates even for existing keys.\n  - Fix: Acquire the lock before checking key existence and hold it through the entire operation:\n    ```python\n    def hit(self, key):\n        with self.lock:\n            self.counts[key] = self.counts.get(key, 0) + 1\n            return self.counts[key]\n    ```\n\n* [WARNING] STRUCTURE Lock scope too narrow (at HitCounter.hit)\n  - Issue: The lock only protects initialization, not the increment operation. This forces callers to reason about thread safety across multiple operations and makes the class's thread-safety guarantee incomplete and misleading.\n  - Fix: Extend lock scope to cover the entire critical section including the increment, as shown in the correctness fix above.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 4801,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [CONCURRENCY] Lost updates on unsynchronized increment (line 9)\n  - Issue: `self.counts[key] += 1` executes outside the lock. This is a read-modify-write: two concurrent threads can read the same value, both add 1, and both write back, causing one increment to be lost silently. Any multi-threaded workload hitting the same key will produce an incorrect count.\n  - Fix: Move the entire increment inside the lock:\n    ```python\n    def hit(self, key):\n        with self.lock:\n            if key not in self.counts:\n                self.counts[key] = 0\n            self.counts[key] += 1\n            return self.counts[key]\n    ```\n\n* [WARNING] [CONCURRENCY] Check-then-act race on key initialization (lines 7–8)\n  - Issue: The membership check `if key not in self.counts` and the write inside `with self.lock` are not atomic. A thread that observes the key as absent may be preempted before acquiring the lock, allowing another thread to add and increment the key in between. While both paths initialize to 0 (making the overwrite benign), this pattern couples the guard condition to a synchronization primitive it doesn't span, which is fragile under future edits.\n  - Fix: Perform the membership check and initialization together inside the locked section (as in the fix above), so the invariant \"key exists after the check\" holds.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9004,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] CONCURRENCY Race Condition on Count Increment (hit)\n  - Issue: The increment `self.counts[key] += 1` is performed outside the lock, so concurrent calls can read the same value, increment locally, and write back, causing lost updates. The returned count may be less than the actual number of hits, violating the counter's correctness guarantee.\n  - Fix: Protect the entire update path with the lock:\n\n```\ndef hit(self, key):\n    with self.lock:\n        if key not in self.counts:\n            self.counts[key] = 0\n        self.counts[key] += 1\n        return self.counts[key]\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10728,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] CONCURRENCY Race condition in hit method leading to lost increments (at hit)\n    - Issue: The check `if key not in self.counts:` is performed outside the lock, allowing two threads to both see the key as missing, initialize it to zero, and then increment, causing lost updates and incorrect counts under concurrent access.\n    - Fix: Perform the initialization and increment under the same lock, e.g., wrap the entire method body with `with self.lock:` or use `self.counts[key] = self.counts.get(key, 0) + 1` inside the lock.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18985,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "race_counter_increment.py",
+    "exit_code": 0,
+    "wall_s": 19.5,
+    "duplicate_of_backfilled": true
+  }
+}

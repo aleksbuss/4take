@@ -1,0 +1,111 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T16:07:07.196605Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "c66e189f5b62",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 28394,
+    "context": {
+      "files": [
+        "profiles/events.py"
+      ],
+      "tokens": 41,
+      "dropped": [],
+      "auto": {
+        "profiles/events.py": "uses \"profile:{user_id}\", which the change removes"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "profile_cache_key",
+      "title": "Stale cache due to mismatched key format",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "SCHEMA_VERSION",
+      "title": "Hardcoded schema version requires coordinated deployment",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC Profile invalidation targets a different cache key (at `profile_cache_key`)\n  - Issue: Cache reads and writes now use `profile:v2:<user_id>`, but `profiles.events.on_profile_updated` still deletes `profile:<user_id>`. After any profile update, the old v2 entry remains and continues serving stale data for up to `TTL_SECONDS` (24 hours), silently returning outdated profile data.\n  - Fix: Make the cache-key format a shared contract and use it in invalidation, for example expose `delete_profile_cache_key(user_id)` from `profiles.cache` and have the event call it. At minimum, change invalidation to `redis.delete(profile_cache_key(user_id))` rather than duplicating the Redis key format.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6192
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] CORRECTNESS Cache invalidation broken by key format change (at profile_cache_key)\n  - Issue: `profile_cache_key` now returns `profile:v2:{user_id}`, but `on_profile_updated` in `profiles/events.py` (reference context) deletes `profile:{user_id}` — the old key format. After this change, profile updates will never invalidate the new cache entries, so stale data will be served indefinitely (until TTL expiry). The old entries under the previous key format will also linger until TTL expires, wasting memory.\n  - Fix: Update `on_profile_updated` to call `redis.delete(profile_cache_key(user_id))` instead of constructing the key inline, so both read/write and invalidation use the same key function. Alternatively, deploy the events.py change simultaneously with this cache.py change.\n\n* [WARNING] STRUCTURE Hardcoded schema version requires coordinated deployment (at SCHEMA_VERSION)\n  - Issue: `SCHEMA_VERSION = 2` is baked into the key string. Bumping it again requires a code change and a coordinated deploy with any cache-invalidation code; a missed deploy leaves stale entries uncollectable. A migration/dual-write strategy or a separate key-prefix config would be safer.\n  - Fix: Consider a startup migration that scans and rekeys old-format entries, or read from a config so the prefix can be changed without a code deploy.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6255
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC Stale cache due to mismatched key format (on_profile_updated)\n- Issue: `on_profile_updated` in `profiles/events.py` deletes the cache key `\"profile:{user_id}\"`, but `profile_cache_key` now returns `\"profile:v2:{user_id}\"`. After the version bump, cached profiles are never invalidated, so subsequent reads may return stale data.\n- Fix: Update `on_profile_updated` to use the versioned key, e.g.:\n\n```python\nfrom profiles.cache import profile_cache_key\ndef on_profile_updated(user_id):\n    redis.delete(profile_cache_key(user_id))\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 10467
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC <Incorrect cache invalidation due to versioned key mismatch> (at profile_cache_key)\n    - Issue: The profile_cache_key function now returns keys with a version prefix (e.g., \"profile:v2:123\"), but the on_profile_updated event handler in profiles/events.py still deletes keys using the old format (\"profile:123\"). This means profile updates will not invalidate the new cached keys, causing stale profile data to be served until the TTL expires (24 hours).\n    - Fix: Either update the event handler to use the versioned key format (profiles/events.py: redis.delete(f\"profile:v{SCHEMA_VERSION}:{user_id}\")) or revert the versioning change in cache.py if versioning is not yet implemented elsewhere. Since versioning is introduced here, the event handler must be updated accordingly. (Note: Fix requires changes in profiles/events.py, which is shown in reference context.)",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 28382
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 29.3
+  }
+}

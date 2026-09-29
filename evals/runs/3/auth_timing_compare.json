@@ -1,0 +1,154 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:39:44.096254Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "743ab53155b1",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 45880
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "verify_webhook",
+      "title": "Plain hash concatenation used as MAC",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 4,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "AUTH_CRYPTO",
+      "symbol": "verify_webhook",
+      "title": "Timing Attack on Signature Comparison",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "AUTH_CRYPTO",
+      "symbol": "verify_webhook",
+      "title": "Use of naive secret‑prefix MAC",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "verify_webhook",
+      "title": "Redundant Boolean Return",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] AUTH_CRYPTO Timing Attack on Signature Comparison (verify_webhook)\n  - Issue: Using == for comparing cryptographic signatures leaks timing information, enabling an attacker to guess the signature via a side‑channel.\n  - Fix: Replace the equality test with a constant‑time comparison: `hmac.compare_digest(expected, header_signature)`.\n\n* [WARNING] ERROR_HANDLING Type Mismatch in Body Parameter (verify_webhook)\n  - Issue: `secret.encode()` yields bytes; if `body` is passed as a `str`, the concatenation `secret.encode() + body` raises a `TypeError`, breaking verification.\n  - Fix: Normalize `body` to bytes before hashing: `if isinstance(body, str): body = body.encode()` then compute the hash.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 12260,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Incorrect body type assumption> (at verify_webhook)\n    - Issue: The function assumes `body` is a bytes object; if a string is passed, `secret.encode() + body` raises a TypeError because bytes and str cannot be concatenated, causing an unhandled exception and possible denial of service.\n    - Fix: Explicitly convert body to bytes when it is a string, e.g., `if isinstance(body, str): body = body.encode()`, or validate the type and raise a clear ValueError.\n\n* [WARNING] AUTH_CRYPTO <Use of naive secret‑prefix MAC> (at verify_webhook)\n    - Issue: Computing the signature as `hashlib.sha256(secret.encode() + body)` uses a simple secret‑prefix construction, which is vulnerable to length‑extension attacks; an attacker who observes the hash can forge a valid signature for a longer message without knowing the secret.\n    - Fix: Replace the construction with HMAC‑SHA256: `mac = hmac.new(secret.encode(), body, hashlib.sha256); expected = mac.hexdigest()`.\n\n* [WARNING] AUTH_CRYPTO <Non‑constant‑time signature comparison> (at verify_webhook)\n    - Issue: The signature comparison `expected == header_signature` uses Python’s equality operator, which short‑circuits on the first mismatched character and leaks timing information that can be exploited to guess the correct signature.\n    - Fix: Use `hmac.compare_digest` on the raw digest bytes: compute `mac.digest()` and compare it to `header_signature` (decoded from hex if necessary) with `hmac.compare_digest(mac.digest(), header_signature_bytes)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18470,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [AUTH_CRYPTO] Plain hash concatenation used as MAC (at `expected = hashlib.sha256(...)`)\n  - Issue: `hashlib.sha256(secret.encode() + body)` is not a message authentication code — it is vulnerable to length extension attacks because SHA-256 is a Merkle-Damgård hash. An attacker who observes a valid `(secret, body, signature)` pair can forge signatures for `body || extension` without knowing the secret. Additionally, the construction lacks the key separation guarantees that a proper MAC provides.\n  - Fix: Replace with `hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()`.\n\n* [CRITICAL] [AUTH_CRYPTO] Non-constant-time signature comparison (at `if expected == header_signature`)\n  - Issue: `==` on strings short-circuits at the first mismatched byte, leaking timing information proportional to the number of matching prefix bytes. An attacker can iteratively measure response times to recover the correct signature character-by-character.\n  - Fix: Replace with `return hmac.compare_digest(expected, header_signature)`.\n\n* [WARNING] [ERROR_HANDLING] No input validation or type safety (at `secret.encode() + body`)\n  - Issue: `hashlib.sha256()` requires bytes. If `body` arrives as a `str` (e.g., from some framework wrappers), the `+` operation between `bytes` and `str` raises `TypeError`. If `header_signature` is `None` (missing header), `compare_digest` or `==` will still work but silently return `False` — there is no explicit guard, making it easy for callers to misdiagnose a missing header as an invalid signature.\n  - Fix: Ensure `body` is encoded to bytes (e.g., `body.encode()` if `str`, or assert `isinstance(body, bytes)`), and add an explicit early return for `header_signature is None`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 27284,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] AUTH_CRYPTO Timing Attack Vulnerability (at verify_webhook)\n  - Issue: The string comparison `expected == header_signature` is vulnerable to timing attacks. Python's `==` operator short-circuits on the first mismatched character, creating measurable timing differences that allow an attacker to progressively guess the correct signature byte-by-byte. This completely undermines the security of the webhook verification.\n  - Fix: Use `hmac.compare_digest(expected, header_signature)` for constant-time comparison.\n\n* [WARNING] ERROR_HANDLING Missing Input Validation (at verify_webhook)\n  - Issue: The function assumes `secret` is a string and `body` is bytes. If `body` is a string, `hashlib.sha256()` raises TypeError. If `secret` is None or lacks `.encode()`, it raises AttributeError. These unhandled exceptions could leak information or cause denial of service.\n  - Fix: Add type validation or convert inputs defensively: `body = body if isinstance(body, bytes) else body.encode()` and `secret = secret if isinstance(secret, str) else str(secret)`.\n\n* [SIMPLICITY] Redundant Boolean Return (at verify_webhook)\n  - Issue: The if/return pattern is unnecessary; the comparison result can be returned directly, reducing cyclomatic complexity.\n  - Fix: Replace the entire if/return block with `return hmac.compare_digest(expected, header_signature)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 45873,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] AUTH_CRYPTO Timing attack in signature verification (at line 3)\n  - Issue: Direct string comparison (`expected == header_signature`) leaks timing information, allowing an attacker to infer correct signature via side-channel attacks.\n  - Fix: Use `hmac.compare_digest(expected, header_signature)` for constant-time comparison.\n\n* [SUGGESTION] SIMPLICITY Unnecessary manual HMAC simulation (at line 2)\n  - Issue: The function manually concatenates `secret.encode()` and `body` then hashes, which is redundant; Python's `hmac` module provides a secure, constant‑time HMAC construction.\n  - Fix: Replace the hash computation with `hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()` (requires importing hmac).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18667,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3.5-lightning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] SECURITY timing attack (at function `verify_webhook`)\n- Issue: The comparison `expected == header_signature` leaks information via timing side-channels. An attacker can recover the secret or forge signatures by measuring comparison duration. Additionally, the construction `hashlib.sha256(secret.encode() + body)` is not an HMAC; it lacks the proven security properties of `hmac.new()`. If this implements a webhook signature scheme, it is cryptographically weaker than HMAC-SHA256.\n- Fix: Use `hmac.compare_digest(expected, header_signature)` and rewrite the verification using `hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()` if the protocol expects HMAC, or justify the custom construction with a formal security analysis.\n\n* [SUGGESTION] SIMPLITY cryptographic construction (at function `verify_webhook`)\n- Issue: The function manually concatenates `secret.encode() + body` before hashing, which is error-prone and differs from standard HMAC patterns. Callers may incorrectly pass `body` as a string (causing `TypeError`) or use the wrong encoding, and the code gives no indication of expected `body` format.\n- Fix: Document that `body` must be `bytes`, or accept `bytes` directly and drop `.encode()`, or use `hmac` to encapsulate the construction and encoding concerns.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 39752,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "auth_timing_compare.py",
+    "exit_code": 0,
+    "wall_s": 46.3,
+    "duplicate_of_backfilled": true
+  }
+}

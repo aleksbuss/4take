@@ -1,0 +1,109 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:17:01.998138Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "31daf51b7a6b",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 22876
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "truncateWithEllipsis",
+      "title": "truncateWithEllipsis",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 2,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "lastNLines",
+      "title": "Off-by-one in lastNLines",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] LOGIC truncateWithEllipsis (function truncateWithEllipsis)\n  - Issue: When maxLen ≤ 3, the expression `maxLen - 3` is zero or negative, causing `slice(0, maxLen - 3)` to return a prefix that may be empty or longer than expected. The subsequent concatenation of `\"...\"` yields a result whose length exceeds maxLen (e.g., maxLen=2, text=\"hello\" → `\"h...\"` length 4). The function never respects the length bound for small maxLen values.\n  - Fix: If (maxLen <= 3) return text.slice(0, maxLen); otherwise return text.slice(0, maxLen - 3) + \"...\";\n\n* [WARNING] LOGIC lastNLines (function lastNLines)\n  - Issue: The slice start `lines.length - n - 1` is off‑by‑one: n=1 returns the last two lines, n=0 returns the last line, and when n exceeds the line count it returns all lines instead of an empty string. This violates the contract of returning exactly the last n lines and can expose unexpected data.\n  - Fix: const start = n > 0 ? lines.length - n : 0; return lines.slice(start).join(\"\\n\"); // or simply lines.slice(-n).join(\"\\n\") with a guard for n <= 0 returning \"\".",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10219,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] Off-by-one in lastNLines (lastNLines, `lines.slice` line)\n  - Issue: `lines.slice(lines.length - n - 1)` returns **n+1** lines instead of n. For text with 5 lines and n=1, `slice(3)` returns lines[3], lines[4] — two lines, not one. Every caller requesting the last N lines gets N+1, silently corrupting any downstream logic (e.g., log display, preview rendering).\n  - Fix: Change `lines.length - n - 1` to `lines.length - n`.\n\n* [WARNING] [LOGIC] truncateWithEllipsis fails for maxLen < 3 (truncateWithEllipsis, `return text.slice` line)\n  - Issue: When `maxLen` is 0, 1, or 2 and `text.length >= maxLen`, `maxLen - 3` is ≤ 0, so `text.slice(0, ≤0)` returns `\"\"` and the result is `\"...\"` (3 chars), which exceeds `maxLen`. The function promises to cap output at `maxLen` but violates that contract for small values.\n  - Fix: Add a guard: if `maxLen <= 3`, return `\"\".padEnd(maxLen, \".\")` or handle as a special case before slicing.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10248,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] [BOUNDS] `truncateWithEllipsis` mishandles small `maxLen` values (at `truncateWithEllipsis`)\n  - Issue: For `maxLen < 3`, `slice(0, maxLen - 3)` drops characters and can return a string longer than the requested limit. For example, `truncateWithEllipsis(\"abcd\", 2)` returns `\"a...\"`. Negative or non-integer lengths can produce similarly invalid results.\n  - Fix: Validate `maxLen` and return `text` for `maxLen <= 3`; otherwise use `Math.max(0, maxLen - 3)` for the prefix length.\n\n* [WARNING] [BOUNDS] `lastNLines` returns incorrect ranges for `n <= 0` or `n >= lineCount` (at `lastNLines`)\n  - Issue: `n = 0` returns every line except the last, while `n` equal to the line count returns only the final line. Negative values can return an empty string. This violates the usual “last N lines” contract and can silently discard or retain the wrong data.\n  - Fix: Return an empty string for `n <= 0`; cap `n` to `lines.length` before slicing.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18467,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC Incorrect handling of maxLen < 3 in truncateWithEllipsis (at truncateWithEllipsis)\n  - Issue: When maxLen is less than 3, the expression `maxLen - 3` becomes negative, causing `slice(0, maxLen-3)` to return more than `maxLen-3` characters (or the whole string minus a few). Combined with the appended \"...\", the result can exceed the requested length, e.g., `truncateWithEllipsis(\"abcdef\", 2)` returns `\"abcde...\"` (length 8) instead of a string of length ≤2.\n  - Fix: Guard small values of maxLen, e.g., `if (maxLen <= 3) return text.slice(0, maxLen);` before the existing branch, or return `\"...\".slice(0, maxLen)`.\n\n* [WARNING] LOGIC Off‑by‑one error in lastNLines (at lastNLines)\n  - Issue: The slice start index `lines.length - n - 1` is one position too far left, causing the function to return the wrong set of lines. For `n = 0` it returns the last line instead of an empty string, and for `n` equal to the total number of lines it returns only the final line instead of all lines.\n  - Fix: Change the slice to `lines.slice(-n)` (or `lines.slice(lines.length - n)`) so that `lastNLines(\"a\\nb\\nc\", 2)` correctly yields `\"b\\nc\"`. Handle `n <= 0` by returning an empty string if desired.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 22869,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 1627
+    }
+  ],
+  "_eval": {
+    "snippet": "offbyone_retry_window.js",
+    "exit_code": 0,
+    "wall_s": 23.3,
+    "duplicate_of_backfilled": true
+  }
+}

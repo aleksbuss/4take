@@ -1,0 +1,128 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:29:05.855291Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "fad207a14935",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 72609
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "fan_out",
+      "title": "Falsy-result filter drops valid returns and passes exceptions",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "CRITICAL": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "fan_out",
+      "title": "Silent Data Loss on Falsy Responses",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC Incorrect filtering of results drops valid falsy values and keeps exceptions (at fan_out)\n  - Issue: The function filters results with `if r`, which treats any falsy value (e.g., 0, False, empty string) as an error and removes it, while exception objects returned by `gather` (when `return_exceptions=True`) are truthy and are incorrectly kept as successful results.\n  - Fix: Change the filter to exclude only exceptions: `return [r for r in results if not isinstance(r, Exception)]`. If None should also be omitted, use `if r is not None and not isinstance(r, Exception)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9905,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] ERROR_HANDLING Incorrect Exception Handling in fan_out (at fan_out function)\n  - Issue: The filter `if r` incorrectly drops falsy but valid results (e.g., `None`, `0`, `False`, `\"\"`, `[]`) while passing exception objects through. With `return_exceptions=True`, exceptions are returned as values and are truthy, so they leak to callers who expect only successful results. A caller cannot distinguish between a legitimate `None` response and an unhandled exception.\n  - Fix: Either remove the filter entirely to return all results including exceptions, or use `return [r for r in results if not isinstance(r, Exception)]` to return only successful results.\n\n* [WARNING] LOGIC Silent Data Loss on Falsy Responses (at fan_out function)\n  - Issue: The condition `if r` silently discards any fetch result that evaluates to falsy. If a legitimate API returns `0` for a counter, `False` for a boolean flag, empty string, or empty list, that data is lost. This violates the principle that the caller should receive all results from the fan-out operation.\n  - Fix: Remove the filter or replace with explicit exception checking: `return [r for r in results if not isinstance(r, Exception)]`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10224,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] Falsy-result filter drops valid returns and passes exceptions (at `fan_out`, line 5)\n  - Issue: `return_exceptions=True` causes `asyncio.gather` to return exception objects for failed fetches. Exception instances are truthy, so `if r` does **not** filter them out — they leak into the caller's list. Meanwhile, any legitimate falsy return value (`None`, `0`, `\"\"`, `False`, `[]`) from a successful fetch is silently discarded. The filter therefore does the exact opposite of its apparent intent: it passes errors and drops valid data. A caller iterating over the result will encounter `Exception` objects and may crash on methods like `.json()` or `.text`, while a successful fetch of `0` or an empty string vanishes without notice.\n  - Fix: Replace the truthiness check with an explicit exception check: `return [r for r in results if not isinstance(r, Exception)]`. If the intent is also to exclude `None`-only results, that should be a separate, intentional decision rather than a side effect of error handling.\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16684,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Fan_out discards falsy but valid results (in fan_out)\n  - Issue: The list comprehension `return [r for r in results if r]` treats any falsy value as “skip”. If `fetch` legitimately returns an empty collection (`[]`), a zero (`0`), `False`, or `None`, those values are silently omitted. For example, a fetch that returns `[]` to signal an empty result set will be dropped, causing the caller to incorrectly assume no data was retrieved. This data loss can break downstream logic that depends on the presence of empty results.\n  - Fix: Change the",
+      "finish_reason": "length",
+      "truncated": true,
+      "latency_ms": 72604,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-fin:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] CORRECTNESS Exception objects survive the truthiness filter\n- Issue: `asyncio.gather(..., return_exceptions=True)` returns exception objects in the results list. Since exception objects are truthy in Python, `[r for r in results if r]` passes them through unchanged. The caller receives a list containing a mix of successful return values and `Exception` instances, which will cause `AttributeError` or `TypeError` downstream when the caller tries to use them as the expected type.\n- Fix: Either remove `return_exceptions=True` and let exceptions propagate, or explicitly filter exceptions: `return [r for r in results if not isinstance(r, Exception)]`.\n\n[WARNING] CORRECTNESS Falsy but valid results are silently dropped\n- Issue: The `if r` guard removes any result that evaluates to falsy — `None`, `0`, `\"\"`, `[]`, `False`. If `fetch` legitimately returns any of these for a valid URL, that result is silently discarded with no indication of how many were dropped.\n- Fix: Replace with an explicit `None` check or return all results and let the caller decide: `return list(results)`.\n\n[WARNING] STRUCTURE No concurrency limit or error context\n- Issue: `asyncio.gather` with an unbounded list comprehension launches all coroutines simultaneously. For large `urls` lists this can overwhelm the event loop, the network stack, or the remote server. There is also no per-URL error context — the caller cannot tell which URL produced which exception.\n- Fix: Use `asyncio.Semaphore` to bound concurrency, and pair each result with its originating URL.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16718,
+      "duplicate_of": "inclusionai/ling-3.0-flash-vl:free"
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Premature filtering of results> (at symbol/line)\n- Issue: The list comprehension `if r` removes any falsy element, including legitimate falsey return values (e.g., 0, empty string) and exceptions that are falsy, causing silent data loss or loss of error information when `return_exceptions=True`.\n- Fix: Remove the filter or refine the condition, e.g., `return list(results)` or `return [r for r in results if not isinstance(r, Exception)]`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 29296,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "Empty response from model",
+      "latency_ms": 41001
+    }
+  ],
+  "_eval": {
+    "snippet": "async_gather_swallow.py",
+    "exit_code": 0,
+    "wall_s": 73.0,
+    "duplicate_of_backfilled": true
+  }
+}

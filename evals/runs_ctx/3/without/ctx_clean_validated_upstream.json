@@ -1,0 +1,105 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:24:02.676928Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "314158d73d18",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 38207,
+    "context": null
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "_apply_percentage",
+      "title": "Incorrect discount calculation for negative or over-100 percentages",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 3207
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Incorrect discount calculation for negative or over-100 percentages> (at _apply_percentage)\n  - Issue: The function does not validate the `percent` parameter. If `percent` is negative (e.g., -10), it calculates a surcharge (total * 110 / 100) which may be unintended in a discount context. If `percent` > 100 (e.g., 150), it results in a negative total (total * -50 / 100), which is invalid for monetary values. While the function is private, callers might pass invalid values due to upstream errors, leading to incorrect billing.\n  - Fix: Add input validation to ensure 0 ≤ percent ≤ 100, raising a ValueError for invalid inputs:  \n    if not (Decimal('0') <= percent <= Decimal('100')):  \n        raise ValueError(\"Discount percentage must be between 0 and 100\")\n\n* [WARNING] ERROR_HANDLING <Unchecked arithmetic overflow in discount calculation> (at _apply_percentage)\n  - Issue: The expression `(total * (Decimal(100) - percent))` could exceed the maximum representable Decimal value if `total` is extremely large (e.g., 10^100) and `percent` is small, causing an InvalidOperation exception that is not caught. This would crash the application during billing processing.\n  - Fix: Wrap the calculation in a try-except block to catch InvalidOperation and raise a more domain-specific error:  \n    from decimal import InvalidOperation  \n    try:  \n        discounted = total * (Decimal(100) - percent) / Decimal(100)  \n    except InvalidOperation:  \n        raise ValueError(\"Discount calculation resulted in overflow\") from None  \n    return discounted.quantize(Decimal(\"0.01\"))",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 19547
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] LOGIC - Missing validation on percent parameter (at _apply_percentage function)\n  - Issue: The function accepts any numeric value for percent without bounds checking. Negative percentages would incorrectly increase the total (e.g., percent=-10 yields 110% of original), and percentages over 100 would produce negative totals. In a billing context, this could lead to incorrect charges, customer credits when none were intended, or financial discrepancies. A caller passing percent=150 would result in a negative total, which could cause downstream issues in invoicing or accounting systems.\n  - Fix: Add validation at the start of the function: `if not (0 <= percent <= 100): raise ValueError(\"percent must be between 0 and 100\")`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 23988
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 38189
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Negative or invalid discount calculation> (function _apply_percentage)\n  - Issue: The function accepts any numeric `percent` without validation; values greater than 100 or negative cause `(100 - percent)` to be negative, resulting in a negative price or price increase, breaking the business rule that a discount cannot exceed 100 % and price must remain non‑negative. Example: `percent=150` yields `total * (100-150)/100 = -0.5 × total`, a corrupted billing amount.\n  - Fix: Add a guard that enforces `0 <= percent <= 100` and raises `ValueError` otherwise.\n    ```python\n    if not (0 <= percent <= 100):\n        raise ValueError(\"percent must be between 0 and 100\")\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 25757
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "poolside/laguna-xs-2.1:free",
+      "latency_ms": 4289
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 38.8
+  }
+}

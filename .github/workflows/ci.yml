@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Lint
+        # `evals/corpus` is excluded in pyproject: it is deliberately defective code.
+        run: uvx ruff@0.16.6 check src tests evals
+
+      # `ruff format --check` is deliberately not a gate yet: applying the formatter touches
+      # 29 files and ~1500 lines, which belongs in its own commit rather than mixed into
+      # review-bearing changes. Enable this step in the same commit that lands the reformat.
+      # - name: Format
+      #   run: uvx ruff@0.16.6 format --check src tests
+
+  commit-messages:
+    runs-on: ubuntu-latest
+    # Conventional Commits are claimed in CONTRIBUTING.md; enforce them rather than claim them.
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Check commit messages
+        run: |
+          uvx --from commitizen cz check \
+            --rev-range origin/${{ github.base_ref }}..HEAD
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # requires-python is >=3.10 and the classifiers advertise 3.10-3.13; test all of them
+        # rather than only the floor.
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run tests
+        run: uv run pytest -q
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      # A broken wheel is only discovered at publish time otherwise.
+      - name: Verify the CLI runs from the built wheel without the MCP extra
+        run: |
+          uv venv /tmp/verify
+          VIRTUAL_ENV=/tmp/verify uv pip install dist/*.whl
+          /tmp/verify/bin/4take --version
+          # The MCP entry point must fail with guidance, not an ImportError traceback.
+          if /tmp/verify/bin/4take-mcp 2>/tmp/mcp.err; then
+            echo "expected 4take-mcp to exit non-zero without the extra"; exit 1
+          fi
+          grep -q "4take\[mcp\]" /tmp/mcp.err

@@ -1,0 +1,87 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:17:10.366169Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "829b902d0505",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 22074
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "build_endpoint",
+      "title": "Unvalidated environment variables in build_endpoint",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 4
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [WARNING] [ERROR_HANDLING] Unvalidated environment variables in build_endpoint (build_endpoint)\n  - Issue: `os.environ.get()` returns `None` when `API_HOST` or `API_PORT` are unset, causing `host.strip()` to raise `AttributeError` and `int(port)` to raise `TypeError`. Additionally, a non-numeric `API_PORT` (e.g., `\"abc\"`) causes `int(port)` to raise `ValueError`. All three crash with cryptic tracebacks instead of a clear configuration error.\n  - Fix: Validate both values before use — check for `None`/empty strings and wrap `int(port)` in a try/except that raises a descriptive error, e.g. `if not host: raise RuntimeError(\"API_HOST is not set\")`.\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9315,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] ERROR_HANDLING Missing validation for environment variables (at build_endpoint)\n  - Issue: The function assumes API_HOST and API_PORT are present and valid; missing or malformed values cause AttributeError (host=None) or ValueError (port conversion), crashing the application.\n  - Fix: Retrieve env vars, verify they are non‑empty, convert port safely, and raise clear ValueError messages.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9885,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Missing environment variable handling> (environment variable access)\n  - Issue: `host = os.environ.get(\"API_HOST\")` may return `None`; invoking `.strip()` on `None` raises `AttributeError`, and `port = os.environ.get(\"API_PORT\")` may be `None`, causing `int(None)` to raise `ValueError`. These unhandled edge cases cause the function to crash for configurations lacking required variables or with non‑numeric port values.\n  - Fix:\n```python\nhost = os.environ.get(\"API_HOST\")\nif host is None:\n    raise ValueError(\"API_HOST environment variable is required\")\nhost = host.strip()\nif not host:\n    raise ValueError(\"API_HOST cannot be empty\")\nport = os.environ.get(\"API_PORT\")\nif port is None:\n    raise ValueError(\"API_PORT environment variable is required\")\ntry:\n    port = int(port)\nexcept ValueError:\n    raise ValueError(\"API_PORT must be an integer\")\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21330,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] CORRECTNESS Unhandled Environment Variable Edge Cases (at build_endpoint function)\n  - Issue: The function crashes when `API_HOST` or `API_PORT` environment variables are unset. `os.environ.get()` returns `None`, causing `None.strip()` to raise `AttributeError` and `int(None)` to raise `TypeError`. Additionally, invalid port values cause `ValueError`. These unhandled exception paths will crash the application in production deployments where environment configuration is incomplete or misconfigured.\n  - Fix: Add validation with explicit error handling:\n    ```python\n    def build_endpoint():\n        host = os.environ.get(\"API_HOST\")\n        port = os.environ.get(\"API_PORT\")\n        if not host or not port:\n            raise ValueError(\"API_HOST and API_PORT environment variables must be set\")\n        try:\n            port_int = int(port)\n        except ValueError:\n            raise ValueError(f\"Invalid port value: {port}\")\n        return f\"https://{host.strip()}:{port_int}/v1\"\n    ```\n\n* [WARNING] CORRECTNESS Missing Input Validation for Port Range (at build_endpoint function)\n  - Issue: The port value is converted to int but not validated to be within the valid TCP/UDP port range (1-65535). Invalid ports like 0, negative numbers, or values exceeding 65535 would be accepted, potentially causing connection failures or security issues downstream.\n  - Fix: Add port range validation:\n    ```python\n    if not (1 <= port_int <= 65535):\n        raise ValueError(f\"Port must be between 1 and 65535, got: {port_int}\")\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 22064,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "none_env_parse.py",
+    "exit_code": 0,
+    "wall_s": 22.5,
+    "duplicate_of_backfilled": true
+  }
+}

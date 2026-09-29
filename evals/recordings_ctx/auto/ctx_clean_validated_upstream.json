@@ -1,0 +1,121 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T11:20:44.898811Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "314158d73d18",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 46336,
+    "context": {
+      "files": [
+        "billing/coupons.py"
+      ],
+      "tokens": 96,
+      "dropped": [],
+      "auto": {
+        "billing/coupons.py": "uses _apply_percentage"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "apply_coupon",
+      "title": "Invalid Discount Calculation",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "SIMPLICITY",
+      "symbol": "apply_coupon",
+      "title": "Unnecessary Indirection",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "apply_coupon",
+      "title": "Responsibility Leak",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5138
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18582
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "liquid/lfm-2.5-2.6b:free",
+      "served_provider": "Liquid",
+      "content": "Looking at the diff and the code under review, I need to analyze the added `_apply_percentage` function in `billing/discounts.py`.\n\n**Analysis:**\n\nThe new function `_apply_percentage(total, percent)` implements a percentage-based discount calculation. Given the original `apply_coupon` function validates that `0 < percent <= MAX_PERCENT` (where MAX_PERCENT = 50), the function correctly computes `total * (100 - percent) / 100` and quantizes to 2 decimal places.\n\n**Correctness:** The math is sound. For a 10% discount on $100, it computes `100 * (100-10)/100 = 90`, which is correct.\n\n**Security:** No injection, path traversal, or authorization issues. Uses `Decimal` for precise financial arithmetic.\n\n**Structure:** The function is appropriately private (underscore prefix) and serves as a clean internal helper for the discount calculation. It doesn't create tight coupling or duplication.\n\n**Simplicity:** The function is concise and handles the core requirement without unnecessary complexity. It replaces inline logic in `apply_coupon` with a dedicated helper, improving clarity.\n\nThere are no correctness, security, structural, or simplicity issues that warrant a change. The code is correct, safe, well-structured, and doesn't require simplification.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 29233
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Invalid Discount Calculation> (apply_coupon)\n- Issue: _apply_percentage computes (total * (100 - percent) / 100), which yields the discounted total, but the function name and docstring imply it applies a percentage discount. If percent is intended as discount rate (e.g., 10 for 10%), the calculation correctly reduces the total. However, the surrounding code validates percent > 0 and ≤ 50, which matches a discount rate, not a surcharge. If a caller mistakenly passes a value representing the discount amount rather than rate, the function will apply an incorrect discount, leading to wrong order totals. No concrete triggering input is shown, but the mismatch between naming and behavior creates a silent logic error that can corrupt financial data.\n- Fix: Rename _apply_percentage to reflect its purpose (e.g., _apply_discount) or add a comment clarifying that percent is a discount rate, and ensure callers pass rate values.\n\n[WARNING] SIMPLICITY <Unnecessary Indirection> (apply_coupon)\n- Issue: The extra _apply_percentage function adds indirection for a trivial arithmetic operation. This increases cognitive load and future maintenance cost without measurable benefit, violating simplicity.\n- Fix: Inline the calculation directly in apply_coupon: order.total = (order.total * (Decimal(100) - percent) / Decimal(100)).quantize(Decimal(\"0.01\"))\n\n[SUGGESTION] STRUCTURE <Responsibility Leak> (apply_coupon)\n- Issue: apply_coupon performs both validation and discount application, mixing concerns. If discount logic changes (e.g., different rounding rules), the coupon function must be edited, risking duplication across callers.\n- Fix: Extract discount calculation into a dedicated function (already present) and have apply_coupon call it after validation, keeping validation separate.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 46319
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 47.7
+  }
+}

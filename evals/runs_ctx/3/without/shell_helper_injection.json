@@ -1,0 +1,171 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:39:00.565535Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "0b1ff692a7f0",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 102598,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "switch_branch",
+      "title": "CORRECTNESS Undefined Variable in Exception Path",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "switch_branch",
+      "title": "SECURITY Command Injection via Branch Parameter",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "switch_branch",
+      "title": "Silent Exception Swallowing",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "UNKNOWN",
+      "symbol": "switch_branch",
+      "title": "SECURITY Missing Authorization Check",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "switch_branch",
+      "title": "Checkout mutates the shared repository working tree",
+      "models": [
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "switch_branch",
+      "title": "View tightly couples HTTP handling to low‑level git operation",
+      "models": [
+        "cohere/north-mini-code:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CORRECTNESS Undefined Variable in Exception Path (at `switch_branch` function)\n  - Issue: If `run_git(\"checkout\", branch)` raises an exception, the `except` block silently passes, but the return statement unconditionally references `output` which was never assigned. This causes an `UnboundLocalError` on any exception, crashing the view instead of returning a proper error response.\n  - Fix: Initialize `output = None` before the try block, or return an error response in the except handler: `except Exception as e: return json_response({\"error\": str(e)}, status=500)`\n\n* [CRITICAL] SECURITY Command Injection via Branch Parameter (at `switch_branch` function)\n  - Issue: The `branch` parameter is extracted directly from user input (`request.json[\"branch\"]`) without any validation or sanitization before being passed to `run_git`. If `run_git` executes git commands with shell interpolation or if branch names contain shell metacharacters (`;`, `&&`, backticks, `$()`), an attacker could inject arbitrary commands. Even if `run_git` uses subprocess safely, malicious branch names could still cause git to fail or behave unexpectedly.\n  - Fix: Validate branch name against a strict allowlist pattern (e.g., `^[a-zA-Z0-9/_-]+$`) before passing to `run_git`, or use `shlex.quote()` if shell execution is involved.\n\n* [WARNING] ERROR_HANDLING Silent Exception Swallowing (at `switch_branch` function)\n  - Issue: The bare `except Exception: pass` silently discards all exceptions without logging or any indication of failure. This makes debugging impossible, hides security incidents, and violates the principle of failing loudly. Production systems need visibility into failures.\n  - Fix: Log the exception and return an appropriate error response: `except Exception as e: logger.exception(\"Branch switch failed\"); return json_response({\"error\": \"Branch switch failed\"}, status=500)`\n\n* [WARNING] SECURITY Missing Authorization Check (at `switch_branch` function)\n  - Issue: The endpoint allows switching branches without any authorization check. Any user who can reach this endpoint can potentially switch to any branch, which could expose sensitive code or allow deployment of unauthorized code.\n  - Fix: Add authorization check before processing: `if not request.user.has_perm('deploy.switch_branch'): return json_response({\"error\": \"Unauthorized\"}, status=403)`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 28836
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] ERROR_HANDLING `output` is unbound after a failed checkout (in `switch_branch`)\n  - Issue: If `run_git(\"checkout\", branch)` raises, the broad `except` suppresses the failure and execution continues to `json_response({\"branch\": branch, \"output\": output})`. Since `output` was never assigned, the request handler raises `UnboundLocalError`, masking the original Git error and returning a server error instead of a controlled response.\n  - Fix: Handle the exception explicitly and return an error response, or initialize `output` before the call. Prefer catching the Git tool’s specific exception and preserving its error details rather than catching every `Exception`.\n\n* [WARNING] INJECTION Untrusted branch names are passed as Git options (in `switch_branch`)\n  - Issue: `branch` comes directly from JSON and is inserted as the first argument after `checkout`. A value such as `\"--detach\"` changes checkout into a different Git mode rather than selecting the requested branch; other option-like values can alter command behavior. This violates the endpoint’s stated trust boundary even if `run_git` uses argument-array execution rather than a shell.\n  - Fix: Require a valid branch name and invoke a branch-specific operation with an option terminator, such as validating with `git check-ref-format --branch` and then using `git switch -- <branch>`. Return HTTP 400 for invalid names.\n\n* [WARNING] CONCURRENCY Checkout mutates the shared repository working tree (in `switch_branch`)\n  - Issue: Multiple simultaneous requests execute `git checkout` in the same repository working directory. Git does not serialize these operations as one logical operation, so one checkout can change files while another is updating them, leaving the workspace in an unexpected branch/state and causing subsequent deployments or requests to observe the wrong revision.\n  - Fix: Serialize branch-changing operations with a repository-scoped lock and reject conflicting concurrent changes, or perform checkouts in isolated per-request worktrees and atomically update the deployment target only after checkout succeeds.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 38890
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <UnboundLocalError when run_git fails> (def switch_branch request)\n  - Issue: The variable `output` is only assigned inside the try block; if `run_git` raises any exception, the except block swallows it and `output` remains undefined, causing a crash when returning the response. Also `request.json[\"branch\"]` raises KeyError if the JSON payload lacks a `branch` key.\n  - Fix: Initialize `output = \"\"` before the try, and handle missing branch with a 400 response; also re‑raise or log the exception instead of silently ignoring it.\n\n* [CRITICAL] INJECTION <Command injection via branch parameter> (def switch_branch request)\n  - Issue: The `branch` string is passed directly to `run_git(\"checkout\", branch)`, enabling arbitrary command injection. An attacker can supply a malicious payload to execute unintended shell commands.\n  - Fix: Validate/sanitize the branch name (e.g., allow only alphanumeric and hyphens) or use a safe API instead of invoking a shell command with user input.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 80777
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Missing branch validation and undefined output (at switch_branch)\n  - Issue: The function assumes request.json contains \"branch\". If missing, KeyError propagates, causing a 500 error. If run_git raises an exception, the bare except passes, leaving output undefined; json_response then references output, causing NameError and another 500. This breaks the invariant that the view always returns a response.\n  - Fix: Validate branch presence and type, provide an error response for missing data, and ensure output is defined before use. Example:\n    def switch_branch(request):\n        branch = request.json.get(\"branch\")\n        if not branch:\n            return json_response({\"error\": \"missing branch\"}, status=400)\n        output = None\n        try:\n            output = run_git(\"checkout\", branch)\n        except Exception as e:\n            output = str(e)\n        return json_response({\"branch\": branch, \"output\": output})\n\n* [WARNING] ERROR_HANDLING Bare except swallows all errors and hides failures (at switch_branch)\n  - Issue: The bare except catches any exception, including KeyboardInterrupt and SystemExit, and silently passes, discarding error information. This hides failures from the caller, leads to undefined variable usage, and prevents proper error reporting and debugging.\n  - Fix: Replace the bare except with specific exception handling and log or return an error. Example:\n    try:\n        output = run_git(\"checkout\", branch)\n    except GitError as e:\n        output = str(e)\n        # log e\n\n* [SUGGESTION] STRUCTURE View tightly couples HTTP handling to low‑level git operation (at switch_branch)\n  - Issue: The view directly calls run_git, mixing concerns. This forces any change to git command handling (e.g., authentication, logging) to modify the view, makes unit testing harder (view must mock run_git), and creates a coupling that drifts as the system evolves.\n  - Fix: Extract a service layer, e.g., deploy.services.checkout_branch(branch) that encapsulates the git operation, and have the view call that service. This isolates git logic, simplifies testing, and centralises changes to git behavior.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 102589
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": " * [WARNING] LOGIC Missing input validation and unsafe error handling (at switch_branch)\n    - Issue: The function accesses request.json[\"branch\"] without checking if the key exists, causing a KeyError that is caught by the broad Exception handler. However, if the KeyError occurs, the variable 'output' remains uninitialized, leading to an UnboundLocalError when constructing the response. Similarly, if run_git raises an exception (e.g., invalid branch), 'output' is uninitialized, causing the same UnboundLocalError. This results in a 500 error for invalid input or git failures instead of a proper error response.\n    - Fix: Validate the presence of 'branch' in request.json and handle specific exceptions from run_git. For example:\n        branch = request.json.get(\"branch\")\n        if branch is None:\n            return json_response({\"error\": \"Missing 'branch' parameter\"}, status=400)\n        try:\n            output = run_git(\"checkout\", branch)\n        except GitError as e:  # Assuming a specific exception from run_git\n            return json_response({\"error\": str(e)}, status=400)\n        return json_response({\"branch\": branch, \"output\": output})\n\n  * [WARNING] ERROR_HANDLING Overly broad exception catch obscures failure modes (at switch_branch)\n    - Issue: The bare 'except Exception' catches all exceptions, including those that should not be caught (e.g., KeyError from missing 'branch', or programming errors like AttributeError). This prevents proper error reporting and leads to the UnboundLocalError described above. It also hides unexpected errors that should be investigated.\n    - Fix: Narrow the exception handling to only the exceptions that run_git might raise (e.g., subprocess.CalledProcessError or a custom GitError). Allow other exceptions to propagate for debugging. For example:\n        try:\n            output = run_git(\"checkout\", branch)\n        except (GitError, subprocess.CalledProcessError) as e:\n            return json_response({\"error\": str(e)}, status=400)\n\nHowever, note that the problem says to report every genuine correctness and security defect. We have two correctness issues (the missing key and the uninitialized output) but they are both causing the same symptom (UnboundLocalError). We can combine them in one finding as above.\n\nBut note: the problem says to be dense and technical, and 80-150 words per finding. We have two separate issues (missing key and broad exception) that lead to the same problem. However, the root cause is the broad exception and the lack of input validation.\n\nAlternatively, we can split:\n\nFinding 1: Missing input validation for 'branch' key leading to KeyError and then UnboundLocalError.\nFinding 2: Broad exception catch leading to UnboundLocalError when run_git fails.\n\nBut note: the KeyError is caught by the broad exception, so it's the same mechanism.\n\nLet's write one finding for the correctness issue (which covers both scenarios) and then a separate finding for the error handling being too broad (which is a structural/simplicity issue? but actually it's a correctness issue because it leads to a crash).\n\nHowever, the problem says: for correctness, we need a concrete triggering input. We have two:\n  1. Request without \"branch\" key -> KeyError -> then UnboundLocalError in return.\n  2. Request with \"branch\" but invalid branch -> exception in run_git -> then UnboundLocalError in return.\n\nSo we can write:\n\n  * [WARNING] LOGIC Uninitialized variable 'output' in error paths causes UnboundLocalError (at switch_branch)\n    - Issue: If request.json lacks the \"branch\" key, a KeyError is caught by the broad Exception handler, leaving 'output' uninitialized. Similarly, if run_git(\"checkout\", branch) raises an exception, 'output' is never assigned. In both cases, the return statement attempts to use the undefined variable 'output', raising UnboundLocalError and resulting in a 500 error instead of a meaningful response.\n    - Fix: Initialize 'output' to a default value (e.g., None) before the try block, or handle specific exceptions and return an error response. For example:\n        output = None\n        try:\n            output = run_git(\"checkout\", branch)\n        except Exception as e:\n            output = str(e)\n        return json_response({\"branch\": branch, \"output\": output})\n\nBut note: the above fix still catches all exceptions and converts them to a string. This might be acceptable if we want to always return a response. However, the problem is that we are hiding the error. But at least we avoid the UnboundLocalError.\n\nAlternatively, we can return an error response on failure:\n\n        try:\n            output = run_git(\"checkout\", branch)\n        except Exception as e:\n            return json_response({\"error\": str(e)}, status=400)\n        return json_response({\"branch\": branch, \"output\": output})\n\nThis avoids the UnboundLocalError and returns an error.\n\nBut note: the original function returned the branch and output even on failure (because it caught the exception and then returned). The fix above changes the behavior to return an error on failure. This is likely the intended behavior.\n\nHowever, we are not sure what the intended behavior is. But the current behavior is broken.\n\nNow, for the security axis: we don't see an injection because we don't see the implementation of run_git. So we skip.\n\nFor structure: we might argue that the function does not separate input validation from the main logic. But the function is very small. The cost of not validating the input is that we get a KeyError (which we already covered in correctness). So we don't need a separate structure finding.\n\nFor simplicity: the function is already simple, but the error handling is wrong. We are fixing it to be more correct, which might add a few lines but is necessary.\n\nTherefore, we report one finding for correctness (which covers the uninitialized output) and then we note that the error handling is too broad? But the problem says to report every genuine correctness and security defect. The uninitialized output is a correctness defect. The broad exception catch is a contributing factor but not a defect by itself if we fix the uninitialized output by initializing output. However, the broad exception catch is still a problem because it catches too much.\n\nBut note: if we fix by initializing output and then returning it in the response, we are still catching all exceptions and returning them as output. This might be acceptable for a debug endpoint, but in production it could leak stack traces or internal errors. However, we don't have context.\n\nGiven the instructions, we focus on the concrete defect: the UnboundLocalError.\n\nWe'll report one finding for the LOGIC error (uninitialized variable) and then note that the error handling is too broad as a separate issue? But the problem says to report every genuine correctness and security defect. The uninitialized variable is a correctness defect. The broad exception catch is not a defect by itself if we fix the uninitialized variable (by initializing it) because then the function would not crash. However, it is still a bad practice.\n\nBut the problem says: for correctness, we need a concrete triggering input. The broad exception catch by itself does not cause a crash without the missing initialization. So we don't report it as a correctness defect. However, it is a structural issue? \n\nLet's see the categories: we have ERROR_HANDLING as a category. We can report:\n\n  * [WARNING] ERROR_HANDLING Overly broad exception catch prevents proper error diagnosis (at switch_branch)\n    - Issue: The function catches all exceptions (Exception), including programming errors (e.g., KeyError from missing 'branch', AttributeError) and system-exiting exceptions (like KeyboardInterrupt). This hides bugs and makes debugging difficult. For instance, a missing 'branch' key results in a KeyError being caught and then leads to an UnboundLocalError (due to uninitialized 'output'), which is less informative than the original KeyError.\n    - Fix: Catch only the specific exceptions that run_git might raise (e.g., GitError, subprocess.CalledProcessError). Allow other exceptions to propagate. For example:\n        try:\n            output = run_git(\"checkout\", branch)\n        except (GitError, subprocess.CalledProcessError) as e:\n            return json_response({\"error\": str(e)}, status=400)\n\nBut note: we don't know what exceptions run_git raises. We have to assume that it raises specific exceptions. If we don't know, we might catch Exception but then log it and return a generic error. However, the problem says we are to review the given code. We don't have the run_git code, so we cannot know what exceptions it raises. Therefore, we cannot specify the exact exceptions to catch.\n\nGiven that, we might not be able to fix it without knowing run_git. But we can note that catching Exception is too broad.\n\nHowever, the problem says: we are to review the given code. We see that the function catches Exception and then does nothing (pass) and then tries to use output. This is wrong because output might be uninitialized. We already have a finding for that.\n\nThe broad exception catch is a separate issue that exacerbates the problem but is not the direct cause of the crash. The direct cause is the uninitialized variable.\n\nTherefore, we will report one finding for the LOGIC error (uninitialized variable) and then if we have room, we can note the error handling as a separate finding? But the problem says to be dense and technical, and we are limited by the word count per finding.\n\nAlternatively, we can combine the two in one finding because they are related: the broad exception catch allows the KeyError to be caught and then leads to the uninitialized variable.\n\nBut note: the uninitialized variable problem would occur even if we caught only a specific exception from run_git if we didn't handle the KeyError. So we have two independent issues:\n  1. No validation for the \"branch\" key -> KeyError.\n  2. Broad exception catch -> which catches the KeyError and then we have the uninitialized variable problem.\n\nWe can fix both by:\n   - Validating the input (for the KeyError)\n   - Narrowing the exception catch (to avoid catching the KeyError and other non-git errors)\n\nBut note: if we validate the input, then the KeyError won't happen. So the broad exception catch would only catch exceptions from run_git. Then we still have the problem that if run_git raises an exception, output is uninitialized.\n\nSo we need two fixes:\n   - Validate the input for \"branch\"\n   - Handle the exception from run_git properly (so that output is defined in the error path)\n\nTherefore, we can write one finding that covers both:\n\n  * [WARNING] LOGIC Missing input validation and improper error handling cause UnboundLocalError (at switch_branch)\n    - Issue: The function does not validate the presence of the 'branch' key in request.json, leading to a KeyError that is caught by the broad Exception handler. Additionally, if run_git raises an exception, the variable 'output' remains uninitialized. In both cases, the return statement references the undefined variable 'output', causing an UnboundLocalError and a 500 response.\n    - Fix: Validate the input and handle specific exceptions. For example:\n        branch = request.json.get(\"branch\")\n        if branch is None:\n            return json_response({\"error\": \"Missing 'branch' parameter\"}, status=400)\n        try:\n            output = run_git(\"checkout\", branch)\n        except GitError as e",
+      "finish_reason": "length",
+      "truncated": true,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "latency_ms": 95022
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 103.2
+  }
+}

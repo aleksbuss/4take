@@ -1,0 +1,98 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:19:30.152774Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "327c26020d67",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 36352
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "unpack",
+      "title": "Zip Slip Path Traversal",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 3
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] INJECTION Path traversal (zip slip) (at unpack)\n    - Issue: The function extracts each member from the zip archive without checking whether the resulting path stays inside `dest`. A malicious archive containing entries such as `../../../etc/passwd` or `subdir/../../evil.so` can cause `extract()` to write files outside the intended directory, leading to arbitrary file overwrite or remote code execution.\n    - Fix: Validate each member's target path before extraction. For example:\n        ```python\n        import os\n        def unpack(archive_path, dest):\n            abs_dest = os.path.abspath(dest)\n            with zipfile.ZipFile(archive_path) as zf:\n                for member in zf.namelist():\n                    target = os.path.abspath(os.path.join(abs_dest, member))\n                    if not target.startswith(abs_dest):\n                        raise ValueError(f\"Invalid zip member: {member}\")\n                    zf.extract(member, dest)\n        ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 6867,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [INJECTION] Zip Slip Path Traversal (unpack)\n- Issue: `zf.extract(member, dest)` extracts every `namelist()` entry verbatim. An archive crafted with member names like `../../etc/cron.d/evil` or `/tmp/evil` causes files to be written outside `dest`, exploiting the classic zip slip vulnerability. Any caller that trusts user-supplied archives is exposed.\n- Fix: Validate each member path before extraction:\n```python\ndef unpack(archive_path, dest):\n    dest = os.path.realpath(dest)\n    with zipfile.ZipFile(archive_path) as zf:\n        for member in zf.namelist():\n            target = os.path.realpath(os.path.join(dest, member))\n            if not (target == dest or target.startswith(dest + os.sep)):\n                raise ValueError(f\"Path traversal detected: {member}\")\n            zf.extract(member, dest)\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 12689,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Path traversal via extract (zf.extract)\n  - Issue: zipfile.extract does not sanitize member paths; an archive containing entries like \"../../etc/passwd\" will cause extraction outside the intended destination, enabling arbitrary file write.\n  - Fix: Validate each member before extraction: if os.path.isabs(member) or \"..\" in member.split(os.sep): raise ValueError; or compute the absolute target path and ensure it stays within dest using os.path.commonprefix or os.path.realpath.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 30569,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Destination directory may not exist> (at unpack)\n    - Issue: The function iterates over archive members and calls `zf.extract(member, dest)` for each. If `dest` does not exist, `extract` cannot create the missing parent directories and will raise `FileNotFoundError`, causing the whole unpack to fail even though the archive is valid. This is a correctness problem that surfaces on the first call when the destination path is newly created by the caller.\n    - Fix: Ensure the destination directory exists before extraction, e.g., add `os.makedirs(dest, exist_ok=True)` at the start of the function (import `os` if needed).\n\n* [SUGGESTION] SIMPLICITY <Manual member iteration replaces a single library call> (at unpack)\n    - Issue: The implementation manually loops through `zf.namelist()` and calls `extract` for each member. This duplicates work that `ZipFile.extractall` already performs, including creating necessary sub‑directories, and makes the code longer without added benefit. A future change to the extraction logic would need to be applied in two places (the loop and any direct use of `extractall`), increasing maintenance cost.\n    - Fix: Replace the loop with a single call: `zf.extractall(dest)`. This achieves the same result with less code and delegates directory creation to the standard library.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 31924,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [CRITICAL] [AUTH_CRYPTO] Zip-slip path traversal (unpack)\n  - Issue: `zf.extract(member, dest)` writes archive members without validating their paths. A malicious entry such as `../../outside/file` or an absolute path can escape `dest` and overwrite files accessible to the process.\n  - Fix: Reject absolute paths and `..` components, verify each resolved target remains under `dest`, and preferably use `zf.extractall(dest, filter=\"data\")` where available.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 4419,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "pathtraversal_zip.py",
+    "exit_code": 0,
+    "wall_s": 36.8,
+    "duplicate_of_backfilled": true
+  }
+}

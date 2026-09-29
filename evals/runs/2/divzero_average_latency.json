@@ -1,0 +1,98 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:12:21.314701Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "99e8aadee29b",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 23490
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "summarise",
+      "title": "Division by zero on empty samples",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] [LOGIC] Division by zero on empty samples (at summarise)\n    - Issue: If `samples` is an empty list, `len(samples)` equals zero, causing a `ZeroDivisionError` when computing `success_rate = len(ok) / len(samples)`. A caller that trusts the function to return a dictionary will instead see an exception propagate, potentially crashing the service or leaving metrics incomplete.\n    - Fix: Guard against an empty input before the division, e.g.:\n      ```python\n      if not samples:\n          return {\"count\": 0, \"success_rate\": 0.0, \"p50_ms\": None}\n      ```\n\n* [CRITICAL] [LOGIC] IndexError when no successful samples (at summarise)\n    - Issue: When every sample has `\"ok\": False`, the list comprehension `ok` is empty. `sorted(s[\"latency_ms\"] for s in ok)` yields an empty list, and indexing `len(ok)//2` (which is `0`) attempts to read the first element, raising an `IndexError`. This occurs whenever the caller passes data with no successful runs, causing the function to fail instead of reporting a missing percentile.\n    - Fix: Handle the empty‑ok case explicitly, for example:\n      ```python\n      if not ok:\n          p50_ms = None\n      else:\n          p50_ms = sorted(s[\"latency_ms\"] for s in ok)[len(ok)//2]\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11131,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [ERROR_HANDLING] ZeroDivisionError on empty input (at `summarise` / `success_rate` expression)\n  - Issue: When `samples` is an empty list, `len(ok) / len(samples)` divides by zero. Any caller iterating over a dataset that may contain no samples (e.g., a test run with no results, a filtered time window) will crash.\n  - Fix: Guard with `if not samples: return {\"count\": 0, \"success_rate\": 0.0, \"p50_ms\": None}` or equivalent before the division.\n\n* [CRITICAL] [ERROR_HANDLING] IndexError when no samples pass the filter (at `summarise` / `p50_ms` expression)\n  - Issue: If `ok` is empty (all samples have `\"ok\": false`) but `samples` is non-empty, `sorted(...)[0]` on an empty list raises `IndexError`. This is a distinct crash from the first — it triggers on non-empty input.\n  - Fix: Check `if not ok:` before computing `p50_ms` and return a sentinel (e.g., `None`) for that field.\n\n* [WARNING] [LOGIC] Incorrect median (p50) for even-length `ok` list (at `summarise` / `p50_ms` expression)\n  - Issue: `sorted(...)[len(ok) // 2]` selects the upper-middle element for even-length lists rather than the conventional median (average of the two central values). For `ok` latencies `[10, 20, 30, 40]`, this returns `30` instead of `25`. Any consumer relying on p50 for SLA reporting or percentile dashboards will receive a silently inflated value.\n  - Fix: For even `n`, return `(sorted_latencies[n//2 - 1] + sorted_latencies[n//2]) / 2`; for odd `n`, return `sorted_latencies[n//2]`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16253,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] BOUNDS Division by zero and index error (at summarise)\n  - Issue: When `samples` is empty, `len(samples)` is zero, causing a `ZeroDivisionError` in `success_rate = len(ok) / len(samples)`. If `samples` is non‑empty but all entries have `\"ok\": false`, `ok` becomes empty; `sorted(...)[len(ok)//2]` then indexes an empty list, raising an `IndexError`. These are fatal correctness failures for valid inputs.\n  - Fix: Guard against empty `samples` and empty `ok`. For example:\n    ```python\n    if not samples:\n        return {\"count\": 0, \"success_rate\": 0.0, \"p50_ms\": None}\n    ok = [s for s in samples if s[\"ok\"]]\n    if not ok:\n        return {\"count\": len(samples), \"success_rate\": 0.0, \"p50_ms\": None}\n    sorted_lat = sorted(s[\"latency_ms\"] for s in ok)\n    n = len(sorted_lat)\n    if n % 2 == 1:\n        p50 = sorted_lat[n // 2]\n    else:\n        p50 = (sorted_lat[n // 2 - 1] + sorted_lat[n // 2]) / 2\n    return {\"count\": len(samples), \"success_rate\": len(ok) / len(samples), \"p50_ms\": p50}\n    ```\n\n* [WARNING] LOGIC Incorrect median for even number of successful samples (at summarise)\n  - Issue: `p50_ms` uses the lower median (`sorted(...)[len(ok)//2]`). For an even count of successful samples, the true 50th percentile is the average of the two middle values; the current implementation returns the higher of the two, skewing the statistic.\n  - Fix: Compute the median correctly:\n    ```python\n    n = len(sorted_lat)\n    if n % 2 == 1:\n        p50 = sorted_lat[n // 2]\n    else:\n        p50 = (sorted_lat[n // 2 - 1] + sorted_lat[n // 2]) / 2\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18973,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] ERROR_HANDLING Division by zero on empty input (at `summarise` function)\n  - Issue: When `samples` is an empty list, `len(samples)` is 0, causing `len(ok) / len(samples)` to raise ZeroDivisionError. Input: `summarise([])`\n  - Fix: Add early return or guard clause: `if not samples: return {\"count\": 0, \"success_rate\": 0.0, \"p50_ms\": None}`\n\n* [CRITICAL] ERROR_HANDLING IndexError on all-failed samples (at `summarise` function)\n  - Issue: When all samples have `s[\"ok\"] = False`, the `ok` list is empty. The expression `sorted(s[\"latency_ms\"] for s in ok)[len(ok) // 2]` attempts to index into an empty list, raising IndexError. Input: `summarise([{\"ok\": False, \"latency_ms\": 10}])`\n  - Fix: Add check before median calculation: `if ok: p50_ms = sorted(s[\"latency_ms\"] for s in ok)[len(ok) // 2] else: p50_ms = None`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 23482,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC summarise division by zero and index out of range (at return line)\n  - Issue: If samples is empty, len(samples) is 0 causing ZeroDivisionError on success_rate and IndexError when accessing sorted latency list at index len(ok)//2, leading to a direct crash on valid input.\n  - Fix: Add a guard for empty samples and handle missing keys, e.g.:\n    ```python\n    if not samples:\n        return {\"count\": 0, \"success_rate\": 0.0, \"p50_ms\": 0}\n    ok = [s for s in samples if s.get(\"ok\")]\n    if not ok:\n        return {\"count\": len(samples), \"success_rate\": 0.0, \"p50_ms\": 0}\n    return {\n        \"count\": len(samples),\n        \"success_rate\": len(ok) / len(samples),\n        \"p50_ms\": sorted(s[\"latency_ms\"] for s in ok)[len(ok) // 2],\n    }\n  * [WARNING] LOGIC unhandled missing keys and empty ok list (at list comprehensions)\n    - Issue: The list comprehensions assume each sample dict has both \"ok\" and \"latency_ms\" keys; missing keys raise KeyError, and an empty ok list causes IndexError when computing p50_ms, which is an unhandled edge case.\n    - Fix: Use .get() with defaults and check ok list length before indexing, as shown in the previous fix.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 22262,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "divzero_average_latency.py",
+    "exit_code": 0,
+    "wall_s": 23.9,
+    "duplicate_of_backfilled": true
+  }
+}

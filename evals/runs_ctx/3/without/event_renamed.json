@@ -1,0 +1,103 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:30:30.840483Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "988e333399d5",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 36595,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "emit",
+      "title": "Renamed event breaks existing subscribers",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 4
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] LOGIC: Renamed event breaks existing subscribers (in `createUser`)\n  - Issue: `createUser` now emits `\"userCreated\"` instead of `\"user:created\"`. Any existing subscribers still listening for the old event—such as analytics, cache invalidation, or notification handlers—will silently stop running, while the user record is still returned successfully.\n  - Fix: Preserve the existing event name unless all producers and consumers are updated atomically:\n    ```js\n    bus.emit(\"user:created\", user);\n    ```\n    If the rename is required, update and deploy every listener in the same change and verify no old subscriptions remain.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5836
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "[WARNING] [LOGIC] Event name mismatch between producer and consumers (at `bus.emit(\"userCreated\", user)` in `createUser`)\n- Issue: The event name was changed from `\"user:created\"` to `\"userCreated\"`, but any existing consumers (or other producers) listening on the old `\"user:created\"` channel will silently miss this event. This creates a behavioral regression where downstream systems (e.g., email notifications, audit logging, cache invalidation) that depend on the `user:created` event will no longer fire, leading to inconsistent state or missed side effects.\n- Fix: Either revert to `\"user:created\"` to maintain backward compatibility, or ensure all consumers and producers are updated atomically to use `\"userCreated\"` across the codebase. If this is an intentional rename, verify there are no other references to the old event name.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8050
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Event name change breaks subscriber contracts> (at bus.emit)\n    - Issue: Changing the event name from \"user:created\" to \"userCreated\" without updating all subscribers causes silent failure where dependent functionality (e.g., welcome emails, analytics) stops working. Subscribers still listening for the old event name will never receive the notification.\n    - Fix: Either revert to \"user:created\" or update all corresponding subscriber registrations to match \"userCreated\" simultaneously. Consider defining event names as constants to prevent drift.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15019
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] LOGIC Event name change breaks listeners (at createUser line 8)\n  - Issue: The event emitted changed from \"user:created\" to \"userCreated\". Any existing listeners expecting \"user:created\" will not be notified, causing missing side effects such as email notifications or audit logs.\n  - Fix: Either revert to \"user:created\" or update all listeners to use \"userCreated\". If the change is intentional, ensure all subscribers are migrated.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 36586
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC createUser event name mismatch (at line 12)  \n- Issue: The function emits \"userCreated\" instead of the expected \"user:created\", so any listeners awaiting the original event name will not be triggered, causing missing side effects such as email verification or analytics.  \n- Fix: bus.emit(\"user:created\", user);",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 17606
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 2632
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 37.3
+  }
+}

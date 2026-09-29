@@ -1,0 +1,153 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:29:42.891390Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "5c184b8d731e",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 28297
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "term",
+      "title": "SQL Injection via string-concatenated search term",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "cur",
+      "title": "Cursor never closed",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": null,
+      "title": "Missing cursor cleanup in search_users",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": null,
+      "title": "Unbounded result set from LIKE wildcard",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": null,
+      "title": "Redundant string concatenation for query building",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] SQL Injection via string-concatenated search term (at `query = \"SELECT id, email, display_name FROM users WHERE display_name LIKE '%\" + term + \"%'\"`)\n  - Issue: The `term` parameter is interpolated directly into the SQL string. An input like `%' OR '1'='1' --` collapses the WHERE clause into a no-op or worse, enabling full table exfiltration or data manipulation depending on the database's multi-statement support. The `limit` parameter is also concatenated via `str(limit)`, which is injectable if a non-integer reaches this path.\n  - Fix: Use parameterized queries: `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", (f\"%{term}%\", limit))`.\n\n* [WARNING] [RESOURCE_LEAK] Cursor never closed (at `cur = conn.cursor()`)\n  - Issue: `cur` is never closed via `cur.close()` or used in a `with` block. Under sustained load with connection-pooled or server-side cursors, leaked cursors consume server resources and can exhaust the per-connection cursor limit.\n  - Fix: Wrap in a context manager or explicitly close: `with conn.cursor() as cur:` or add `cur.close()` after `fetchall()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8416,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] INJECTION search_users SQL injection vulnerability (at line 4-5)\n  - Issue: The `term` parameter is directly concatenated into the SQL query string without any sanitization or parameterization. An attacker can supply a malicious term like `' OR 1=1 --` to bypass the LIKE clause and extract all user records, or use `'; DROP TABLE users; --` to destroy data. The `limit` parameter is also vulnerable to injection via `str(limit)`.\n  - Fix: Use parameterized queries:\n    ```python\n    cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", (f'%{term}%', limit))\n    ```\n\n* [WARNING] ERROR_HANDLING Missing cursor cleanup in search_users (at line 3)\n  - Issue: The cursor is created but never explicitly closed. If an exception occurs during query execution or fetching, the cursor resource may leak. While Python's garbage collector will eventually clean it up, this violates the principle of explicit resource management and could lead to connection pool exhaustion under error conditions.\n  - Fix: Use a context manager or explicit cleanup:\n    ```python\n    with conn.cursor() as cur:\n        cur.execute(...)\n        rows = cur.fetchall()\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9346,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <SQL injection via string concatenation> (at symbol/line)\n  - Issue: The `term` parameter is unsanitized and directly concatenated into the SQL `LIKE` clause, allowing an attacker to inject malicious SQL that alters the query or causes errors, leading to data corruption or denial of service.\n  - Fix: Use parameterized queries with placeholders, e.g., `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", ('%' + term + '%', limit))`\n\n* [WARNING] RESOURCE_LEAK <Unbounded result set from LIKE wildcard> (at symbol/line)\n  - Issue: The `LIKE '%' + term + '%'` pattern prevents index usage, causing a full table scan that can grow superlinearly with input size, potentially exhausting memory or CPU when `term` is empty or large.\n  - Fix: Validate `term` for emptiness and add a length check, and consider a full-text search or indexed column instead of leading/trailing wildcards.\n\n* [SUGGESTION] SIMPLICITY <Redundant string concatenation for query building> (at symbol/line)\n  - Issue: Query construction via multiple `+=` operations is verbose and error‑prone; using a single formatted string or parameterized query reduces duplication and improves readability.\n  - Fix: Replace the concatenation with a single f‑string or parameterized statement as shown in the security fix.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19453,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Unsafe SQL query construction (search_users)\n  - Issue: The `term` argument is directly concatenated into the SQL string without sanitization, allowing an attacker to inject arbitrary SQL. For example, supplying `term = \"' OR '1'='1\"` yields a query that returns all rows, bypassing the intended search.\n  - Fix: Use parameterized queries: `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", (f\"%{term}%\", limit))`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 28291,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] SECURITY INJECTION <Concise Title> (at search_users)\n    - Issue: The function builds SQL by directly concatenating user‑supplied `term` and `limit` into the query string, allowing an attacker to inject arbitrary SQL. Example: term = \"' OR '1'='1\" causes the WHERE clause to always true, returning all users.\n    - Fix: Use parameterized queries: cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", ('%' + term + '%', limit))\n\n* [WARNING] CORRECTNESS LOGIC <Concise Title> (at search_users)\n    - Issue: The `term` is used directly in a LIKE pattern without escaping SQL wildcard characters (`%` and `_`). A term containing these characters will match unintended rows, e.g., term = \"%\" matches every user because LIKE '%%%' matches any string.\n    - Fix: Escape wildcards before using them in LIKE, e.g., replace '%' with '\\%' and '_' with '\\_', and add ESCAPE clause: cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ESCAPE '\\\\' ORDER BY created_at DESC LIMIT ?\", (escape_like(term), limit))\n\n* [SUGGESTION] STRUCTURE STRUCTURE (at search_users)\n    - Issue: SQL string construction is embedded in the function, mixing data access logic with query building. This forces every caller that needs a similar search to duplicate the concatenation logic, and any change to the query (e.g., adding columns) must be edited in one place but risks being forgotten if similar logic appears elsewhere.\n    - Fix: Extract the query into a constant or a dedicated DAO method that returns the SQL string and parameters, keeping the function focused on executing the query and mapping results.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 20744,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "sqli_user_search.py",
+    "exit_code": 0,
+    "wall_s": 28.7,
+    "duplicate_of_backfilled": true
+  }
+}

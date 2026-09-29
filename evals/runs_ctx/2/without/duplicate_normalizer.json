@@ -1,0 +1,100 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:01:04.909618Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "e5aaf22ee350",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 30904,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "normalize_email",
+      "title": "normalize_email() fails on None or non-string input",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "register",
+      "title": "CORRECTNESS register() allows empty email after normalization",
+      "models": [
+        "cohere/north-mini-code:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 3526
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] LOGIC normalize_email() fails on None or non-string input (at normalize_email function)\n  - Issue: Calling `normalize_email(None)` or `normalize_email(123)` raises `AttributeError: 'NoneType' object has no attribute 'strip'` or similar. The function assumes input is always a string without validation, which can crash the registration flow if a caller passes invalid data.\n  - Fix: Add input validation: `def normalize_email(address): if not isinstance(address, str): raise ValueError(\"email must be a string\"); return address.strip().lower()`\n\n* [WARNING] CORRECTNESS register() allows empty email after normalization (at register function)\n  - Issue: After `normalize_email()`, an input of `\"   \"` (whitespace-only) becomes `\"\"` (empty string), which passes the duplicate check and attempts to create an Account with an empty email, violating email format expectations.\n  - Fix: Add validation after normalization: `if not email: raise ValueError(\"email cannot be empty\")`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 10404
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Normalize email assumes string input> (at normalize_email)\n    - Issue: The helper `normalize_email` calls `.strip()` and `.lower()` on its argument without verifying it is a string. If `register` is ever called with a non‑string (e.g., `None`), an `AttributeError` will propagate unchecked, causing a 500 error.\n    - Fix: Guard the function with a type check or coerce to string, e.g.:\n      ```python\n      def normalize_email(address):\n          if not isinstance(address, str):\n              address = str(address) if address is not None else ''\n          return address.strip().lower()\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 10845
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] CONCURRENCY Race condition in register (register)\n  - Issue: The `register` function checks `Account.objects.filter(email=email).exists()` and then creates a new account. Between these two steps, another concurrent request can also pass the existence check and create a duplicate account, violating the uniqueness invariant and causing data integrity problems.\n  - Fix: Use atomic creation with a unique constraint and catch the integrity error, or lock the email row. Example:\n\n```\ndef register(email, password):\n    email = normalize_email(email)\n    try:\n        return Account.objects.create(email=email, password_hash=hash_password(password))\n    except IntegrityError:\n        raise ValueError(\"email already registered\")\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 30896
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 31.5
+  }
+}

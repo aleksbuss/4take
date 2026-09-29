@@ -1,0 +1,109 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:04:02.012223Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "656049806476",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 35365,
+    "context": {
+      "files": [
+        "limits/counter.py"
+      ],
+      "tokens": 222,
+      "dropped": []
+    }
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "reset",
+      "title": "reset mutates shared state without the counter lock",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 4
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] [CONCURRENCY] `reset` mutates shared state without the counter lock (at `RateCounter.reset`)\n  - Issue: `hit` and `count` synchronize on `self._lock`, but `reset` does not. A concurrent `hit(\"k\")` can interleave with the two `pop` operations—for example, after `_windows[\"k\"]` is removed but before `_counts[\"k\"]` is removed—leaving `_counts[\"k\"]` recreated or losing the newly recorded hit. This makes the documented “Forget everything recorded for `key`” behavior unreliable under concurrent request handling.\n  - Fix: Hold the same lock around both removals, and preserve atomicity with the rest of the counter’s state:\n    ```python\n    with self._lock:\n        self._counts.pop(key, None)\n        self._windows.pop(key, None)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 2992
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] [CONCURRENCY] Reset method not thread-safe (at reset)\n    - Issue: The `reset` method accesses `self._counts` and `self._windows` without holding the instance lock, while `hit` and `count` methods use the lock. Concurrent calls to `reset` and `hit`/`count` for the same key can cause KeyError (if reset removes the key just before hit tries to increment it) or inconsistent state.\n    - Fix: Protect the reset method with the same lock used by hit and count: wrap the body in `with self._[WARNING] [CONCURRENCY] Reset method not thread-safe (at reset)\n    - Issue: The `reset` method accesses `self._counts` and `self._windows` without holding the instance lock, while `hit` and `count` methods use the lock. Concurrent calls to `reset` and `hit`/`count` for the same key can cause KeyError (if reset removes the key just before hit tries to increment it) or inconsistent state.\n    - Fix: Protect the reset method with the same lock used by hit and count: wrap the body in `with self._lock:`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18480
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] CONCURRENCY Missing lock in reset (at reset)\n  - Issue: The reset method accesses shared mutable structures _counts and _windows without acquiring the lock, allowing race conditions with concurrent hit or count operations. This can cause inconsistent state, lost updates, or KeyError if a key is removed while another thread is iterating.\n  - Fix: Acquire self._lock before modifying the dictionaries:\n\n```\ndef reset(self, key):\n    \"\"\"Forget everything recorded for `key`.\"\"\"\n    with self._lock:\n        self._counts.pop(key, None)\n        self._windows.pop(key, None)\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 32534
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [CONCURRENCY] `reset` mutates shared state without holding the lock (at `RateCounter.reset`)\n  - Issue: `reset` calls `self._counts.pop` and `self._windows.pop` outside `self._lock`, while `hit` and `count` mutate/read the same dicts under the lock. A concurrent `hit` can append to a deque that `reset` is simultaneously popping, causing a lost update (count drifts upward) or, under CPython, a `KeyError`/corrupted deque iteration. The `defaultdict` auto-creation in `hit` can also race with `pop`, resurrecting a key mid-reset.\n  - Fix: Acquire `self._lock` around both `pop` calls so the mutation is serialized with `hit`/`count`.\n\n* [WARNING] [RESOURCE_LEAK] `reset` leaves stale entries in the opposite dict (at `RateCounter.reset`)\n  - Issue: `reset` only clears `_counts` and `_windows`, but `hit` writes to both. If a future change adds a third per-key structure, `reset` will silently leak it. More immediately, the two `pop` calls are not atomic relative to each other, so a concurrent `hit` between them can repopulate `_counts` after `_windows` was cleared, leaving `_counts` non-zero for a key whose window is empty — an inconsistent state.\n  - Fix: Hold the lock and clear both dicts in one critical section; consider a single `_data` dict keyed by `key` to make reset inherently atomic.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 32901
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] CONCURRENCY <reset without lock> (limits/counter.py:32)\n- Issue: The reset method modifies _counts and _windows without acquiring _lock, causing race conditions where concurrent hit or count operations may observe partially reset state, leading to incorrect hit counts.\n- Fix: Acquire the lock before modifying the dictionaries, e.g., with self._lock: self._counts.pop(key, None); self._windows.pop(key, None)",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 27208
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 2454
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 35.9
+  }
+}

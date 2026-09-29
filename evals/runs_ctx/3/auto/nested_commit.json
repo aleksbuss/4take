@@ -1,0 +1,155 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T16:15:06.057257Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "b4009490bb65",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 72800,
+    "context": {
+      "files": [
+        "orders/lines.py"
+      ],
+      "tokens": 80,
+      "dropped": [],
+      "auto": {
+        "orders/lines.py": "defines add_line_item"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "import_order",
+      "title": "Transaction not atomic due to nested commits",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 3
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "add_line_item",
+      "title": "Transaction Boundary Split Across Functions",
+      "models": [
+        "cohere/north-mini-code:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "import_order",
+      "title": "Unvalidated quantity",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "add_line_item",
+      "title": "Over‑engineered commit per line",
+      "models": [
+        "cohere/north-mini-code:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "import_order",
+      "title": "Unnecessary Order import",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC `import_order` cannot provide its documented all-or-nothing result (`import_order`)\n  - Issue: `add_line_item()` commits each line independently. For a two-row input where the first row is valid and the second lacks `\"sku\"` or has a non-integer `\"qty\"`, the first line and its order are already committed before the exception reaches the `session.rollback()`. The rollback cannot undo those commits, yet the docstring promises that either everything or nothing is created. Additionally, only `KeyError` and `ValueError` trigger explicit cleanup; other line-processing failures leave transaction ownership to the caller.\n  - Fix: Make transaction control belong solely to `import_order`. Refactor `add_line_item` to only `flush()` (or add a `commit=False` parameter), then perform exactly one `session.commit()` after all rows succeed. Wrap the entire operation in `try/except BaseException`, roll back once, and re-raise.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7010
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] ERROR_HANDLING <Uncaught NoResultFound from product lookup> (import_order)\n  - Issue: add_line_item queries Product with .one() which raises NoResultFound if sku missing; import_order only catches KeyError/ValueError, so DB lookup failure bypasses rollback, leaving a partially committed order and causing silent data inconsistency.\n  - Fix: Expand the except clause to include sqlalchemy.orm.exc.NoResultFound (or catch Exception) and ensure rollback on any exception before re-raising.\n\n* [WARNING] LOGIC <Unvalidated quantity> (import_order)\n  - Issue: qty is converted to int without checking for negative or zero values, allowing invalid LineItem creations that may violate business rules or cause downstream errors.\n  - Fix: Add a guard `if int(row[\"qty\"]) <= 0: raise ValueError(\"qty must be positive\")` before calling add_line_item.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary Order import> (import_order)\n  - Issue: Order model is imported but not used directly; the function relies on add_line_item and session handling, so the import adds noise without benefit.\n  - Fix: Remove `from orders.models import Order` line.\n\nNO_ISSUES_FOUND: Not applicable.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 25641
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CORRECTNESS Transaction Management Breaks Atomicity (in import_order)\n  - Issue: The function calls `add_line_item` which internally commits each line item, then attempts to rollback on failure. This violates the \"all or nothing\" guarantee - if the first line item succeeds and a later one fails, the first item remains committed while the rollback discards subsequent changes. The function's docstring promises atomicity but cannot deliver it due to `add_line_item`'s internal commit.\n  - Fix: Refactor to handle transaction boundaries at a single layer. Either: (1) have `add_line_item` not commit and let `import_order` manage the transaction, or (2) use savepoints. Example: remove `session.commit()` from `add_line_item` and ensure it only adds to session.\n\n* [WARNING] CORRECTNESS Unhandled NoResultFound Exception (in import_order)\n  - Issue: `add_line_item` calls `Product.query.filter_by(sku=sku).one()` which raises `NoResultFound` when SKU doesn't exist. This exception is not caught by the `except (KeyError, ValueError)` clause, so the transaction won't rollback and the order will be left in an inconsistent state with only the order record persisted.\n  - Fix: Add `NoResultFound` to the exception tuple: `except (KeyError, ValueError, NoResultFound):` and import it from sqlalchemy.\n\n* [WARNING] STRUCTURE Transaction Boundary Split Across Functions (at add_line_item/import_order boundary)\n  - Issue: `add_line_item` manages its own transaction (add + commit), forcing callers to coordinate with it. This creates an impedance mismatch where batch operations cannot achieve atomicity. Any function adding multiple items must work around this design, leading to duplicated transaction logic or broken invariants.\n  - Fix: Extract the session.add() into a separate internal function, or refactor `add_line_item` to accept an optional commit parameter, allowing callers to control transaction boundaries.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 41851
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Transaction not atomic due to nested commits (import_order)\n  - Issue: add_line_item calls session.commit() for each line, so if a later row fails (e.g., missing SKU or invalid qty), earlier line items are already persisted, breaking the all‑or‑nothing guarantee. The try/except in import_order rolls back only the pending order, leaving committed line items.\n  - Fix: Remove the session.commit() from add_line_item, or make add_line_item accept a session and not commit. Let import_order manage the transaction: after the loop, call session.commit() and catch exceptions to rollback the whole order and its lines.\n\n* [WARNING] ERROR_HANDLING Missing handling for missing SKU (import_order)\n  - Issue: add_line_item uses Product.query.filter_by(sku=sku).one(), which raises sqlalchemy.orm.exc.NoResultFound if the SKU does not exist. This exception is not caught by import_order’s except (KeyError, ValueError), causing a cascade that leaves earlier line items committed and the order partially persisted.\n  - Fix: Import the appropriate exception (e.g., from sqlalchemy.orm.exc import NoResultFound) and extend the except clause to catch it, or validate SKU existence before calling add_line_item.\n\n* [SUGGESTION] STRUCTURE Transaction boundary leakage (add_line_item)\n  - Issue: add_line_item performs its own session.commit(), leaking transaction management to callers. This forces import_order to implement complex rollback logic that cannot undo already‑committed line items, creating tight coupling and making atomic operations impossible.\n  - Fix: Refactor add_line_item to accept a session argument and not commit, moving commit responsibility to the caller (import_order). This restores clear transaction boundaries and eliminates the need for import_order’s partial rollback.\n\n* [SUGGESTION] SIMPLICITY Over‑engineered commit per line (add_line_item)\n  - Issue: The per‑line commit adds unnecessary complexity. It defeats the atomicity intended by import_order’s try/except, requiring extra error‑handling code that cannot roll back already‑committed lines.\n  - Fix: Remove the session.commit() from add_line_item, letting import_order handle a single commit after the loop. This simplifies the code and restores the intended all‑or‑nothing behavior.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 72783
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 73.9
+  }
+}

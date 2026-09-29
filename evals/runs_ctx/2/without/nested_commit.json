@@ -1,0 +1,162 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:09:06.465395Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "b4009490bb65",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 7,
+    "total_latency_ms": 228119,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor; nvidia held more than one seat: no other vendor answered in time, so agreement between those seats is weaker evidence",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "import_order",
+      "title": "[CORRECTNESS] Exception handler too narrow leaves session inconsistent",
+      "models": [
+        "inclusionai/ling-3.0-flash-fin:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 4,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "UNKNOWN",
+      "symbol": null,
+      "title": "[SECURITY] No authorization check on customer_id",
+      "models": [
+        "inclusionai/ling-3.0-flash-fin:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "import_order",
+      "title": "Manual transaction management",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] [ERROR_HANDLING] Transaction is not rolled back for database or commit failures (`import_order`)\n  - Issue: The promise to “create an order and all of its lines, or nothing at all” is not upheld. If `add_line_item()` flushes and raises a database exception such as `IntegrityError`, or if `session.commit()` fails, execution bypasses this exception handler. The pending order/lines remain in the session, which is commonly left in a failed transaction state and may be accidentally reused by later calls. A duplicate SKU, invalid foreign key, or transient commit failure is a concrete trigger.\n  - Fix: Include every transaction-producing operation in the `try`, especially `session.commit()`, and roll back for any exception before re-raising: `try: ...; session.commit()` followed by `except BaseException: session.rollback(); raise`. This also handles failures raised by the `rows` iterator.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4995
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-fin:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [CORRECTNESS] Exception handler too narrow leaves session inconsistent\n\nThe `except (KeyError, ValueError)` only catches two exception types. If `add_line_item` raises any other exception — e.g., a database `IntegrityError`, `TypeError` from malformed `rows`, or a connection failure — `session.rollback()` is never called. The partially-created `Order` remains in the session in a dirty state, and `session.commit()` is skipped. Subsequent operations on the session may silently persist incomplete data or fail unpredictably.\n\nFix: Broaden the except to catch `Exception` (or at minimum add a second except block), and move `session.add(order)` inside the try block so the entire operation is atomic:\n\n```python\norder = Order(customer_id=customer_id)\ntry:\n    session.add(order)\n    for row in rows:\n        add_line_item(order, row[\"sku\"], int(row[\"qty\"]))\nexcept Exception:\n    session.rollback()\n    raise\nsession.commit()\nreturn order\n```\n\n[WARNING] [SECURITY] No authorization check on customer_id\n\n`import_order` accepts any `customer_id` without verifying that the caller is permitted to create orders for that customer. A caller could pass another customer's ID and create orders on their behalf. The function should validate that `customer_id` matches the authenticated user or an authorized party.\n\n[WARNING] [STRUCTURE] session.add(order) placed outside try block\n\n`session.add(order)` executes before the `try` block. If `session.add()` itself raises (unlikely but possible), or if any exception occurs between `session.add()` and the `try` entry, no rollback is performed. This breaks the \"all or nothing\" invariant stated in the docstring. The add must be inside the try to ensure atomicity.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7153
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] ERROR_HANDLING <Partial rollback on unhandled exceptions> (import_order function)\n  - Issue: The try/except block only catches KeyError and ValueError; any other exception from add_line_item (e.g., IntegrityError, DB constraint violation) propagates without rolling back, causing a commit that leaves the order in an inconsistent state with missing or partial line items.\n  - Fix: Replace the manual try/except with a session.begin() context manager so the transaction is automatically rolled back on any exception and committed only on success.\n\n* [SUGGESTION] SIMPLICITY <Manual transaction management> (import_order function)\n  - Issue: The function manually manages rollback and commit, duplicating logic that the SQLAlchemy session already provides via begin/commit context managers, adding boilerplate and error‑prone paths.\n  - Fix: Use `with session.begin():` to let the session handle commit and rollback automatically, removing the explicit try/except and rollback calls.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 37291
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [ERROR_HANDLING] Incomplete error handling for atomicity (at import_order)\n  - Issue: The function only rolls back on KeyError and ValueError during line item processing. If an exception occurs during session.add(order) (before the try block) or during session.commit() (after the loop), the session is left in a partially committed state, violating the atomicity guarantee of creating an order and all its lines or nothing at all.\n  - Fix: Move session.add(order) inside the try block and change the except clause to catch Exception (instead of (KeyError, ValueError)) to ensure rollback on any error during the operation.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 73430
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] ERROR_HANDLING — Incomplete exception handling in `import_order` (orders/importer.py, `import_order`)\n  - Issue: The `except` clause only catches `KeyError` and `ValueError`. If `row[\"qty\"]` is `None` or a non-numeric type, `int(row[\"qty\"])` raises `TypeError`, which bypasses `session.rollback()` and propagates upward — leaving the session dirty with the `Order` partially persisted, violating the \"or nothing at all\" contract. Any unexpected exception from `add_line_item` (e.g., `IntegrityError`, connection error) has the same problem.\n  - Fix: Catch `Exception` (or at minimum add `TypeError`), rollback, and re-raise: `except Exception: session.rollback(); raise`\n\n* [WARNING] ERROR_HANDLING — Database-level exceptions from `add_line_item` bypass rollback (orders/importer.py, `import_order`)\n  - Issue: If `add_line_item` raises a database error (e.g., `IntegrityError`, `OperationalError`), it is not caught, so `session.rollback()` is never called. The session remains in an invalid state for subsequent operations on the same session object.\n  - Fix: Widen the caught exception class to `Exception` so all failure paths trigger rollback before re-raising.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "inclusionai/ling-3.0-flash-fin:free",
+      "latency_ms": 9866
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 78106
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 83445
+    },
+    {
+      "model": "openrouter/qwen/qwen3.8-27b:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 36848
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 36332
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Empty response from model",
+      "latency_ms": 118274
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 37921
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 228.7
+  }
+}

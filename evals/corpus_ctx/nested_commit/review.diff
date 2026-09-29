@@ -1,0 +1,21 @@
+diff --git a/orders/importer.py b/orders/importer.py
+--- a/orders/importer.py
++++ b/orders/importer.py
+@@ -1,2 +1,17 @@
+ from orders.db import session
+ from orders.lines import add_line_item
++from orders.models import Order
++
++
++def import_order(customer_id, rows):
++    """Create an order and all of its lines, or nothing at all."""
++    order = Order(customer_id=customer_id)
++    session.add(order)
++    try:
++        for row in rows:
++            add_line_item(order, row["sku"], int(row["qty"]))
++    except (KeyError, ValueError):
++        session.rollback()
++        raise
++    session.commit()
++    return order

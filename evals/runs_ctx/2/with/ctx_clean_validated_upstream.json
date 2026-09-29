@@ -1,0 +1,145 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:00:31.353738Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "314158d73d18",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 142390,
+    "context": {
+      "files": [
+        "billing/coupons.py"
+      ],
+      "tokens": 96,
+      "dropped": []
+    }
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "_apply_percentage",
+      "title": "_apply_percentage may produce incorrect results for negative totals",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "_apply_percentage",
+      "title": "_apply_percentage may silently produce incorrect precision due to quantize context",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "_apply_percentage",
+      "title": "_apply_percentage recreates a standard discount formula unnecessarily",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC _apply_percentage may produce incorrect results for negative totals (at _apply_percentage)\n    - Issue: The function _apply_percentage does not validate that the input 'total' is non-negative. If a negative total is passed (e.g., due to a prior refund or adjustment), the discount calculation would incorrectly increase the magnitude of the negative value (e.g., total=-100, percent=20 yields -80, which represents a larger debt rather than a discount). While the caller apply_coupon currently expects positive totals, this function lacks defensive checks and could be misused if called elsewhere.\n    - Fix: Add a check for non-negative total at the start of the function: if total < 0: raise ValueError(\"total cannot be negative\")\n\n[WARNING] ERROR_HANDLING _apply_percentage may silently produce incorrect precision due to quantize context (at _apply_percentage)\n    - Issue: The quantize operation uses the current thread's decimal context for rounding, which may not be set to ROUND_HALF_UP (the expected behavior for currency). If the context is changed elsewhere (e.g., via getcontext().rounding), the function could produce unexpected rounding (e.g., ROUND_DOWN truncating instead of rounding). This violates the principle that financial calculations should have explicit, deterministic rounding.\n    - Fix: Specify the rounding mode explicitly: return (total * (Decimal(100) - percent) / Decimal(100)).quantize(Decimal(\"0.01\"), rounding=ROUND_HALF_UP) and import ROUND_HALF_UP from decimal.\n\n[SUGGESTION] SIMPLICITY _apply_percentage recreates a standard discount formula unnecessarily (at _apply_percentage)\n    - Issue: The calculation (total * (100 - percent) / 100) is mathematically equivalent to total * (1 - percent/100). The latter is more readable, directly expresses the discount rate, and avoids intermediate multiplication by 100. While both are correct, the current form adds unnecessary cognitive overhead without benefit.\n    - Fix: Simplify to: return (total * (Decimal(1) - percent / Decimal(100))).quantize(Decimal(\"0.01\")) (with explicit rounding as above if adopted).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9848
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15240
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC _apply_percentage may produce incorrect results for negative totals (at _apply_percentage)\n    - Issue: The function does not handle negative totals correctly. If `total` is negative (e.g., a refund or credit), applying a discount via `(total * (100 - percent) / 100)` would increase the magnitude of the negative value (making it more negative), which is the opposite of a discount's intended effect. For example, a total of -10.00 with a 10% discount would yield -9.00 (a 10% increase in debt), whereas a discount should reduce the magnitude (e.g., -10.00 becoming -9.00 is incorrect; it should be -11.00 if interpreted as a surcharge, but discounts are not typically applied to negative amounts). The caller `apply_coupon` assumes coupons only reduce positive totals, but the function itself lacks protection against misuse.\n    - Fix: Add a check to ensure `total` is non-negative, or document that the function is only for positive totals. Given the context (coupons apply to order totals which should be non-negative), validate input: `if total < 0: raise ValueError(\"total cannot be negative\")`.\n\n[WARNING] ERROR_HANDLING _apply_percentage may produce invalid currency values due to quantization (at _apply_percentage)\n    - Issue: The quantization step `.quantize(Decimal(\"0.01\"))` uses the current thread's decimal context, which may have insufficient precision or incorrect rounding settings. If the context is changed elsewhere (e.g., via `getcontext().prec`), the quantization could fail or produce unexpected results. Additionally, the intermediate calculation `(total * (Decimal(100) - percent) / Decimal(100))` might produce a value with more than two decimal places that quantization rounds, but if the context precision is too low, significant digits could be lost before quantization.\n    - Fix: Use a local context with sufficient precision for currency calculations, or explicitly specify rounding: `return (total * (Decimal(100) - percent) / Decimal(100)).quantize(Decimal(\"0.01\"), rounding=ROUND_HALF_UP)`. Import `ROUND_HALF_UP` from `decimal`.\n\n[SUGGESTION] SIMPLICITY _apply_percentage duplicates logic already expressible in one line (at _apply_percentage)\n    - Issue: The function `_apply_percentage` is a trivial wrapper around a single arithmetic expression. It is only called from one place (`apply_coupon` in `billing/coupons.py`). This indirection adds no abstraction value and forces callers to import an internal function, increasing coupling without benefit.\n    - Fix: Inline the expression directly in `apply_coupon`: replace `order.total = _apply_percentage(order.total, percent)` with `order.total = (order.total * (Decimal(100) - percent) / Decimal(100)).quantize(Decimal(\"0.01\"))`, then remove `_apply_percentage`.\n\n[SUGGESTION] STRUCTURE _apply_percentage violates encapsulation by being a module-level function (at _apply_percentage)\n    - Issue: The function `_apply_percentage` is defined at module level but is intended as a private helper (by naming convention). However, it exposes implementation details of the discount calculation to the module's namespace. If other modules were to import and use it (despite the underscore), they would create unintended dependencies. The function's logic is tightly coupled to the specific discount formula used in `apply_coupon`.\n    - Fix: Either make it a nested function inside `apply_coupon` (if only used there) or move it to a more appropriate utility module if reuse is intended. Given it is only used in one place, nesting is preferable: define `_apply_percentage` inside `apply_coupon` and use it locally. However, since the suggestion above recommends inlining, this becomes moot if we inline. If we keep the function, it should be clearly marked as private and its scope limited. But the simplest fix is to inline.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 19703
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[WARNING] BOUNDS _apply_percentage (at _apply_percentage)\n- Issue: The function `_apply_percentage` does not validate its `percent` argument, allowing values greater than 100 or negative. If `percent` exceeds 100, `(Decimal(100) - percent)` becomes negative, resulting in a negative `total` after multiplication, which corrupts financial calculations. Although the current caller (`apply_coupon`) restricts `percent` to (0, 50], the function lacks a contract, making it unsafe for future use.\n- Fix: Add a bounds check at the start of the function:\n  ```python\n  if not (Decimal(0) <= percent <= Decimal(100)):\n      raise ValueError(f\"percent must be between 0 and 100, got {percent}\")\n  ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 34240
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 142382
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Incorrect Discount Calculation> (discounts.py:2)\n- Issue: The function computes the discounted total as (total * (100 - percent) / 100), which is mathematically correct for a discount, but the variable name and context imply it applies the percentage directly, causing confusion and potential misuse. More critically, if coupon.percent is provided as a string or non-Decimal, Decimal(coupon.percent) may raise a TypeError, and the function does not validate that total is a Decimal, leading to runtime errors for invalid inputs.\n- Fix:\n    from decimal import Decimal\n    def _apply_percentage(total, percent):\n        total = Decimal(total)\n        percent = Decimal(percent)\n        return (total * (Decimal(100) - percent) / Decimal(100)).quantize(Decimal(\"0.01\"))\n\n[WARNING] SIMPLICITY <Redundant Custom Logic> (discounts.py:2)\n- Issue: The language’s Decimal class already provides quantize with appropriate rounding; rolling a custom quantize via division and quantize adds indirection without benefit, increasing maintenance cost and obscuring intent.\n- Fix:\n    def _apply_percentage(total, percent):\n        return (Decimal(total) * (Decimal(100) - Decimal(percent)) / Decimal(100)).quantize(Decimal('0.01'))",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 20453
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 83722
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 143.0
+  }
+}

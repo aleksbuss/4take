@@ -1,0 +1,163 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T11:04:06.109906Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "314158d73d18",
+    "responses_received": 7,
+    "distinct_models": 4,
+    "responses_failed": 3,
+    "total_latency_ms": 111709,
+    "context": null
+  },
+  "warning": "3 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "_apply_percentage",
+      "title": "_apply_percentage depends on the ambient Decimal context",
+      "models": [
+        "google/gemma-4-26b-a4b-it:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "SUGGESTION": 1,
+        "CRITICAL": 1,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "_apply_percentage",
+      "title": "Unvalidated input range",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "_apply_percentage",
+      "title": "Missing type validation",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Unvalidated input range> (at _apply_percentage)\n    - Issue: The function does not validate that `percent` is between 0 and 100. If `percent` is negative, it increases the total (e.g., percent=-10 on total=100 yields 110). If `percent` > 100, it produces a negative total (e.g., percent=150 on total=100 yields -50.00), which is nonsensical for a discount and could cause downstream errors (e.g., negative balances).\n    - Fix: Add input validation: if percent < 0 or percent > 100: raise ValueError(\"Discount percentage must be between 0 and 100\"). Place this check at the start of the function.\n\n* [WARNING] ERROR_HANDLING <Missing type validation> (at _apply_percentage)\n    - Issue: The function assumes `total` and `percent` are numeric types compatible with Decimal operations. If callers pass non-numeric types (e.g., strings, None), it will raise a TypeError during arithmetic operations (e.g., Decimal(100) - \"10\"), which may propagate unhandled and crash the billing process. Since this is a private function, callers might be trusted, but without validation, invalid inputs from within the module (e.g., due to future refactoring) could cause silent failures or crashes.\n    - Fix: Convert inputs to Decimal at the start: total = Decimal(total) if not isinstance(total, Decimal) else total; similarly for percent. This ensures consistent handling and provides clearer errors for invalid types.\n\n* [SUGGESTION] SIMPLICITY <Redundant decimal operations> (at _apply_percentage)\n    - Issue: The expression `(total * (Decimal(100) - percent) / Decimal(100))` involves two decimal operations (multiplication and division) that can be simplified to `total * (Decimal(1) - percent / Decimal(100))`, reducing operation count and improving readability. While negligible for performance, it avoids intermediate large numbers (e.g., multiplying by 100 then dividing) and aligns with the intuitive discount factor calculation.\n    - Fix: Rewrite as: return (total * (Decimal(1) - percent / Decimal(100))).quantize(Decimal(\"0.01\")). Note: This requires `percent` to be Decimal; if using the type conversion fix above, it remains valid. Alternatively, keep the original if the current form is preferred for explicitness, but the simplified version is mathematically equivalent and slightly cleaner.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 13069
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [LOGIC] Missing input validation for percent parameter in _apply_percentage (at billing/discounts.py:4)\n  - Issue: The function does not validate that percent is between 0 and 100. Passing percent > 100 results in negative totals (e.g., total=100, percent=150 yields -50), and negative percent values result in markups rather than discounts. In a billing context, this could lead to incorrect charges or negative amounts being applied to customer accounts without any error indication.\n  - Fix: Add validation at the start of the function: `if not (0 <= percent <= 100): raise ValueError(\"percent must be between 0 and 100\")`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16503
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC `_apply_percentage` depends on the ambient Decimal context (at `billing/discounts.py:_apply_percentage`)\n  - Issue: The intermediate multiplication and division use the caller’s current `decimal` context, and the final `quantize()` can raise `InvalidOperation` for a valid, very large monetary value when the context precision is insufficient. For example, under the default 28-digit context, multiplying a high-precision `total` by a percentage can round before division, changing the amount charged; with insufficient precision, `quantize()` can fail instead of returning a result. The function also inherits any caller-modified rounding mode, so identical inputs can produce different discounts.\n  - Fix: Perform the calculation under a locally controlled context with sufficient precision and an explicit monetary rounding mode, for example by using a dedicated `Context` or a clear conversion/rounding policy before multiplying and quantizing.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 21531
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] LOGIC Missing Input Validation for Percent Parameter (at _apply_percentage function)\n  - Issue: The function accepts any numeric value for `percent` without validation. If `percent < 0`, the calculation `(100 - percent)` exceeds 100, effectively increasing the total instead of discounting it. If `percent > 100`, the result becomes negative (e.g., a 150% \"discount\" yields a negative total). These edge cases silently produce incorrect billing results without error or warning.\n  - Fix: Add validation at the start of the function:\n    ```python\n    if not (Decimal(0) <= percent <= Decimal(100)):\n        raise ValueError(\"Discount percent must be between 0 and 100\")\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "poolside/laguna-xs-2.1:free",
+      "latency_ms": 33655
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "served_model": "google/gemma-4-26b-a4b-it:free",
+      "served_provider": "Google AI Studio",
+      "content": "[WARNING] [LOGIC] Potential precision loss or rounding errors in `_apply_percentage` (at `_apply_percentage`)\n    - Issue: The function performs division before quantization. In financial calculations, `(total * (100 - percent) / 100)` can introduce intermediate floating-point-like errors or unexpected rounding behavior depending on the `Decimal` context's rounding mode. For example, if `total` is `Decimal(\"10.00\")` and `percent` is `Decimal(\"33.33\")`, the intermediate result might not behave as expected before the `.quantize()` call. It is safer to multiply first and then divide by the scale to maintain maximum precision throughout the operation.\n    - Fix: `return (total * (Decimal(\"100\") - percent) / Decimal(\"100\")).quantize(Decimal(\"0.01\"), rounding=\"ROUND_HALF_UP\")`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 13307
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Unvalidated percent leads to negative or excessive discounts> (_apply_percentage function)\n  - Issue: The function permits any numeric percent, including values >100 or <0, causing the computed discount to be negative or exceed the original amount, resulting in incorrect billing. Example: total=100, percent=150 yields -50.00; total=200, percent=-50 yields 300.00.\n  - Fix: Add a guard `if not (0 <= percent <= 100): raise ValueError(\"percent must be between 0 and 100\")` before the calculation.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 22283
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [LOGIC] Percentage discount can produce negative totals (at `_apply_percentage`)\n  - Issue: When `percent` exceeds 100, the expression `Decimal(100) - percent` becomes negative, yielding a negative total. A discount greater than 100% is nonsensical and would corrupt billing records. No guard exists against this.\n  - Fix: Clamp `percent` to the range [0, 100] before computation, e.g. `percent = min(max(percent, Decimal(0)), Decimal(100))`.\n\n* [WARNING] [BOUNDS] Unvalidated `percent` input crosses trust boundary (at `_apply_percentage`)\n  - Issue: The function accepts any `Decimal` value for `percent` without validation. If called with user-supplied or external data, a malformed or malicious value (e.g., negative percentages, non-numeric types) could cause unexpected behavior or errors downstream.\n  - Fix: Add input validation at the function entry to ensure `percent` is a `Decimal` within the valid range [0, 100], raising a `ValueError` otherwise.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "poolside/laguna-xs-2.1:free",
+      "latency_ms": 6112
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "Empty response from model",
+      "latency_ms": 39150
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 72215
+    },
+    {
+      "model": "openrouter/qwen/qwen3.8-27b:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 36958
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 112.1
+  }
+}

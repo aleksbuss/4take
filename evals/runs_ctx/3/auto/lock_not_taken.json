@@ -1,0 +1,127 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T16:13:16.043366Z",
+  "config": {
+    "models_requested": 8,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "656049806476",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 72283,
+    "context": {
+      "files": [
+        "limits/counter.py (lines 6-23)"
+      ],
+      "tokens": 157,
+      "dropped": [],
+      "auto": {
+        "limits/counter.py (lines 6-23)": "the rest of class RateCounter"
+      }
+    }
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "reset",
+      "title": "reset mutates _counts and _windows without acquiring self._lock, while hit and count both hold the lock for the same structures. A concurrent reset and hit can lose appends or corrupt the deque; a concurrent reset and count can read a half-removed key. Fix: wrap the pops in with self._lock",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-s-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "count",
+      "title": "State leakage via defaultdict creation in count",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] CONCURRENCY `reset` bypasses the counter lock (at `RateCounter.reset`)\n  - Issue: `hit` and `count` synchronize access with `self._lock`, but `reset` mutates both dictionaries without acquiring it. Under concurrent use, `hit` can increment `_counts[key]`, lose the lock before appending, and have `reset` remove both entries; it can then append the event to `_windows[key]` after reset. The supposedly forgotten request survives as an orphaned window entry, and later bookkeeping may retain or count the reset key unexpectedly. Reads and dictionary mutation can also race at the container-operation level.\n  - Fix: Perform both removals while holding the same mutex used by all other state transitions:\n    ```python\n    with self._lock:\n        self._counts.pop(key, None)\n        self._windows.pop(key, None)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 10517
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Race condition on key removal during concurrent hits> (def reset, line +31)\n  - Issue: reset removes _counts[key] while another thread may hold the lock and have just incremented the count and appended a new (stamp,1) entry for the same key. After lock release, the entry remains in _windows[key] but _counts[key] is gone, causing count() to return 0 for that key despite an active hit, corrupting the sliding-window invariant.\n  - Fix: Acquire lock, iterate over a copy of items to delete, then delete from both _counts and _windows under the same lock to ensure atomicity:\n    with self._lock:\n        for k in list(self._counts):\n            self._counts.pop(k, None)\n            self._windows.pop(k, None)\n\n* [WARNING] STRUCTURE <State leakage via defaultdict creation in count> (count method, lines 30-33)\n  - Issue: count accesses self._windows[key] without holding the lock across the defaultdict lookup, and the defaultdict will create an empty deque for missing keys, potentially exposing a new mutable object outside the critical section and allowing race conditions where a concurrent reset could interleave with count.\n  - Fix: Hold the lock for the entire count operation:\n    with self._lock:\n        window = list(self._windows.get(key, []))",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 36791
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] CONCURRENCY: `reset` mutates `_counts` and `_windows` without acquiring `self._lock`, while `hit` and `count` both hold the lock for the same structures. A concurrent `reset` and `hit` can lose appends or corrupt the deque; a concurrent `reset` and `count` can read a half-removed key. Fix: wrap the pops in `with self._lock:`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4072
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "[WARNING] [CONCURRENCY] `reset` mutates shared state without holding the lock (at `RateCounter.reset`)\n- Issue: `hit` and `count` both acquire `self._lock` before touching `self._counts` / `self._windows`, but `reset` calls `dict.pop` on both without the lock. A concurrent `hit` can append to a deque that `reset` is evicting, or `count` can read a deque mid-pop, producing lost updates or a `KeyError`-free but inconsistent view. The docstring on the class states the structure is shared by every request-handling thread, so this is reachable under normal load.\n- Fix: Acquire `self._lock` around both `pop` calls:\n```python\ndef reset(self, key):\n    with self._lock:\n        self._counts.pop(key, None)\n        self._windows.pop(key, None)\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9153
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC Inconsistent state after reset (at reset)\n    - Issue: The reset method removes the key from _counts and _windows, but the count method uses defaultdicts that will recreate empty entries on access. This means that after reset, a subsequent hit on the same key will start counting from zero (which is correct), but the windows deque will be recreated as empty (also correct). However, there is a race condition: if reset is called concurrently with hit or count, the defaultdict might recreate the key between the pop and the next access, leading to lost hits or incorrect counts. Specifically, consider two threads: Thread A calls reset(key) and pops the key, then Thread B calls hit(key) which increments _counts[key] (recreating it to 1) and appends to _windows[key] (recreating the deque). Then Thread A continues and pops the key again (from _counts and _windows), losing the hit from Thread B. Similarly, a count operation might see an inconsistent state.\n    - Fix: Move the reset operation inside the existing lock to ensure atomicity with hit and count. Use the same _lock as the other methods.\n\n[WARNING] STRUCTURE Missing synchronization in reset method (at reset)\n    - Issue: The reset method accesses shared state (_counts and _windows) without holding the _lock, while hit and count methods use the lock. This creates a race condition where reset can interfere with concurrent hits or counts, leading to lost updates or inconsistent state. For example, a hit occurring after reset has popped the key but before it recreates the defaultdict entry could be lost.\n    - Fix: Wrap the reset method's body in a `with self._lock:` block to match the locking pattern of hit[WARNING] LOGIC Inconsistent state after reset (at reset)\n    - Issue: The reset method removes the key from _counts and _windows, but the count method uses defaultdicts that will recreate empty entries on access. This means that after reset, a subsequent hit on the same key will start counting from zero (which is correct), but the windows deque will be recreated as empty (also correct). However, there is a race condition: if reset is called concurrently with hit or count, the defaultdict might recreate the key between the pop and the next access, leading to lost hits or incorrect counts. Specifically, consider two threads: Thread A calls reset(key) and pops the key, then Thread B calls hit(key) which increments _counts[key] (recreating it to 1) and appends to _windows[key] (recreating the deque). Then Thread A continues and pops the key again (from _counts and _windows), losing the hit from Thread B. Similarly, a count operation might see an inconsistent state.\n    - Fix: Move the reset operation inside the existing lock to ensure atomicity with hit and count. Use the same _lock as the other methods.\n\n[WARNING] STRUCTURE Missing synchronization in reset method (at reset)\n    - Issue: The reset method accesses shared state (_counts and _windows) without holding the _lock, while hit and count methods use the lock. This creates a race condition where reset can interfere with concurrent hits or counts, leading to lost updates or inconsistent state. For example, a hit occurring after reset has popped the key but before it recreates the defaultdict entry could be lost.\n    - Fix: Wrap the reset method's body in a `with self._lock:` block to match the locking pattern of hit and count.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "latency_ms": 63117
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 46230
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 73.0
+  }
+}

@@ -1,0 +1,135 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:27:02.632037Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "931533ff040e",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 7,
+    "total_latency_ms": 300006
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor; nvidia held more than one seat: no other vendor answered in time, so agreement between those seats is weaker evidence",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "SIMPLICITY",
+      "symbol": "save_user_config",
+      "title": "SECURITY TOCTOU race condition",
+      "models": [
+        "inclusionai/ling-3.0-flash-fin:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 4,
+        "SUGGESTION": 3,
+        "CRITICAL": 3
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK Symlink race leading to overwriting arbitrary files (at save_user_config)\n    - Issue: The function checks os.path.exists and os.access, then removes the file before opening it for writing. Between the existence/permission check and the os.remove (or between removal and open), an attacker could replace the path with a symlink to a sensitive file, causing the subsequent write to overwrite that target. Additionally, os.chmod after writing only affects the symlink itself, not the target, leaving the target with unintended permissions.\n    - Fix: Open the file with os.open using flags O_CREAT | O_EXCL | O_WRONLY to atomically create the file, failing if it already exists (or a symlink). If the file should be replaced, first open a temporary file in the same directory, write and chmod it, then atomically rename it over the target using os.replace, which avoids symlink races.\n\n* [WARNING] ERROR_HANDLING Missing error handling for os.chmod and directory symlink cases (at save_user_config)\n    - Issue: If path is a symlink to a directory, open for writing will raise IsADirectoryError, which is not caught, causing the function to propagate an unexpected exception. Similarly, os.chmod may fail (e.g., permission denied) and is not handled, potentially leaving the file with insecure permissions.\n    - Fix: Wrap the open/write/chmod block in a try-except to catch IsADirectoryError and PermissionError, raising a more informative error or cleaning up any temporary file. Alternatively, verify that path is not a symlink to a directory before opening.\n\n* [SIMPLICITY] Unnecessary file removal before write (at save_user_config)\n    - Issue: The function removes an existing file before opening it for writing, but opening with mode \"w\" already truncates the file to zero length. The removal adds complexity and introduces a race condition without providing any benefit beyond ensuring a fresh inode, which could be achieved by writing to a temporary file and renaming.\n    - Fix: Remove the os.path.exists check and os.remove call; simply open the file with \"w\" (or use the atomic temporary‑file approach) and then set permissions. This reduces code size and eliminates the TOCTOU window\n\n* [WARNING] RESOURCE_LEAK Symlink race leading to overwriting arbitrary files (at save_user_config)\n    - Issue: The function checks os.path.exists and os.access, then removes the file before opening it for writing. Between the existence/permission check and the os.remove (or between removal and open), an attacker could replace the path with a symlink to a sensitive file, causing the subsequent write to overwrite that target. Additionally, os.chmod after writing only affects the symlink itself, not the target, leaving the target with unintended permissions.\n    - Fix: Open the file with os.open using flags O_CREAT | O_EXCL | O_WRONLY to atomically create the file, failing if it already exists (or a symlink). If the file should be replaced, first open a temporary file in the same directory, write and chmod it, then atomically rename it over the target using os.replace, which avoids symlink races.\n\n* [WARNING] ERROR_HANDLING Missing error handling for os.chmod and directory symlink cases (at save_user_config)\n    - Issue: If path is a symlink to a directory, open for writing will raise IsADirectoryError, which is not caught, causing the function to propagate an unexpected exception. Similarly, os.chmod may fail (e.g., permission denied) and is not handled, potentially leaving the file with insecure permissions.\n    - Fix: Wrap the open/write/chmod block in a try-except to catch IsADirectoryError and PermissionError, raising a more informative error or cleaning up any temporary file. Alternatively, verify that path is not a symlink to a directory before opening.\n\n* [SIMPLICITY] Unnecessary file removal before write (at save_user_config)\n    - Issue: The function removes an existing file before opening it for writing, but opening with mode \"w\" already truncates the file to zero length. The removal adds complexity and introduces a race condition without providing any benefit beyond ensuring a fresh inode, which could be achieved by writing to a temporary file and renaming.\n    - Fix: Remove the os.path.exists check and os.remove call; simply open the file with \"w\" (or use the atomic temporary‑file approach) and then set permissions. This reduces code size and eliminates the TOCTOU window.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 23069,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-fin:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] SECURITY TOCTOU race condition (at symbol/line)\n  - Issue: The function performs a permission check (`os.access`) and removal (`os.remove`) before opening the file for writing. Between these operations, an attacker can atomically replace `path` with a symlink to an arbitrary file. The `os.remove` deletes the symlink, and `open(path, \"w\")` creates a new regular file — but if the symlink is replaced *after* the `os.access` check and *before* `os.remove`, the attacker can cause writes to an unintended target. Similarly, `os.chmod(path, 0o600)` after writing is also subject to symlink swap. This is a classic TOCTOU vulnerability.\n  - Fix: Eliminate the check-then-act sequence entirely. Use `open(path, \"w\")` directly — it will raise `PermissionError` if the file is not writable, and truncates existing files atomically. If symlink protection is needed, open the file with `O_NOFOLLOW` via `os.open`.\n\n* [SUGGESTION] SIMPLICITY unnecessary existence/permission/remove sequence (at symbol/line)\n  - Issue: The `os.path.exists`, `os.access`, and `os.remove` calls are all redundant. `open(path, \"w\")` already handles existing files by truncating them and raises `PermissionError` if the file cannot be written. This dead code adds complexity and, as noted above, introduces a TOCTOU window. The function can be reduced to a single `open` call plus `os.chmod`.\n  - Fix: Replace the entire body with `with open(path, \"w\") as fh: fh.write(blob)` followed by `os.chmod(path, 0o600)`. If symlink resistance is required, use `fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)` and write to the file descriptor.\n\n* [WARNING] ERROR_HANDLING chmod failure not handled (at symbol/line)\n  - Issue: `os.chmod(path, 0o600)` runs after the file is written but has no error handling. If it fails (e.g., due to insufficient privileges or the path being a symlink on some systems), the function silently returns without indicating the permission change did not take effect, leaving the file with whatever umask-determined permissions were set by `open`.\n  - Fix: Either let `os.chmod` exceptions propagate naturally (acceptable if callers expect this), or handle it explicitly if the permission guarantee is a hard requirement.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 33909,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] SECURITY Path Traversal Vulnerability (save_user_config)\n  - Issue: The function accepts any path without validation, allowing an attacker to write to arbitrary locations. If called with `path=\"/etc/cron.d/malicious\"` or similar, and the file doesn't exist, the function creates it with 0o600 permissions. Even though permissions are restrictive, the function could overwrite sensitive files if they exist and are writable by the user.\n  - Fix: Validate that the path is within an expected directory using `os.path.realpath()` and compare against a base directory whitelist.\n\n* [WARNING] CORRECTNESS TOCTOU Race Condition (save_user_config)\n  - Issue: Between `os.path.exists(path)` and `os.remove(path)`, another process could create a file at that path. Similarly, between `os.remove(path)` and `open(path, \"w\")`, another process could create a file. This Time-Of-Check-Time-Of-Use vulnerability could lead to unexpected file overwrites or permission errors.\n  - Fix: Use `os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)` for atomic file creation with proper permissions, eliminating the need for separate remove and create operations.\n\n* [WARNING] SIMPLICITY Unnecessary File Removal (save_user_config)\n  - Issue: The function removes the file before creating a new one, which is unnecessary since `open(path, \"w\")` already truncates existing files. This adds complexity and introduces race conditions without benefit.\n  - Fix: Remove the `os.remove(path)` call and rely on `open(path, \"w\")` to truncate existing files atomically.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 70400,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] BOUNDS <Unrestricted Path Write> (function save_user_config)\n  - Issue: The function accepts any path string without validation, allowing an attacker to specify absolute or traversal paths (e.g., \"../../etc/passwd\") and write arbitrary files, resulting in unauthorized file creation or overwriting of trusted files.\n  - Fix: Validate that the target path is within an allowed directory (e.g., using os.path.realpath and checking a whitelist prefix) before performing any file operations.\n\n* [WARNING] LOGIC <Race Condition on File Replace> (function save_user_config)\n  - Issue: The check for existence and writability, followed by os.remove and subsequent write, creates a race window where another process could create or modify the file between the check and the delete, causing deletion of unintended data or failure to replace the intended file.\n  - Fix: Use os.replace(path, new_path) or write to a temporary file and then atomically rename it, eliminating the race.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary Manual Permissions and Removal> (function save_user_config)\n  - Issue: The explicit existence check, permission check, and manual removal are redundant; os.replace (or a temporary file rename) provides atomic replacement with appropriate permissions, reducing code complexity and potential bugs.\n  - Fix: Replace the entire block with `os.replace(path, path)` after writing to a temporary file, or use `os.open` with `os.O_CREAT | os.O_WRONLY | os.O_TRUNC` to atomically set permissions.\n\nNO_ISSUES_FOUND: Not applicable.\n\n* [CRITICAL] BOUNDS <Unrestricted Path Write> (function save_user_config)\n  - Issue: The function accepts any path string without validation, allowing an attacker to specify absolute or traversal paths (e.g., \"../../etc/passwd\") and write arbitrary files, resulting in unauthorized file creation or overwriting of trusted files.\n  - Fix: Validate that the target path is within an allowed directory (e.g., using os.path.realpath and checking a whitelist prefix) before performing any file operations.\n\n* [WARNING] LOGIC <Race Condition on File Replace> (function save_user_config)\n  - Issue: The check for existence and writability, followed by os.remove and subsequent write, creates a race window where another process could create or modify the file between the check and the delete, causing deletion of unintended data or failure to replace the intended file.\n  - Fix: Use os.replace(path, new_path) or write to a temporary file and then atomically rename it, eliminating the race.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary Manual Permissions and Removal> (function save_user_config)\n  - Issue: The explicit existence check, permission check, and manual removal are redundant; os.replace (or a temporary file rename) provides atomic replacement with appropriate permissions, reducing code complexity and potential bugs.\n  - Fix: Replace the entire block with `os.replace(path, path)` after writing to a temporary file, or use `os.open` with `os.O_CREAT | os.O_WRONLY | os.O_TRUNC` to atomically set permissions.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 31297,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [CONCURRENCY] TOCTOU symlink race between `os.remove` and `open` (at `os.remove(path)` / `open(path, \"w\")`)\n  - Issue: An attacker can create a symlink at `path` pointing to a sensitive file (e.g., `/etc/shadow`) in the window between `os.remove(path)` and `open(path, \"w\")`. Since `open` follows symlinks by default, the write truncates/overwrites the target file with attacker-controlled `blob` content. This is a classic symlink TOCTOU attack enabled by non-atomic check-then-act on a user-supplied path.\n  - Fix: Use `os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)` to atomically open the file without following symlinks, then write via the resulting fd. This eliminates the race and sets permissions in a single atomic step.\n\n* [WARNING] [CONCURRENCY] Permission window between `open` and `os.chmod` (at `fh.write(blob)` / `os.chmod(path, 0o600)`)\n  - Issue: The file is written with default umask-based permissions (often 0o644) before `os.chmod(path, 0o600)` restricts them. If `blob` contains sensitive configuration, it is briefly readable/writable by other users on the system.\n  - Fix: Set permissions atomically during file creation using the mode argument of `os.open` (e.g., `0o600`), or use `os.fchmod` on the file descriptor immediately after opening, before any data is written.\n\n* [WARNING] [ERROR_HANDLING] Unhandled exception from `os.remove` on non-regular files (at `os.remove(path)`)\n  - Issue: If `path` is a directory, FIFO, or device node, `os.path.exists` returns True and `os.access` may return True, but `os.remove(path)` raises `IsADirectoryError`, `PermissionError`, or similar. These exceptions propagate uncaught, leaving the function without a clear contract for non-regular-file inputs.\n  - Fix: Either check `os.path.isfile(path)` before attempting removal, or catch the specific exceptions from `os.remove` and handle them explicitly.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 54438,
+      "duplicate_of": "inclusionai/ling-3.0-flash-fin:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "Empty response from model",
+      "latency_ms": 40719
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 88431
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 39086
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "error": "Upstream provider error: Upstream error from Nvidia: Internal server error",
+      "latency_ms": 93929
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 40884
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Empty response from model",
+      "latency_ms": 126223
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-pro:free",
+      "error": "Cancelled or timed out",
+      "latency_ms": 0
+    }
+  ],
+  "_eval": {
+    "snippet": "toctou_config_write.py",
+    "exit_code": 0,
+    "wall_s": 300.3,
+    "duplicate_of_backfilled": true
+  }
+}

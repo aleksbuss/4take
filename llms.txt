@@ -1,0 +1,33 @@
+# 4take — Universal LLM Council CLI (OpenRouter)
+
+> Universal CLI and FastMCP server to query 4 independent LLMs in parallel via OpenRouter for code review, architecture validation, and consensus synthesis.
+
+## Quickstart
+
+### Installation
+- `uv tool install 4take`
+- `pipx install 4take`
+- `pip install 4take`
+
+### Environment Variables
+- `OPENROUTER_API_KEY` (or `FOURTAKE_API_KEY`): API key for OpenRouter models.
+- `FOURTAKE_ACCEPT_RISK=1`: Suppress privacy warning banner.
+
+### CLI Usage
+- `cat file.py | 4take`: Run council with default auto-discovered free OpenRouter models (zero token cost).
+- `git diff | 4take`: Review git changes.
+- `cat file.py | 4take --format json --accept-risk --quiet`: Machine-readable JSON output for automated agents.
+- `4take --models="meta-llama/llama-3.3-70b-instruct:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-ultra-550b-a55b:free"`: Use explicit free OpenRouter models (or default 'auto').
+- `4take --init-config`: Create config file at `~/.config/4take/config.json`.
+- `cat file.py | 4take --no-telemetry`: Skip the local record of model latency and success rate (`~/.cache/4take/stats.json`, model ids and timings only — never code).
+- Exit codes: `0` met `--min-responses`, `2` partial (see `warning`), `1` total failure (see `error`).
+- stdout carries only the payload; all logs go to stderr, so `json.loads(stdout)` is safe.
+- JSON output leads with `consensus[]`: findings grouped across models and ranked by `agreement`, the number of independent reviewers who raised each one. Each entry carries the `category` the reviewers declared (`UNKNOWN` when none did).
+- `cat file.py | 4take --strict`: Report only findings more than one reviewer raised, plus any CRITICAL one.
+- `git diff -W | 4take --context-file src/caller.py --context-file src/models.py:10-60`: Send related code (callers, callees, types, config) as reference context the reviewers read but do not review. Capped by `--context-budget` (default 16000 tokens); files that do not fit are left out whole and named in `summary.context.dropped`. Read only under the working directory; credential files, `.git/` and `.ssh/` are refused.
+- `git diff -W | 4take --dry-run --context-file src/caller.py`: Print exactly what would be sent, after redaction, without contacting any model.
+
+### FastMCP Tool
+- Binary: `4take-mcp` (or `uvx --from '4take[mcp]' 4take-mcp`); needs the `mcp` extra: `pip install '4take[mcp]'`
+- Tool: `get_4take_opinion(code: str, force: bool = False, context_files: list[str] | None = None, context: str | None = None) -> str` (JSON formatted council review with progress updates). `context_files` are paths the server reads from disk under the project root; `context` is related code as text.
+

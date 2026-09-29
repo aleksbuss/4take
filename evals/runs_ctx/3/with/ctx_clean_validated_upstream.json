@@ -1,0 +1,172 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:27:59.875649Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "314158d73d18",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 6,
+    "total_latency_ms": 234427,
+    "context": {
+      "files": [
+        "billing/coupons.py"
+      ],
+      "tokens": 96,
+      "dropped": []
+    }
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "percent",
+      "title": "Decimal context can round or reject valid totals before cent quantization",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "SUGGESTION": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": null,
+      "title": "Incorrect discount calculation",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "_apply_percentage",
+      "title": "Private function imported across module boundary",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] LOGIC `Decimal` context can round or reject valid totals before cent quantization (`_apply_percentage`)\n  - Issue: The calculation uses the ambient decimal context, so arithmetic is silently rounded to its configured precision before the final `.quantize()` call, and `.quantize()` itself can raise `InvalidOperation` when the result has more fractional/integer digits than that context permits. For example, with the default 28-digit precision, a large but valid order total or a high-precision total can lose cents during `total * (100 - percent)`, or fail to quantize, even though the caller’s coupon percentage is valid.\n  - Fix: Perform the multiplication and quantization under a context with sufficient precision, preferably computed from the operands (or use a monetary decimal helper with explicitly defined precision and rounding). Validate finite decimal values as well if arbitrary persisted totals can reach this private helper.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7026
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC <Incorrect discount calculation> (billing/discounts.py:4)\n- Issue: The function computes (total * (100 - percent) / 100), which yields the discounted total rather than the discount amount; callers expecting a discount value will receive wrong results, causing incorrect billing.\n- Fix: Return total * (Decimal(100) - percent) / Decimal(100) is correct for discounted total; ensure callers interpret result as final total, or rename function and adjust usage accordingly.\n\n[SUGGESTION] SIMPLICITY <Redundant Decimal arithmetic> (billing/discounts.py:4)\n- Issue: Using Decimal(100) - percent and division by Decimal(100) is more complex than necessary; the same result can be achieved with total * (1 - percent/Decimal(100)), reducing operations and improving readability.\n- Fix: return (total * (Decimal(1) - percent / Decimal(100))).quantize(Decimal(\"0.01\"))\n\nNO_ISSUES_FOUND:",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 47345
+    },
+    {
+      "model": "openrouter/qwen/qwen3.8-27b:free",
+      "served_model": "qwen/qwen3.8-27b:free",
+      "served_provider": "ModelRun",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 65631
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "[WARNING] ERROR_HANDLING Missing input validation in _apply_percentage (at billing/discounts.py:4)\n- Issue: The function applies no bounds checking on `percent`. If called directly with `percent > 100` or a negative `total`, it returns a negative or inflated total — a silently wrong billing result. Coupons.py validates percent ≤ 50%, but the helper itself is not safe.\n- Fix: Add validation inside `_apply_percentage`: raise ValueError if `percent < 0` or `percent > 100`, and optionally if `total < 0`.\n\n[WARNING] LOGIC Implicit ROUND_HALF_EVEN in quantize (at billing/discounts.py:5)\n- Issue: `.quantize(Decimal(\"0.01\"))` uses the thread-local context default rounding (ROUND_HALF_EVEN / banker's rounding). For financial billing, ROUND_HALF_UP is the expected convention; a value like 90.005 rounds to 90.00 instead of 90.01, causing a 1-cent discrepancy.\n- Fix: Pass explicit rounding: `.quantize(Decimal(\"0.01\"), rounding=ROUND_HALF_UP)` and import ROUND_HALF_UP from decimal.\n\n[SUGGESTION] STRUCTURE Private function imported across module boundary (at billing/discounts.py:4, billing/coupons.py:3)\n- Issue: `_apply_percentage` uses a private underscore prefix, yet coupons.py imports it directly. This breaks the privacy convention and couples the two modules; renaming or moving the function will require edits in both places.\n- Fix: Either drop the underscore (if the function is intended public) or move it into coupons.py / a shared internal module so the import convention matches the visibility.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 24091
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "from decimal import Decimal\n\nMAX_PERCENT = Decimal(50)\n\n\ndef apply_coupon(order, coupon):\n    \"\"\"Coupons are the only source of percentage discounts.\"\"\"\n    percent = Decimal(coupon.percent)\n    if not (Decimal(0) < percent <= MAX_PERCENT):\n        raise ValueError(f\"coupon {coupon.code} has an invalid percentage\")\n    order.total = (order.total * (Decimal(100) - percent) / Decimal(100)).quantize(Decimal(\"0.01\"))\n\n   - This would avoid the function call and the extra indirection.\n\n   - However, note that the reference context says: \"Coupons are the only source of percentage discounts.\" \n     So if we are sure that this is the only place where percentage discounts are applied, then inlining is acceptable.\n\n   - But what if in the future we have other sources of percentage discounts? Then we would want to reuse the function. \n     However, the comment says \"Coupons are the only source\", so we are committing to that.\n\n   - Alternatively, we might want to keep the function for clarity? The formula is not immediately obvious to everyone.\n\n   - But the function is very short and the formula is standard.\n\n   - The cost of having the function: \n        - We have an extra function to maintain.\n        - We have an extra indirection.\n\n   - The benefit: \n        - If we ever need to change the way percentages are applied (e.g., different rounding, or a different formula) we change it in one place.\n        - But note: the reference context says coupons are the only source, so if we change it we are changing the coupon behavior.\n\n   - However, if we inline, and then later we find we need to apply percentage discounts elsewhere, we would have to extract the function again. \n     But the current comment says coupons are the only source, so we are not expecting elsewhere.\n\n   - Given that the function is only one line and used in only one place (as per the reference context), inlining would be simpler.\n\n   - But wait: the reference context shows that the function is imported from billing.discounts in billing/coupons.py. \n     So if we inline, we would remove the function from discounts.py and change the import in coupons.py to not import it? \n     Actually, we would remove the function and then in coupons.py we would not need to import _apply_percentage.\n\n   - However, the diff we are reviewing is only for billing/discounts.py. We are adding the function. \n     If we were to inline, we would not add this function and instead change the coupons.py file. \n     But we are not allowed to change coupons.py in this review because we are only reviewing the diff in discounts.py.\n\n   - Therefore, in the context of this diff, we are adding a function that is only used in one place (as far as we know from the reference context). \n     This is a case of unnecessary indirection.\n\n   - However, note that the reference context might be incomplete. We are told to assume valid surrounding context. \n     The reference context shows that coupons.py uses it. We don't see any other use. \n     But we cannot be sure there aren't other uses in the codebase that are not shown.\n\n   - The problem says: \"If reviewing a partial snippet: Assume valid surrounding context. Do NOT flag missing imports, undefined global dependencies (e.g. logger, db, config), or missing callers.\"\n\n   - We are not to assume missing callers. So we must assume that the only caller is the one we see in the reference context (apply_coupon).\n\n   - Therefore, we have a function that is only called from one place. This is a candidate for inlining.\n\n   - The cost of not inlining: \n        - We have an extra function definition and an extra import in coupons.py (which is already there in the reference context, but note: the reference context shows the import is already present? \n          Actually, the reference context for coupons.py shows:\n            from billing.discounts import _apply_percentage\n          So if we remove the function from discounts.py, we would break that import.\n\n   - But in the diff we are reviewing, we are only allowed to change discounts.py. We cannot change coupons.py in this review. \n     However, if we were to inline, we would have to change coupons.py to remove the import and inline the formula. \n     Since we are not reviewing coupons.py, we cannot make that change in this review.\n\n   - Therefore, in the scope of this review (only the diff in discounts.py), we are adding a function that is used by another module (as shown in the reference context). \n     We cannot inline it without changing the other module, which is out of scope.\n\n   - So we must leave it as a function.\n\n   - However, note: the function is defined in the same module that uses it? No, it's defined in discounts.py and used in coupons.py. \n     So it's a cross-module helper. \n\n   - Given that, it is appropriate to have it as a function.\n\n   - But wait: the reference context shows that coupons.py imports it from discounts.py. \n     So if we are adding it to discounts.py, then the import in coupons.py is valid.\n\n   - Therefore, the structure is acceptable.\n\n   - However, we note that the function is very simple and might be considered trivial. \n     But the alternative (inlining) would require changing the coupons.py file, which we are not allowed to do in this review. \n     So we cannot suggest inlining as a fix for this diff because it would require changes outside the reviewed file.\n\n   - Thus, we do not have a simplicity issue that we can fix within the reviewed file.\n\n   - But note: the function is named with a leading underscore, indicating it is private. \n     However, it is being imported by another module. This is a common pattern for \"module-private\" functions that are still used by closely related modules. \n     It is acceptable.\n\n   - Therefore, we do not find a structure or simplicity issue that we can act on within the reviewed file.\n\nGiven the above, we do not find any correctness or security issues. \nWe do not find a structure or simplicity issue that meets the bar (because we cannot inline without changing another file, and the function is appropriately placed for cross-module use).\n\nHowever, let's double-check the correctness:\n\n   - The formula: (total * (100 - percent)) / 100\n   - Example: total = Decimal('100.00'), percent = Decimal('20.00') \n        -> (100.00 * 80.00) / 100 = 8000.00 / 100 = 80.00 -> correct.\n\n   - But note: the quantize step. \n        Without quantize, we might have more than two decimal places? \n        Example: total = Decimal('100.00'), percent = Decimal('33.33')\n        (100.00 * (100 - 33.33)) = 100.00 * 66.67 = 6667.00\n        6667.00 / 100 = 66.67 -> which is exactly two decimal places? \n        Actually, 6667.00 / 100 = 66.6700 -> then quantize to two decimal places: 66.67.\n\n   - However, consider: total = Decimal('1.00'), percent = Decimal('33.33')\n        (1.00 * 66.67) = 66.67\n        66.67 / 100 = 0.6667 -> then quantize to two decimal places: 0.67 (if rounding half up? but note: Decimal quantize uses ROUND_HALF_EVEN by default).\n\n   - Let's check: \n        Decimal('0.6667').quantize(Decimal('0.01')) \n        -> This is 0.67? \n        Actually, 0.6667 is closer to 0.67 than to 0.66? \n        But note: 0.6667 is 0.6667, which is 66.67/100. \n        The exact value is 0.6667, which when rounded to two decimal places: \n          The third decimal is 6, which is >=5, so we round up the second decimal: 0.67.\n\n   - However, the Decimal quantize with the default rounding mode (ROUND_HALF_EVEN) would do:\n        0.6667 -> look at the third decimal: 6, which is >=5, so we round up: 0.67.\n\n   - But note: the exact calculation: \n        total * (100 - percent) / 100 \n        = 1.00 * 66.67 / 100 \n        = 66.67 / 100 \n        = 0.6667\n\n   - This is correct.\n\n   - However, there is a potential issue: the order of operations. \n        We are doing: (total * (100 - percent)) / 100\n        This is mathematically equivalent to total * (1 - percent/100) \n        but note: \n          total * (1 - percent/100) = total * ((100 - percent)/100) \n        so it is the same.\n\n   - But in floating point, we might get different results due to rounding. However, we are using Decimal, so it's exact.\n\n   - However, note: the percent is a Decimal, and we are subtracting from 100 (which is an integer) and then dividing by 100 (integer). \n        This should be exact if the percent has a finite decimal representation? \n        But if percent is not a finite decimal (like 1/3) then we get a repeating decimal? \n        Actually, Decimal can represent numbers exactly if they are given as strings? \n        But we don't know how the percent is created. \n        The reference context: percent = Decimal(coupon.percent) \n        We don't know what coupon.percent is, but it's likely a string or a number that can be exactly represented as a Decimal? \n        If it's a float, then we might have inexact representation. \n        But the reference context does not show the type of coupon.percent.\n\n   - However, the problem says: \"Do NOT flag missing imports, undefined global dependencies\". \n        We are not to worry about the type of coupon.percent because it's outside the snippet.\n\n   - Therefore, we assume that the Decimal conversion is correct.\n\n   - One more thing: what if percent is not a number? \n        The Decimal() constructor will raise an exception if given a non-numeric",
+      "finish_reason": "length",
+      "truncated": true,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "latency_ms": 82899
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC _apply_percentage may produce incorrect results for negative totals (at _apply_percentage)\n    - Issue: The function does not validate that the input `total` is non-negative. If `total` is negative (e.g., due to a refund or credit), applying a discount (which reduces the magnitude) would actually increase the debt (make the total more negative), which is likely not the intended behavior for a discount function. While the reference context assumes non-negative totals in `apply_coupon`, the helper function `_apply_percentage` is not protected against invalid input and could be misused elsewhere.\n    - Fix: Add a check for non-negative total at the start of the function: `if total < Decimal(0): raise ValueError(\"total cannot be negative\")`.\n\n[WARNING] ERROR_HANDLING _apply_percentage may produce unexpected results due to rounding mode (at _apply_percentage)\n    - Issue: The quantize operation uses the current rounding mode (default ROUND_HALF_EVEN). Financial regulations often require specific rounding rules (e.g., ROUND_HALF_UP). Relying on the default rounding mode without explicit specification could lead to discrepancies in edge cases (e.g., 0.005 rounding to 0.00 instead of 0.01) and may not comply with business requirements.\n    - Fix: Specify the rounding mode explicitly in the quantize call, e.g., `.quantize(Decimal(\"0.01\"), rounding=ROUND_HALF_UP)`, after importing ROUND_HALF_UP from decimal.\n\n[SUGGESTION] SIMPLICITY _apply_percentage duplicates logic that could be simplified (at _apply_percentage)\n    - Issue: The expression `(total * (Decimal(100) - percent) / Decimal(100))` is mathematically equivalent to `total * (Decimal(1) - percent / Decimal(100))`, but the latter avoids an intermediate subtraction and might be slightly more readable. However, the current form is clear and the duplication is minor. The cost is negligible, but if the function were used in a hot path, the extra operation could be avoided.\n    - Fix: Consider rewriting as `return (total * (Decimal(1) - percent / Decimal(100))).quantize(Decimal(\"0.01\"))` for potential clarity and efficiency, though the gain\n\n[WARNING] LOGIC _apply_percentage may produce incorrect results for negative totals (at _apply_percentage)\n    - Issue: The function does not validate that the input `total` is non-negative. If `total` is negative (e.g., due to a refund or credit), applying a discount (which reduces the magnitude) would actually increase the debt (make the total more negative), which is likely not the intended behavior for a discount function. While the reference context assumes non-negative totals in `apply_coupon`, the helper function `_apply_percentage` is not protected against invalid input and could be misused elsewhere.\n    - Fix: Add a check for non-negative total at the start of the function: `if total < Decimal(0): raise ValueError(\"total cannot be negative\")`.\n\n[WARNING] ERROR_HANDLING _apply_percentage may produce unexpected results due to rounding mode (at _apply_percentage)\n    - Issue: The quantize operation uses the current rounding mode (default ROUND_HALF_EVEN). Financial regulations often require specific rounding rules (e.g., ROUND_HALF_UP). Relying on the default rounding mode without explicit specification could lead to discrepancies in edge cases (e.g., 0.005 rounding to 0.00 instead of 0.01) and may not comply with business requirements.\n    - Fix: Specify the rounding mode explicitly in the quantize call, e.g., `.quantize(Decimal(\"0.01\"), rounding=ROUND_HALF_UP)`, after importing ROUND_HALF_UP from decimal.\n\n[SUGGESTION] SIMPLICITY _apply_percentage duplicates logic that could be simplified (at _apply_percentage)\n    - Issue: The expression `(total * (Decimal(100) - percent) / Decimal(100))` is mathematically equivalent to `total * (Decimal(1) - percent / Decimal(100))`, but the latter avoids an intermediate subtraction and might be slightly more readable. However, the current form is clear and the duplication is minor. The cost is negligible, but if the function were used in a hot path, the extra operation could be avoided.\n    - Fix: Consider rewriting as `return (total * (Decimal(1) - percent / Decimal(100))).quantize(Decimal(\"0.01\"))` for potential clarity and efficiency, though the gain is minimal.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "latency_ms": 146299
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 78253
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 89420
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 34557
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Empty response from model",
+      "latency_ms": 132068
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 44078
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 235.2
+  }
+}

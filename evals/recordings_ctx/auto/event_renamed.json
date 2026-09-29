@@ -1,0 +1,97 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T11:21:24.274002Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "988e333399d5",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 21598,
+    "context": {
+      "files": [
+        "src/notifications/subscribers.js"
+      ],
+      "tokens": 55,
+      "dropped": [],
+      "auto": {
+        "src/notifications/subscribers.js": "uses \"user:created\", which the change removes"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "emit",
+      "title": "Event name mismatch",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "[CRITICAL] [LOGIC] Event name change breaks both subscribers (`createUser`)\n\n- Issue: `createUser` now emits `\"userCreated\"`, but `src/notifications/subscribers.js` subscribes to `\"user:created\"`. Every successful user creation will therefore skip both `sendWelcome` and `trackSignup`, producing missing welcome emails and analytics.\n- Fix: Emit the event name used by the registered subscribers, or update all relevant producers and consumers together. If the rename is intentional, change `bus.on(\"user:created\", ...)` registrations to `bus.on(\"userCreated\", ...)` in the same change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5317
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC Event name mismatch breaks subscriber chain (at bus.emit in createUser)\n  - Issue: The event name is changed from \"user:created\" to \"userCreated\", but subscribers in src/notifications/subscribers.js are still listening for \"user:created\". This causes welcome emails and signup tracking to silently never fire when users are created.\n  - Fix: Either update the emit to `bus.emit(\"user:created\", user)` to match existing subscribers, or update all subscribers to listen for \"userCreated\" instead.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 10288
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC Event name mismatch (bus.emit)\n- Issue: The emit changed to \"userCreated\", but listeners in src/notifications/subscribers.js are registered for \"user:created\". Consequently, the listeners never fire, causing missing welcome emails and analytics tracking.\n- Fix: Revert bus.emit to \"user:created\" to keep listeners triggered.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12150
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC Event name mismatch breaks subscriber notifications (at bus.emit)\n    - Issue: The event name emitted by createUser was changed from \"user:created\" to \"userCreated\", but subscribers in notifications/subscribers.js still listen for \"user:created\". This prevents welcome emails and signup tracking from triggering on user creation.\n    - Fix: Revert the event name to \"user:created\" to match existing subscribers[WARNING] LOGIC Event name mismatch breaks subscriber notifications (at bus.emit)\n    - Issue: The event name emitted by createUser was changed from \"user:created\" to \"userCreated\", but subscribers in notifications/subscribers.js still listen for \"user:created\". This prevents welcome emails and signup tracking from triggering on user creation.\n    - Fix: Revert the event name to \"user:created\" to match existing subscribers.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 21570
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 24.1
+  }
+}

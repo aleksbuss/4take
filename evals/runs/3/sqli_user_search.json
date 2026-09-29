@@ -1,0 +1,115 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T08:57:55.714429Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "5c184b8d731e",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 18023
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "search_users",
+      "title": "SQL injection via term and limit concatenation",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "scope",
+      "title": "Missing cursor cleanup in search_users",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "search_users",
+      "title": "Cursor never closed in search_users",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION SQL injection via term and limit concatenation (at search_users)\n    - Issue: The function builds the SQL query by directly concatenating user‑supplied `term` and `limit` strings. An attacker can inject arbitrary SQL by providing a term containing a quote or SQL keywords (e.g., `' OR 1=1 --`) or a non‑numeric limit, leading to unauthorized data access, modification, or denial of service.\n    - Fix: Use parameterized queries. Replace the string concatenation with placeholders and pass the values as parameters:  \n      ```python\n      query = \"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\"\n      cur.execute(query, ('%' + term + '%', limit))\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7176,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Unsafe SQL construction (search_users)\n  - Issue: The function directly concatenates the user‑controlled `term` and `limit` into the SQL string, enabling SQL injection. An attacker can supply `term = \"' OR '1'='1\"` to bypass the LIKE filter, or `limit = \"0; DROP TABLE users;\"` to execute arbitrary statements, compromising data or the database.\n  - Fix: Use a parameterized query: `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", ('%' + term + '%', limit))`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 13513,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] INJECTION `search_users` SQL injection vulnerability (at query construction)\n  - Issue: The `term` parameter is directly concatenated into the SQL query string without any sanitization or parameterization. An attacker can supply a malicious term like `' OR 1=1 --` to bypass the WHERE clause and dump all users, or use `'; DROP TABLE users; --` to destroy data. The `limit` parameter is also vulnerable to injection via `str(limit)`.\n  - Fix: Use parameterized queries: `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", (f'%{term}%', limit))`\n\n* [WARNING] ERROR_HANDLING Missing cursor cleanup in `search_users` (at function scope)\n  - Issue: The cursor is created but never explicitly closed. If an exception occurs during `execute()` or `fetchall()`, the cursor resource leaks. While Python's garbage collector will eventually clean it up, this violates proper resource management patterns and can exhaust database connection pools under load or repeated errors.\n  - Fix: Use a context manager: `with conn.cursor() as cur:` or explicitly call `cur.close()` in a finally block.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 13587,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] SQL injection via `term` parameter in `search_users` (query construction at `query = \"SELECT ... LIKE '%\" + term + \"%'\"`)\n  - Issue: `term` is concatenated directly into the SQL string without parameterization. An attacker-controlled value like `%' OR 1=1 --` transforms the query into `SELECT id, email, display_name FROM users WHERE display_name LIKE '%%' OR 1=1 --%'`, returning the entire users table. This is a textbook injection vector with a concrete triggering input.\n  - Fix: Replace string concatenation with a parameterized query: `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ?\", (f\"%{term}%\",))` (adapt placeholder style to the DB-API driver).\n\n* [CRITICAL] [INJECTION] SQL injection via `limit` parameter in `search_users` (`query += \" ORDER BY created_at DESC LIMIT \" + str(limit)`)\n  - Issue: `limit` is concatenated into the query without validation or parameterization. If `limit` arrives as a non-integer string (e.g., `\"10; DROP TABLE users\"` or `\"10 UNION SELECT password FROM users\"`), it can alter query semantics or execute secondary statements depending on the driver's `execute()` semantics. Even integer-only validation would eliminate this class.\n  - Fix: Use a parameterized placeholder for LIMIT (`cur.execute(\"... LIMIT ?\", (limit,))`), and at minimum validate `isinstance(limit, int)` before inclusion.\n\n* [WARNING] [RESOURCE_LEAK] Cursor never closed in `search_users` (after `cur = conn.cursor()`)\n  - Issue: `cur` is never closed via `cur.close()` or used in a `with` block. While CPython's GC will eventually reclaim it, the cursor may hold server-side resources (e.g., open result sets on PostgreSQL via psycopg2) that persist until finalization. Under repeated calls or non-refcounting runtimes, this leaks connections and memory.\n  - Fix: Use `with conn.cursor() as cur:` or call `cur.close()` in a `finally` block after `fetchall()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18016,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "sqli_user_search.py",
+    "exit_code": 0,
+    "wall_s": 18.4,
+    "duplicate_of_backfilled": true
+  }
+}

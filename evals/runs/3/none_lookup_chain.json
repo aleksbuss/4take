@@ -1,0 +1,108 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T08:51:11.883496Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "0b3562ca01c9",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 33458
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "primary_email",
+      "title": "CORRECTNESS Null Pointer Dereference",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CORRECTNESS Null Pointer Dereference (at `record.get(\"contacts\")`)\n    - Issue: If `user_id` doesn't exist in `directory`, `directory.get(user_id)` returns `None`. Calling `.get(\"contacts\")` on `None` raises `AttributeError: 'NoneType' object has no attribute 'get'`. Triggered by `primary_email({}, \"nonexistent\")`.\n    - Fix: Add null check: `record = directory.get(user_id); if not record: return None`\n\n* [CRITICAL] CORRECTNESS Index Out of Bounds (at `return contacts[0][\"address\"]`)\n    - Issue: If `contacts` is empty or missing, `contacts[0]` raises `IndexError`. Also crashes if no primary email exists and contacts is empty. Triggered by `primary_email({\"user\": {\"contacts\": []}}, \"user\")`.\n    - Fix: Check length before access: `if not contacts: return None`\n\n* [CRITICAL] CORRECTNESS Missing Key Access (at `c[\"address\"]`)\n    - Issue: If a contact lacks the \"address\" key, `c[\"address\"]` raises `KeyError`. This can silently corrupt data flow if contacts have inconsistent schemas.\n    - Fix: Use safe access: `return c.get(\"address\")` with appropriate fallback",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8812,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] Empty contacts list crash (at `contacts[0][\"address\"]`)\n  - Issue: When `contacts` is an empty list, the `for` loop completes without returning, and `contacts[0][\"address\"]` raises `IndexError`. Triggering input: a user record with `\"contacts\": []` — a valid, plausible state.\n  - Fix: Add a guard before the fallback: `if not contacts: return None` (or raise a semantic exception) before `return contacts[0][\"address\"]`.\n\n* [CRITICAL] [LOGIC] Missing user record crash (at `record.get(\"contacts\")`)\n  - Issue: If `directory.get(user_id)` returns `None` (user not found), the subsequent `record.get(\"contacts\")` raises `AttributeError`. Triggering input: any `user_id` not present in `directory`.\n  - Fix: Add a null check on `record` immediately after the lookup, returning `None` or raising a `KeyError` with a descriptive message.\n\n* [WARNING] [LOGIC] None contacts iteration crash (at `for c in contacts`)\n  - Issue: If the record exists but the `\"contacts\"` key is absent, `record.get(\"contacts\")` returns `None`, and `for c in None` raises `TypeError`. Triggering input: a user record shaped as `{}` or `{\"name\": \"...\"}` without a `\"contacts\"` key.\n  - Fix: Use `record.get(\"contacts\", [])` instead of `record.get(\"contacts\")`, or add an explicit `None` guard.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11642,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC Missing user_id causes AttributeError (at primary_email)\n    - Issue: If `directory.get(user_id)` returns `None` (user not present), `record.get(\"contacts\")` is called on `None`, raising `AttributeError: 'NoneType' object has no attribute 'get'`.\n    - Fix: Check that `record` is not `None` before accessing its fields; return `None` or a sentinel when the user is absent.\n      ```python\n      record = directory.get(user_id)\n      if record is None:\n          return None\n      contacts = record.get(\"contacts\")\n      ```\n\n* [CRITICAL] LOGIC Missing \"contacts\" key causes TypeError when iterating (at primary_email)\n    - Issue: If the record lacks a \"contacts\" key, `record.get(\"contacts\")` returns `None`. The subsequent `for c in contacts:` attempts to iterate over `None`, raising `TypeError: 'NoneType' object is not iterable`.\n    - Fix: Treat a missing or `None` contacts list as empty and return `None` (or a default) when no contacts exist.\n      ```python\n      contacts = record.get(\"contacts\") or []\n      if not contacts:\n          return None\n      ```\n\n* [CRITICAL] LOGIC Empty contacts list causes IndexError (at primary_email)\n    - Issue: When `contacts` is an empty list, the loop finds no primary entry and the fallback `return contacts[0][\"address\"]` raises `IndexError: list index out of range`.\n    - Fix: Return `None` (or a sensible default) when the contacts list is empty after checking for a primary entry.\n      ```python\n      for c in contacts:\n          if c.get(\"primary\"):\n              return c[\"address\"]\n      return None  # or raise an exception if appropriate\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16588,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Missing user handling> (at record = directory.get(user_id))\n    - Issue: If user_id is not present in directory, record becomes None, causing AttributeError when calling record.get(\"contacts\").\n    - Fix: Check if record is None and return a default or raise a meaningful error, e.g., if record is None: return None.\n\n* [CRITICAL] LOGIC <Missing contacts handling> (at contacts = record.get(\"contacts\"))\n    - Issue: When the user record lacks a \"contacts\" key, contacts is None, leading to TypeError during iteration.\n    - Fix: Provide a default empty list, e.g., contacts = record.get(\"contacts\", []) or handle None before looping.\n\n* [CRITICAL] BOUNDS <Empty contacts list> (at return contacts[0][\"address\"])\n    - Issue: If contacts list is empty, accessing contacts[0] raises IndexError.\n    - Fix: Return a default value when list is empty, e.g., if not contacts: return None; else return contacts[0][\"address\"].\n\n* [CRITICAL] LOGIC <Missing user handling> (at record = directory.get(user_id))\n    - Issue: If user_id is not present in directory, record becomes None, causing AttributeError when calling record.get(\"contacts\").\n    - Fix: Check if record is None and return a default or raise a meaningful error, e.g., if record is None: return None.\n\n* [CRITICAL] LOGIC <Missing contacts handling> (at contacts = record.get(\"contacts\"))\n    - Issue: When the user record lacks a \"contacts\" key, contacts is None, leading to TypeError during iteration.\n    - Fix: Provide a default empty list, e.g., contacts = record.get(\"contacts\", []) or handle None before looping.\n\n* [CRITICAL] BOUNDS <Empty contacts list> (at return contacts[0][\"address\"])\n    - Issue: If contacts list is empty, accessing contacts[0] raises IndexError.\n    - Fix: Return a default value when list is empty, e.g., if not contacts: return None; else return contacts[0][\"address\"].",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 32413,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] [ERROR_HANDLING] Missing user record causes unhandled exception (primary_email)\n  - Issue: `directory.get(user_id)` returns `None` for an unknown user, then `record.get(\"contacts\")` raises `AttributeError`. The explicit use of `get` makes this a reachable path rather than an invalid internal assumption.\n  - Fix: Validate `record is not None` and return `None` or raise a defined domain exception consistently.\n\n* [WARNING] [ERROR_HANDLING] Empty contacts list causes unhandled exception (primary_email)\n  - Issue: For a user whose `contacts` list is empty, the loop completes and `contacts[0][\"address\"]` raises `IndexError`; no primary email exists in this input.\n  - Fix: Check `if not contacts` before indexing and return `None` or raise a defined exception.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8351,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Missing handling for absent or empty contacts> (at symbol/line)  \n- Issue: If `directory.get(user_id)` returns `None`, or `record` lacks the `\"contacts\"` key, or `contacts` is an empty list, the code raises `AttributeError` or `IndexError`, causing a crash or incorrect result that the caller will trust.  \n- Fix:  \n  ```python\n  record = directory.get(user_id)\n  if not record:\n      return None\n  contacts = record.get(\"contacts\")\n  if not contacts:\n      return None\n  for c in contacts:\n      if c.get(\"primary\"):\n          return c[\"address\"]\n  return contacts[0][\"address\"] if contacts else None\n  ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 25100,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "none_lookup_chain.py",
+    "exit_code": 0,
+    "wall_s": 33.9,
+    "duplicate_of_backfilled": true
+  }
+}

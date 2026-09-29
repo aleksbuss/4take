@@ -1,0 +1,95 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T10:58:04.593122Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "14236218e783",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 6971,
+    "context": {
+      "files": [
+        "app/api.py",
+        "app/mailer.py"
+      ],
+      "tokens": 134,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "find_user",
+      "title": "[CORRECTNESS] Broken contract in find_user",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 4,
+        "WARNING": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [CORRECTNESS] Broken contract in find_user (app/users.py)\n- Issue: The change from `raise UserNotFound(user_id)` to `return None` breaks the function's contract. Callers shown in the reference context (`app/api.py`, `app/mailer.py`) expect the exception and do not guard against `None`. `api.py` will crash with `AttributeError` on `user.email` instead of returning 404; `mailer.py` will crash with `AttributeError` on `user.email`/`user.name` instead of propagating the missing-user error.\n- Fix: Revert `app/users.py` to `raise UserNotFound(user_id)`, or update both callers to check `if user is None: ...` before attribute access.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4315
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC find_user returns None (at find_user)\n- Issue: find_user returns None when the user is not found, breaking callers that expect either a User object or a UserNotFound exception. get_profile will attempt to access user.email and user.name on None, raising AttributeError, and send_welcome_email will similarly crash, while the API loses its 404 error handling.\n- Fix: Restore the original behavior by raising UserNotFound(user_id) when row is None.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6310
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC get_profile fails to handle None return from find_user (at app/api.py:3-6)\n  - Issue: The change to find_user returning None instead of raising UserNotFound breaks get_profile's exception handling. When user is not found, user becomes None, then user.email raises AttributeError: 'NoneType' object has no attribute 'email'. The try/except UserNotFound block never catches anything and the function crashes instead of returning 404.\n  - Fix: Replace try/except with None check: `user = find_user(user_id); if user is None: return {\"error\": \"not found\"}, 404`\n\n* [CRITICAL] LOGIC send_welcome_email crashes on None return from find_user (at app/mailer.py:3-8)\n  - Issue: send_welcome_email directly accesses user.email and user.name without checking if find_user returned None. When user doesn't exist, user is None and accessing user.email raises AttributeError, crashing the function instead of handling the missing user gracefully.\n  - Fix: Add None check: `user = find_user(user_id); if user is None: return` or raise an appropriate exception\n\n* [WARNING] STRUCTURE UserNotFound exception class becomes dead code (at app/users.py:11)\n  - Issue: The UserNotFound exception class is no longer raised by find_user, making it dead code. Any other code catching UserNotFound will silently fail to catch anything. This creates maintenance burden and potential for confusion.\n  - Fix: Either remove the UserNotFound class entirely, or update all callers to use a different error handling pattern\n\n* [WARNING] ERROR_HANDLING Inconsistent error handling across callers (at app/api.py, app/mailer.py)\n  - Issue: The refactored find_user now returns None, but callers have different expectations - get_profile expects an exception to return HTTP 404, while send_welcome_email has no error handling at all. This inconsistency will cause some callers to crash while others silently fail.\n  - Fix: Standardize on one pattern - either all callers check for None, or all callers expect exceptions. Consider using Optional[User] type hint to make the contract explicit",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6768
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC Missing users now return an undocumented value to exception-based callers (app/users.py: `find_user`)\n  - Issue: Changing `find_user` to return `None` for a missing user breaks the established exception contract. In `app.api.get_profile`, an unknown `user_id` no longer reaches the `except UserNotFound` branch; it proceeds to `user.email` and raises `AttributeError`, producing an unintended server error instead of a 404. `app.mailer.send_welcome_email` similarly dereferences `user.email` and `user.name`, so deleting a user or referencing a nonexistent ID crashes that flow.\n  - Fix: Preserve the existing contract by keeping `raise UserNotFound(user_id)` and return `User(**row)` only when a row exists. If `None` is intentional, migrate every caller to check for it and define a return type that makes the nullable contract explicit.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6964
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 7.5
+  }
+}

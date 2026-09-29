@@ -1,0 +1,100 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T11:05:15.224687Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "e5aaf22ee350",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 34593,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "register",
+      "title": "Whitespace-only email addresses are accepted",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nex-agi/nex-n2.5-mini:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "normalize_email",
+      "title": "Uncaught None leads to crash",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "CRITICAL": 1,
+        "SUGGESTION": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4294
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "[WARNING] ERROR_HANDLING Whitespace-only email addresses are accepted (normalize_email)\n- Issue: `normalize_email(\" \\t\\n\")` returns `\"\"`; `register` then queries/creates an account with an empty email. If the database permits blank emails, an invalid account is created; otherwise the operation fails with an unhandled database exception instead of a clear validation error.\n- Fix: Normalize first, reject blank values before querying, and raise a validation error such as `ValueError(\"email is required\")`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6569
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Uncaught None leads to crash> (in normalize_email function)\n  - Issue: Calling .strip() on a None value raises AttributeError, causing register to fail for None input, which is an unhandled edge case that can crash the operation.\n  - Fix: Add a guard: `if address is None: return ''` before stripping.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary indirection> (normalize_email function)\n  - Issue: The function adds a separate layer for a trivial operation (strip and lower) that Python’s built‑in string methods already provide, increasing maintenance cost and risk of bugs such as the None handling above.\n  - Fix: Inline the normalization directly in register: `email = email.strip().lower()` (after validating not None).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 23929
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] CONCURRENCY Duplicate Account Race Condition (at register)\n  - Issue: The register function performs a non‑atomic check‑then‑create: it queries `Account.objects.filter(email=email).exists()` and, if false, calls `Account.objects.create(...)`. Two concurrent requests with the same normalized email can both pass the existence test, resulting in duplicate accounts or a database `IntegrityError`. This violates the uniqueness invariant and can crash the request with an unhandled exception.\n  - Fix: Use an atomic `get_or_create` (or a transaction with `select_for_update`) to make the check and creation atomic. Example:\n```\nfrom django.db import IntegrityError, transaction\n\ndef register(email, password):\n    email = normalize_email(email)\n    try:\n        with transaction.atomic():\n            account, created = Account.objects.get_or_create(\n                email=email,\n                defaults={'password_hash': hash_password(password)}\n            )\n            if not created:\n                raise ValueError(\"email already registered\")\n            return account\n    except IntegrityError:\n        raise ValueError(\"email already registered\")\n```\n\n* [WARNING] ERROR_HANDLING Uncaught Database IntegrityError (at register)\n  - Issue: If a race condition bypasses the existence check, `Account.objects.create` raises `django.db.IntegrityError` due to the unique email constraint. This exception propagates unhandled, producing a 500 error instead of the intended `ValueError(\"email already registered\")`.\n  - Fix: Wrap the create call in a try‑except block and convert `IntegrityError` to the expected `ValueError`. Example:\n```\ntry:\n    return Account.objects.create(email=email, password_hash=hash_password(password))\nexcept IntegrityError:\n    raise ValueError(\"email already registered\")\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 34586
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 35.0
+  }
+}

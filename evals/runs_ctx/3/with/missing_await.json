@@ -1,0 +1,120 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:33:58.070672Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "cd5fe483ae7f",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 29965,
+    "context": {
+      "files": [
+        "web/sessions.py"
+      ],
+      "tokens": 64,
+      "dropped": []
+    }
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "AUTH_CRYPTO",
+      "symbol": "on_login",
+      "title": "Role check is always true",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "refresh_session",
+      "title": "CORRECTNESS Missing await on async function call",
+      "models": [
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] AUTH_CRYPTO Role check is always true (`on_login`)\n  - Issue: `\"owner\"` is a non-empty string and therefore evaluates to `True` regardless of `user.role`. Every successfully authenticated user receives `can_manage=True`, including ordinary and suspended/non-privileged accounts, creating a direct privilege-escalation path if handlers trust this session flag.\n  - Fix: Compare both roles explicitly, preferably against the authorization system’s canonical set: `if user.role in {\"admin\", \"owner\"}: request.session[\"can_manage\"] = True`. Ensure the flag is denied by default and not inherited from a pre-login session.\n\n* [WARNING] ERROR_HANDLING Session refresh coroutine is never awaited (`on_login`)\n  - Issue: Calling `refresh_session(user.id)` without `await` only creates and discards a coroutine; no old session is revoked and no replacement is issued. The request continues to the dashboard with the pre-login session identifier, defeating login-time session rotation and typically emitting a runtime warning. Concurrent requests can therefore continue using the session that should have been invalidated.\n  - Fix: Await the operation before granting session privileges or redirecting, and decide the desired failure behavior if revocation or issuance fails: `await refresh_session(user.id)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4843
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC <Incorrect admin/owner role check> (on_login)\n  - Issue: The condition `if user.role == \"admin\" or \"owner\":` always evaluates to True because `\"owner\"` is truthy, granting `can_manage` to any user regardless of role, leading to unauthorized privilege escalation.\n  - Fix: Replace with `if user.role in (\"admin\", \"owner\"):` to correctly check both roles.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 21655
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC Role check bypass due to incorrect boolean expression (line 17)\n  - Issue: The condition `if user.role == \"admin\" or \"owner\":` always evaluates to True, granting `can_manage` to any user regardless of role, enabling privilege escalation.\n  - Fix: Replace with `if user.role in (\"admin\", \"owner\"):` or `if user.role == \"admin\" or user.role == \"owner\":`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "latency_ms": 23625
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] AUTH_CRYPTO Incorrect admin check (at on_login)\n- Issue: The condition `if user.role == \"admin\" or \"owner\":` always evaluates to True because the string literal `\"owner\"` is truthy, causing `request.session[\"can_manage\"] = True` for any user, granting unauthorized management privileges.\n- Fix: Change to `if user.role == \"admin\" or user.role == \"owner\":` or `if user.role in (\"admin\", \"owner\"):`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 24881
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CORRECTNESS Missing await on async function call (at `refresh_session(user.id)`)\n    - Issue: `refresh_session` is an async function defined in sessions.py but is called without `await`. The session rotation will never execute, leaving sessions vulnerable to fixation attacks. The function returns a coroutine object that is immediately discarded.\n    - Fix: `await refresh_session(user.id)`\n\n* [CRITICAL] LOGIC Incorrect boolean expression always evaluates to True (at `if user.role == \"admin\" or \"owner\":`)\n    - Issue: The expression `user.role == \"admin\" or \"owner\"` is always truthy because `\"owner\"` is a non-empty string. This grants `can_manage` to ALL users regardless of role, creating a privilege escalation vulnerability.\n    - Fix: `if user.role in (\"admin\", \"owner\"):`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 29947
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 31.0
+  }
+}

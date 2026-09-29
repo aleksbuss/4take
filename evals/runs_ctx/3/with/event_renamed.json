@@ -1,0 +1,94 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:30:52.200207Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "988e333399d5",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 18691,
+    "context": {
+      "files": [
+        "src/notifications/subscribers.js"
+      ],
+      "tokens": 55,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "emit",
+      "title": "Event name mismatch breaks subscriber chain",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 3
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] LOGIC User-created event no longer reaches subscribers (in `createUser`)\n  - Issue: `createUser` now emits `userCreated`, but the registered subscribers listen for `user:created` in `src/notifications/subscribers.js`. Consequently, every successful user creation silently skips `sendWelcome` and `trackSignup`; the user is persisted and returned as though those post-creation effects succeeded.\n  - Fix: Emit the event name used by the subscribers: `bus.emit(\"user:created\", user)`. If the rename is intentional, update all producers and consumers together, but the current one-sided rename breaks the event contract.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 2319
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [LOGIC] Event name mismatch breaks subscriber chain (src/users/service.js)\n- Issue: The diff changes the emitted event from `\"user:created\"` to `\"userCreated\"`, but the existing subscriber in `src/notifications/subscribers.js` still listens for `\"user:created\"`. This silently disables the welcome email and signup tracking without any error.\n- Fix: Either revert the emit to `bus.emit(\"user:created\", user)` or update the subscriber to match the new name, ensuring both sides use the same string.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 3720
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC Event name mismatch breaks subscriber chain (at bus.emit in src/users/service.js)\n  - Issue: The service emits \"userCreated\" but subscribers in src/notifications/subscribers.js listen for \"user:created\". This mismatch causes welcome emails and analytics tracking to silently never trigger when users are created. The colon-to-camelCase change breaks the event contract without updating subscribers.\n  - Fix: Change `bus.emit(\"userCreated\", user)` back to `bus.emit(\"user:created\", user)` to match subscriber expectations, or update both the emit and all subscriber registrations to use consistent naming.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5697
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC Event name mismatch breaks listeners (bus.emit)\n- Issue: The service emits \"userCreated\" while subscribers listen for \"user:created\". After the change, the welcome email and analytics tracking are never triggered for new users, breaking the expected workflow.\n- Fix: Change `bus.emit(\"userCreated\", user)` back to `bus.emit(\"user:created\", user)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18679
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 19.3
+  }
+}

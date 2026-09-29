@@ -1,0 +1,163 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:35:12.652822Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "a6608e8b3e37",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 36952
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "follow",
+      "title": "Unbounded memory growth in self.lines when follow() called repeatedly or on large file",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "follow",
+      "title": "follow() duplicates state on repeated calls",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 2,
+        "SUGGESTION": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "LogTail",
+      "title": "Dead storage and coupling",
+      "models": [
+        "cohere/north-mini-code:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "follow",
+      "title": "Unhandled file access exceptions in follow()",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "UNKNOWN",
+      "symbol": "__init__",
+      "title": "SECURITY Path traversal vulnerability",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK Unbounded memory growth in self.lines when follow() called repeatedly or on large file (at LogTail.follow)\n    - Issue: self.lines accumulates every line yielded across all invocations; if follow() is called in a loop or the file is large, memory usage grows without bound, leading to OOM.\n    - Fix: Remove the self.lines.append(line) line, or if history is needed, use a bounded collections.deque with maxlen.\n\n* [WARNING] LOGIC follow() does not tail the file; each call restarts from the beginning (at LogTail.follow)\n    - Issue: The method opens the file from the start on each invocation, so callers cannot observe new lines appended after the first call, defeating the purpose of a log‑tailing utility.\n    - Fix: Open the file once in __init__, seek to the end, and then in follow() yield new lines as they appear, handling file rotation if needed. Alternatively, rename the method to reflect that it reads the whole file.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9102,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [LOGIC] follow() duplicates state on repeated calls (at follow)\n- Issue: Calling `follow()` more than once re-reads the entire file from offset 0 and appends every line to `self.lines` again, silently duplicating all entries. Any external consumer of `self.lines` (e.g. indexing, length checks, serialization) will observe corrupted, doubled data. The generator itself is fine per call, but the mutable `self.lines` accumulator has no guard against re-entry.\n- Fix: Either guard against re-entry (`if self.lines: return`) or reset/replace rather than append (`self.lines = list(fh)` before yielding), and document whether `follow()` is single-use.\n\n[WARNING] [SIMPLICITY] self.lines duplicates generator output (at __init__, follow)\n- Issue: `self.lines` accumulates every yielded line in memory while `follow()` already yields them lazily. The list is never exposed through any method or property, so it either dead-ends as unreachable state or forces all file contents to reside in memory twice (once in the list, once buffered by the generator consumer). For a large log file this doubles RSS for no exposed benefit.\n- Fix: Remove `self.lines` and let callers accumulate if needed, or expose a read-only view after iteration completes.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10190,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Incorrect tail implementation (LogTail.follow)\n  - Issue: The follow method opens the file from the beginning each time it is called, reads all existing lines, appends them to self.lines, and yields them. Calling follow multiple times re‑reads the entire file, causing duplicate lines and never advancing to new content written after the first read. This breaks the “tail” contract and produces wrong results for any caller expecting incremental updates.\n  - Fix: Store the file offset (e.g., seek to end on init) and on each call open the file, seek to the stored offset, read only new lines, update the offset, and yield them. If self.lines is not needed, remove it.\n\n* [WARNING] RESOURCE_LEAK Unbounded growth of self.lines (LogTail.follow)\n  - Issue: Every line read from the file is appended to self.lines, which is never cleared or bounded. For long‑running processes or large log files this list grows without limit, consuming unlimited memory and eventually causing out‑of‑memory conditions.\n  - Fix: Remove self.lines unless required, or replace it with a bounded buffer such as `collections.deque(self.lines, maxlen=MAX_LINES)`. If the storage is unnecessary, delete it entirely.\n\n* [WARNING] STRUCTURE Dead storage and coupling (LogTail)\n  - Issue: The class maintains internal storage (self.lines) that is never exposed or used elsewhere. This couples the generator logic with side‑effects that serve no purpose, forcing any future change (e.g., adding a method to retrieve lines) to also modify follow. The coupling makes the code harder to reason about and maintain.\n  - Fix: Delete self.lines from __init__ and all references. Implement follow as a pure generator that yields lines directly, keeping the class focused on its single responsibility of streaming log entries.\n\n* [SUGGESTION] SIMPLICITY Over‑engineered tail logic (LogTail.follow)\n  - Issue: The current implementation does not actually tail a log; it re‑reads the whole file on each invocation, which is both inefficient and incorrect. A proper tail would open the file once, seek to the end, and read new lines as they appear, possibly using a small sleep or an OS‑level watch.\n  - Fix: Replace follow with a generator that opens the file once in __init__, seeks to the end, and in a loop reads new lines (e.g., using `fh.readline()` with a short sleep on empty reads). This eliminates repeated file opens and provides true tailing behavior.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 35494,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] RESOURCE_LEAK Unbounded memory growth in LogTail.lines (at LogTail.__init__ and LogTail.follow)\n  - Issue: The `self.lines` list grows without bound. Each call to `follow()` appends all file lines to this list, and there's no mechanism to clear it. On large files or repeated calls, this causes unbounded memory consumption. Additionally, calling `follow()` multiple times on the same instance duplicates all lines in memory.\n  - Fix: Either clear `self.lines` at the start of `follow()` or remove the list entirely if it's not needed for the intended use case.\n\n* [WARNING] LOGIC File content duplication on repeated follow() calls (at LogTail.follow)\n  - Issue: If `follow()` is called multiple times on the same LogTail instance, the entire file content gets appended to `self.lines` each time, creating duplicates. The file is read from the beginning on every call, not from where it was last read.\n  - Fix: Track file position with `self.position` and seek to it before reading, or clear `self.lines` at the start of each `follow()` call.\n\n* [WARNING] ERROR_HANDLING Unhandled file access exceptions in follow() (at LogTail.follow)\n  - Issue: File operations can fail due to FileNotFoundError, PermissionError, or other IOErrors, but these propagate unhandled to callers. There's no graceful degradation or error reporting mechanism.\n  - Fix: Wrap file operations in try/except and either yield nothing on error or raise a custom exception with context.\n\n* [WARNING] SECURITY Path traversal vulnerability (at LogTail.__init__)\n  - Issue: The `path` parameter is accepted without validation. If user-controlled input flows here, an attacker could read arbitrary files on the system (e.g., \"../../../etc/passwd\").\n  - Fix: Validate that `path` is within an allowed directory using `os.path.realpath()` and compare against a whitelist or base directory.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 36945,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION <Path traversal allows reading arbitrary files> (path)\n  - Issue: open(self.path) uses the user‑supplied path without validation, enabling path traversal (e.g., path=\"../../etc/passwd\") to read arbitrary files and leak their contents.\n  - Fix:\n    import os\n    safe_path = os.path.abspath(os.path.normpath(self.path))\n    with open(safe_path) as fh:\n\n* [WARNING] RESOURCE_LEAK <Unbounded memory growth on repeated follow calls> (self.lines)\n  - Issue: self.lines accumulates all lines from every call to follow, causing unbounded memory consumption for large or repeatedly opened files.\n  - Fix:\n    self.lines.clear()  # or reinitialize before reading\n    with open(self.path) as fh:\n        for line in fh:\n            self.lines.append(line)\n            yield line\n\n* [WARNING] CONCURRENCY <Race condition on self.lines> (self.lines)\n  - Issue: self.lines is mutated while the generator yields, and multiple threads calling follow on the same instance can cause inconsistent state and data races.\n  - Fix:\n    import threading\n    lock = threading.Lock()\n    def follow(self):\n        with lock:\n            self.lines.clear()\n            with open(self.path) as fh:\n                for line in fh:\n                    self.lines.append(line)\n                    yield line\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.\n\n* [CRITICAL] INJECTION <Path traversal allows reading arbitrary files> (path)\n  - Issue: open(self.path) uses the user‑supplied path without validation, enabling path traversal (e.g., path=\"../../etc/passwd\") to read arbitrary files and leak their contents.\n  - Fix:\n    import os\n    safe_path = os.path.abspath(os.path.normpath(self.path))\n    with open(safe_path) as fh:\n\n* [WARNING] RESOURCE_LEAK <Unbounded memory growth on repeated follow calls> (self.lines)\n  - Issue: self.lines accumulates all lines from every call to follow, causing unbounded memory consumption for large or repeatedly opened files.\n  - Fix:\n    self.lines.clear()  # or reinitialize before reading\n    with open(self.path) as fh:\n        for line in fh:\n            self.lines.append(line)\n            yield line\n\n* [WARNING] CONCURRENCY <Race condition on self.lines> (self.lines)\n  - Issue: self.lines is mutated while the generator yields, and multiple threads calling follow on the same instance can cause inconsistent state and data races.\n  - Fix:\n    import threading\n    lock = threading.Lock()\n    def follow(self):\n        with lock:\n            self.lines.clear()\n            with open(self.path) as fh:\n                for line in fh:\n                    self.lines.append(line)\n                    yield line",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 31566,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 22309
+    }
+  ],
+  "_eval": {
+    "snippet": "unbounded_memory_tail.py",
+    "exit_code": 0,
+    "wall_s": 37.4,
+    "duplicate_of_backfilled": true
+  }
+}

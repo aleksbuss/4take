@@ -1,0 +1,9 @@
+diff --git a/billing/discounts.py b/billing/discounts.py
+--- a/billing/discounts.py
++++ b/billing/discounts.py
+@@ -1 +1,5 @@
+ from decimal import Decimal
++
++
++def _apply_percentage(total, percent):
++    return (total * (Decimal(100) - percent) / Decimal(100)).quantize(Decimal("0.01"))

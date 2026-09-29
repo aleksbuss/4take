@@ -1,0 +1,109 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T17:14:04.268511Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "656049806476",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 27725,
+    "context": {
+      "files": [
+        "limits/counter.py"
+      ],
+      "tokens": 228,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "reset",
+      "title": "Race condition in reset() method",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 3,
+        "CRITICAL": 2,
+        "SUGGESTION": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "hit",
+      "title": "Unbounded deque growth",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] [CONCURRENCY] `reset` bypasses the counter’s synchronization (at `RateCounter.reset`)\n  - Issue: `hit` performs its `_counts`/`_windows` update while holding `_lock`, but `reset` mutates both structures without it. A thread can increment `_counts[key]`, then `reset(key)` can pop both structures, and finally `hit` can append to `_windows[key]`; the next `count(key)` reports the supposedly reset hit. Other interleavings can similarly leave `_counts` and `_windows` inconsistent, despite the class explicitly being shared across request threads.\n  - Fix: Acquire `self._lock` in `reset` before removing both entries so reset is atomic with respect to `hit` (and any other counter mutation).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 3844
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CONCURRENCY Race condition in reset() method (at reset method)\n  - Issue: The `reset` method modifies shared state (`_counts` and `_windows` dictionaries) without acquiring `self._lock`, while all other methods (`hit`, `count`) properly acquire the lock. This creates a race condition where concurrent calls to `reset` with `hit` or `count` can observe inconsistent state or corrupt data structures. For example, `hit` could append to `_windows[key]` after `reset` has popped it, or `count` could iterate over a deque being modified by `reset`.\n  - Fix: Wrap the dictionary operations with the lock:\n    ```python\n    def reset(self, key):\n        \"\"\"Forget everything recorded for `key`.\"\"\"\n        with self._lock:\n            self._counts.pop(key, None)\n            self._windows.pop(key, None)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7440
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[WARNING] CONCURRENCY Race condition in reset method (at RateCounter.reset)\n- Issue: The reset method accesses self._counts and self._windows without holding the class lock, allowing concurrent hit or count operations to race. This can cause inconsistent state, lost increments, or incorrect counts when reset is called while other threads are modifying or reading the structures.\n- Fix: Acquire the lock before modifying shared structures:\n```\ndef reset(self, key):\n    \"\"\"Forget everything recorded for `key`.\"\"\"\n    with self._lock:\n        self._counts.pop(key, None)\n        self._windows.pop(key, None)\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 22043
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Race condition in reset> (line after class definition)\n- Issue: reset lacks lock acquisition, allowing concurrent modifications of _counts and _windows, leading to inconsistent state or exceptions.\n- Fix: Add `with self._lock:` around the pop operations.\n\n[WARNING] RESOURCE_LEAK <Unbounded deque growth> (hit method)\n- Issue: hit appends to _windows[key] without ever removing stale entries, causing memory to grow superlinearly with input volume and potentially O(N) count operations.\n- Fix: Periodically purge entries older than cutoff within hit or count, e.g., `while self._windows[key] and self._windows[key][0][0] < cutoff: self._windows[key].popleft()`.\n\n[WARNING] LOGIC <Stale window snapshot in count> (line in count method)\n- Issue: count copies _windows[key] while holding lock, then releases lock before summing; concurrent hit may modify the deque, causing count to operate on a stale snapshot that may miss recent hits or include outdated data, breaking the sliding window invariant.\n- Fix: Hold lock for the entire count operation or iterate over a copy without releasing lock.\n\n[SUGGESTION] SIMPLICITY <Unnecessary reset method> (reset method)\n- Issue: reset adds a public method that introduces race conditions and extra complexity for a feature that can be achieved by recreating the counter or clearing counts via lock‑protected operations; callers must manage thread safety manually.\n- Fix: Remove reset method or make it private and acquire lock, or document that external reset requires external synchronization.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 27718
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 28.4
+  }
+}

@@ -1,0 +1,63 @@
+name: Publish
+
+# Every documented install command (`pip install 4take`, `uvx 4take`) currently 404s: the
+# package has never been published. This workflow publishes on a version tag using PyPI
+# Trusted Publishing, so no API token is stored in the repository.
+#
+# One-time setup on PyPI (Manage project -> Publishing, or "pending publisher" before the
+# first release): owner `aleksbuss`, repository `4take`, workflow `publish.yml`,
+# environment `pypi`.
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run tests
+        run: uv run --all-extras pytest -q
+
+      - name: Build
+        run: uv build
+
+      # A tag that disagrees with the packaged version publishes a surprise. Checking the
+      # built filenames tests the artifact that actually ships, and fails while the tag can
+      # still be moved rather than after it is immutable on PyPI.
+      - name: Tag must match the built version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          ls -1 dist/
+          test -f "dist/4take-${tag}.tar.gz" \
+            || { echo "::error::tag ${tag} does not match the built sdist"; exit 1; }
+          test -f "dist/4take-${tag}-py3-none-any.whl" \
+            || { echo "::error::tag ${tag} does not match the built wheel"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # The environment is what the Trusted Publisher on PyPI is bound to; it also allows a
+    # manual approval gate to be added later without touching this file.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/4take
+    permissions:
+      id-token: write   # required for Trusted Publishing; nothing else is needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

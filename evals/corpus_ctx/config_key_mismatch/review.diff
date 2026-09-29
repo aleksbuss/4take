@@ -1,0 +1,18 @@
+diff --git a/clients/profiles.py b/clients/profiles.py
+--- a/clients/profiles.py
++++ b/clients/profiles.py
+@@ -1,11 +1,12 @@
+ import httpx
+
+ from app import settings
+
+
+ def fetch_profile(user_id):
++    timeout = settings.PROFILE_API_TIMEOUT_MS / 1000
+     response = httpx.get(
+         f"{settings.PROFILE_API_URL}/profiles/{user_id}",
+-        timeout=10,
++        timeout=timeout,
+     )
+     response.raise_for_status()
+     return response.json()

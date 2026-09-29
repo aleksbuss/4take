@@ -1,0 +1,110 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T11:08:38.280342Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "cd5fe483ae7f",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 14041,
+    "context": {
+      "files": [
+        "web/sessions.py"
+      ],
+      "tokens": 64,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "AUTH_CRYPTO",
+      "symbol": "on_login",
+      "title": "Incorrect condition always grants admin privileges",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "refresh_session",
+      "title": "CORRECTNESS Missing await on async function call",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] CORRECTNESS <Missing await on async function refresh_session> (at the line where refresh_session is called)\n    - Issue: The function `refresh_session` is defined as async in web/sessions.py but is called without await in the auth handler. This means the coroutine object is created but never executed, so the session rotation (revoking old session and issuing new one) does not occur. This breaks the intended security measure of rotating the session ID at login, potentially allowing session fixation attacks.\n    - Fix: Add `await` before `refresh_session(user.id)`.\n\n[CRITICAL] AUTH_CRYPTO <Incorrect condition always grants admin privileges> (at the condition line)\n    - Issue: The condition `if user.role == \"admin\" or \"owner\":` is always true due to operator precedence and truthiness of non-empty strings. It evaluates as `(user.role == \"admin\") or (\"owner\")`, and since `\"owner\"` is truthy, the entire condition is true for any user. This causes every user, regardless of actual role, to have `request.session[\"can_manage\"] = True` set, granting unauthorized administrative privileges.\n    - Fix: Change the condition to properly check the role, e.g., `if user.role in (\"admin\", \"owner\"):` or `if user.role == \"admin\" or user.role == \"owner\":`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8845
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] AUTH_CRYPTO Incorrect role check (on_login)\n- Issue: The condition `if user.role == \"admin\" or \"owner\":` always evaluates to True because the literal `\"owner\"` is truthy, granting `can_manage` to every user and bypassing authorization.\n- Fix: Replace with `if user.role in (\"admin\", \"owner\"):` or `if user.role == \"admin\" or user.role == \"owner\":`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9015
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CORRECTNESS Missing await on async function call (at refresh_session(user.id))\n  - Issue: `refresh_session` is an async function defined in web/sessions.py but is called without `await`. This means the session refresh logic never executes, leaving sessions vulnerable to fixation attacks. The function performs critical security operations (revoking old session, issuing new one) that are silently skipped.\n  - Fix: Change `refresh_session(user.id)` to `await refresh_session(user.id)`\n\n* [CRITICAL] SECURITY Authorization bypass via always-true condition (at if user.role == \"admin\" or \"owner\")\n  - Issue: The condition `user.role == \"admin\" or \"owner\"` is always True due to Python's truthiness evaluation. `\"owner\"` is a non-empty string, which is truthy, so the entire expression evaluates to True regardless of `user.role`. This grants `can_manage` to ALL users, not just admins and owners, completely bypassing authorization.\n  - Fix: Change to `if user.role in (\"admin\", \"owner\"):`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 11477
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] AUTH_CRYPTO Privilege escalation via always-truthy authorization check (in `on_login`)\n  - Issue: `user.role == \"admin\" or \"owner\"` always evaluates to truthy because `\"owner\"` is a non-empty string. Every successfully authenticated user, including non-admin users, receives `request.session[\"can_manage\"] = True`, granting management capabilities that should be restricted to the specified role.\n  - Fix: Compare the role against both allowed values, e.g. `if user.role in (\"admin\", \"owner\"):`, and ensure the authorization layer also enforces the permission server-side.\n\n* [CRITICAL] LOGIC Session rotation is not awaited (at `refresh_session(user.id)`)\n  - Issue: `refresh_session` is an `async def`, so calling it without `await` creates a coroutine and never executes the rotation. Login leaves the pre-login session identifier valid, defeating the session-fixation protection; the unawaited coroutine may also produce runtime warnings or be garbage-collected without completing.\n  - Fix: Await the operation before setting or redirecting with the authenticated session: `await refresh_session(user.id)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 14032
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 14.5
+  }
+}

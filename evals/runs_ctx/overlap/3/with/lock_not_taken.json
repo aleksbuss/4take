@@ -1,0 +1,142 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T17:21:25.042806Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "656049806476",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 44688,
+    "context": {
+      "files": [
+        "limits/counter.py"
+      ],
+      "tokens": 228,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "reset",
+      "title": "reset method lacks thread safety",
+      "models": [
+        "cohere/north-mini-code:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "count",
+      "title": "Potential quadratic memory growth",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": null,
+      "title": "Stale window snapshot during concurrent reset",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "__init__",
+      "title": "Unused _counts dictionary creates maintenance burden",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] CONCURRENCY `reset` does not synchronize with `hit` (at `RateCounter.reset`)\n  - Issue: `reset` mutates `_counts` and `_windows` without acquiring `_lock`, while `hit` mutates both structures under the lock. A concurrent `hit` can increment `_counts[key]` and append to `_windows[key]` between the two `pop` operations; the subsequent `_windows.pop` then discards that hit while `_counts` retains it, causing `count()` to return an incorrect result. Depending on the interleaving, the hit can also be lost from both structures.\n  - Fix: Perform both removals while holding the same lock used by `hit` and `count`:\n    ```python\n    def reset(self, key):\n        with self._lock:\n            self._counts.pop(key, None)\n            self._windows.pop(key, None)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 20324
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Stale window snapshot during concurrent reset> (line in count method)\n  - Issue: count copies the window list while holding the lock, then releases it before computing the sum. If reset occurs after the copy but before the sum, the window list may contain entries that were removed or added, leading to incorrect counts. This can cause wrong request rate calculations, violating invariants.\n  - Fix: Hold the lock for the entire duration of the copy and sum, e.g., move `window = list(self._windows[key])` inside the `with self._lock:` block.\n\n[WARNING] RESOURCE_LEAK <Potential quadratic memory growth> (count method)\n  - Issue: count builds a full list copy of the deque each call, which can be O(n) in the number of stored hits. With unbounded input, this can cause memory exhaustion and degrade performance superlinearly.\n  - Fix: Iterate over the deque directly without copying, e.g., `total = sum(hits for stamp, hits in self._windows[key] if stamp >= cutoff)` while holding the lock.\n\nNO_ISSUES_FOUND",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 27160
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[WARNING] CONCURRENCY Missing lock in reset (at RateCounter.reset)\n- Issue: reset modifies self._counts and self._windows without acquiring self._lock, allowing races with hit and count which hold the lock. Concurrent reset and hit could discard just‑added counts, and reset could race with count’s snapshot, leading to inconsistent window state under high contention.\n- Fix: Wrap the dict pops in a lock:\n\n    def reset(self, key):\n        \"\"\"Forget everything recorded for `key`.\"\"\"\n        with self._lock:\n            self._counts.pop(key, None)\n            self._windows.pop(key, None)",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 34460
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC `reset` method lacks thread safety (at `reset` method)\n  - Issue: The `reset` method modifies `_counts` and `_windows` dictionaries without acquiring `self._lock`. If one thread calls `reset` while another calls `hit` or `count`, the dictionaries can be corrupted or the lock can be held while modifying shared state, causing race conditions. For example, Thread A calls `hit` and acquires the lock, while Thread B calls `reset` and modifies `_windows` without the lock, leading to inconsistent state when Thread A tries to append to the deque.\n  - Fix: Acquire the lock before modifying shared state:\n    ```python\n    def reset(self, key):\n        \"\"\"Forget everything recorded for `key`.\"\"\"\n        with self._lock:\n            self._counts.pop(key, None)\n            self._windows.pop(key, None)\n    ```\n\n* [WARNING] RESOURCE_LEAK `count` method never purges expired entries (at `count` method)\n  - Issue: The `count` method iterates over the window deque and sums entries newer than `cutoff`, but never removes expired entries from the deque. Over time, the deque grows unbounded as old entries accumulate. With a 60-second window and high request volume, this causes memory to grow linearly with time. The `hit` method has the same issue.\n  - Fix: Purge expired entries when processing the window:\n    ```python\n    def count(self, key):\n        cutoff = time.monotonic() - self.window_seconds\n        with self._lock:\n            window = self._windows[key]\n            while window and window[0][0] < cutoff:\n                window.popleft()\n            return sum(hits for stamp, hits in window if stamp >= cutoff)\n    ```\n\n* [WARNING] STRUCTURE Unused `_counts` dictionary creates maintenance burden (at `__init__` and `hit`)\n  - Issue: The `_counts` dictionary is incremented in `hit` but never read in `count` or anywhere else visible. It's only cleared in `reset`. This is dead code that adds cognitive overhead and could diverge from the actual count logic, causing bugs if someone later tries to use it for optimization or debugging.\n  - Fix: Remove `_counts` entirely since `count` relies on `_windows`:\n    ```python\n    def __init__(self, window_seconds=60):\n        self.window_seconds = window_seconds\n        self._lock = threading.Lock()\n        self._windows = defaultdict(deque)\n    \n    def hit(self, key):\n        now = time.monotonic()\n        with self._lock:\n            self._windows[key].append((now, 1))\n    \n    def reset(self, key):\n        \"\"\"Forget everything recorded for `key`.\"\"\"\n        with self._lock:\n            self._windows.pop(key, None)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 44679
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 22791
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 45.1
+  }
+}

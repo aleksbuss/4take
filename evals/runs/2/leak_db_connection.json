@@ -1,0 +1,109 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:13:17.561577Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "bb9a736a368a",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 2,
+    "total_latency_ms": 53861
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "RESOURCE_LEAK",
+      "symbol": "run_migration",
+      "title": "Connection leak on execution failure",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 3,
+        "CRITICAL": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK Connection not released on error (at run_migration)\n    - Issue: If any statement in `statements` raises an exception, the connection acquired from the pool is never released via `pool.release(conn)`, causing a resource leak. Additionally, the transaction is left uncommitted, potentially leaving the database in a partially migrated state.\n    - Fix: Use a try/except/finally block to rollback on error and guarantee the connection is returned to the pool:\n        conn = pool.acquire()\n        try:\n            cur = conn.cursor()\n            for stmt in statements:\n                cur.execute(stmt)\n            conn.commit()\n        except Exception:\n            conn.rollback()\n            raise\n        finally:\n            pool.release(conn)",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8561,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [RESOURCE_LEAK] Connection leak on execution failure (at `pool.release(conn)`)\n  - Issue: If any `cur.execute(stmt)` raises an exception, control jumps past `pool.release(conn)`, leaking the acquired connection back to the pool. Under repeated migration failures (e.g., a duplicate-table DDL statement), the pool is drained one connection at a time, eventually causing all subsequent callers to block or fail. This is a guaranteed failure mode, not theoretical — migrations routinely encounter pre-existing-statement errors.\n  - Fix: Wrap acquisition through release in `try/finally` (or use the pool as a context manager) so `pool.release(conn)` runs on every exit path; also consider `conn.rollback()` in the exception branch to avoid leaving a half-open transaction on the server side.\n\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11508,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] RESOURCE_LEAK pool.release(conn) unreachable on exception (at run_migration function)\n  - Issue: If `cur.execute(stmt)`, `conn.cursor()`, or `conn.commit()` raises an exception, the connection is never released back to the pool. This will eventually exhaust the connection pool under error conditions.\n  - Fix:\n    ```python\n    def run_migration(pool, statements):\n        conn = pool.acquire()\n        try:\n            cur = conn.cursor()\n            for stmt in statements:\n                cur.execute(stmt)\n            conn.commit()\n        finally:\n            pool.release(conn)\n        return len(statements)\n    ```\n\n* [WARNING] ERROR_HANDLING No rollback on failure (at run_migration function)\n  - Issue: If a statement fails midway through the loop, the transaction is left in an undefined state. The connection is leaked (see above), and if partially committed, data integrity may be compromised.\n  - Fix: Add explicit rollback in exception handler or use context managers that handle this automatically.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 24280,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] RESOURCE_LEAK run_migration (at run_migration)\n  - Issue: The function acquires a connection from the pool but does not guarantee its release if an exception occurs during statement execution or commit, causing a resource leak.\n  - Fix: Wrap the connection handling in a try/finally block to ensure pool.release(conn) is always called, and optionally rollback on exception.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 53854,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Transaction not rolled back on error> (at run_migration)\n  - Issue: If any stmt in statements raises an exception, the loop exits without calling conn.rollback(), leaving the transaction open and potentially causing resource leaks; the caller may assume all statements succeeded, leading to inconsistent state.\n  - Fix: Wrap the loop in a try/except and rollback on exception, then re-raise.\n\n* [WARNING] LOGIC <Misleading return value> (at run_migration)\n  - Issue: The function returns len(statements) even if some statements failed to execute, falsely indicating success; this violates the invariant that the number of executed statements should be returned only when all succeed.\n  - Fix: Track executed count and return that, or raise an exception on failure instead of returning a count.\n\n* [WARNING] STRUCTURE <Manual connection/cursor management> (at run_migration)\n  - Issue: The function manually acquires and releases a connection and creates a cursor, increasing the chance of leaks and coupling the migration logic to the pool implementation; using a context manager would eliminate boilerplate and ensure deterministic release.\n  - Fix: Replace manual acquire/release with `with pool.acquire() as conn:` and `with conn.cursor() as cur:` to ensure proper cleanup.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19597,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 2047
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "Provider error 503 after 4 retries: Provider returned error",
+      "latency_ms": 45608
+    }
+  ],
+  "_eval": {
+    "snippet": "leak_db_connection.py",
+    "exit_code": 0,
+    "wall_s": 54.3,
+    "duplicate_of_backfilled": true
+  }
+}

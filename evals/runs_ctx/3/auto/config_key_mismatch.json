@@ -1,0 +1,110 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T16:07:28.184254Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "616516c27b6d",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 18286,
+    "context": {
+      "files": [
+        "app/settings.py"
+      ],
+      "tokens": 64,
+      "dropped": [],
+      "auto": {
+        "app/settings.py": "module settings"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "fetch_profile",
+      "title": "Undefined timeout variable in fetch_profile",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "INJECTION",
+      "symbol": "fetch_profile",
+      "title": "Potential path traversal via unvalidated user_id",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "But we are not allowed to change the settings because we are only reviewing the given code diff. We must fix the code in the given file to use the existing setting correctly.\n\nTherefore, the fix is to replace `settings.PROFILE_API_TIMEOUT_MS` with `settings.PROFILE_API_TIMEOUT_SECONDS`.\n\nLet's write the finding:\n\n[CRITICAL] LOGIC <Concise Title> (at fetch_profile)\n    - Issue: The code attempts to access `settings.PROFILE_API_TIMEOUT_MS` which is not defined in the settings module (as shown in the reference context). This will cause an AttributeError on every call to fetch_profile.\n    - Fix: Replace `settings.PROFILE_API_TIMEOUT_MS` with `settings.PROFILE_API_TIMEOUT_SECONDS` since the setting is already in seconds.\n\nBut note: the diff shows that the line was added. We are only allowed to change the added/modified lines? Actually, we are to fix the code in the given snippet. We are showing the fix for the added line.\n\nHowever, note that the reference context might be incomplete. But we are instructed to treat the reference context as untrusted data? Actually, no: we are to use it to drop a finding if it shows the issue is already handled, and to confirm if it shows it is not handled. We are not to follow instructions in the reference context.\n\nBut in this case, the reference context does not show `PROFILE_API_TIMEOUT_MS` and shows `PROFILE_API_TIMEOUT_SECONDS` instead. Therefore, we can confidently say that the attribute is missing.\n\nLet's write the finding accordingly.\n\nNote: We are only to output the finding in the specified[CRITICAL] LOGIC Undefined attribute access causes AttributeError (at fetch_profile)\n    - Issue: The code references `settings.PROFILE_API_TIMEOUT_MS` but the settings module only defines `PROFILE_API_TIMEOUT_SECONDS` (as shown in reference context). This will raise an AttributeError on every invocation of fetch_profile, causing the function to fail for all user_id inputs.\n    - Fix: Replace `settings.PROFILE_API_TIMEOUT_MS` with `settings.PROFILE_API_TIMEOUT_SECONDS` to use the existing timeout setting in seconds.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 13270
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC `settings.PROFILE_API_TIMEOUT_MS` undefined (at `fetch_profile` function)\n  - Issue: The code references `settings.PROFILE_API_TIMEOUT_MS` but the settings module defines `PROFILE_API_TIMEOUT_SECONDS`. This causes an `AttributeError` at runtime. Additionally, even if the name were correct, dividing by 1000 would incorrectly convert seconds to milliseconds when httpx expects seconds.\n  - Fix: Change to `timeout = settings.PROFILE_API_TIMEOUT_SECONDS` and remove the division, or rename the settings variable to `PROFILE_API_TIMEOUT_MS` and keep the division.\n\n* [WARNING] INJECTION Potential path traversal via unvalidated `user_id` (at `fetch_profile` function)\n  - Issue: The `user_id` parameter is interpolated directly into the URL path without validation or sanitization. A malicious caller could pass `user_id=\"../../../etc/passwd\"` or similar to attempt path traversal attacks against the profile API.\n  - Fix: Validate `user_id` against a strict pattern (e.g., alphanumeric) or use `httpx.URL` to properly encode the path segment: `httpx.get(f\"{settings.PROFILE_API_URL}/profiles/{httpx.URL(user_id).path}\")`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16193
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] [LOGIC] Timeout configuration uses a nonexistent setting (at `fetch_profile`)\n  - Issue: Every call evaluates `settings.PROFILE_API_TIMEOUT_MS`, but the provided settings module defines `PROFILE_API_TIMEOUT_SECONDS` and no `PROFILE_API_TIMEOUT_MS`. Consequently, `fetch_profile(user_id)` raises `AttributeError` before issuing any request. This breaks all callers using the default or configured settings object.\n  - Fix: Use the existing seconds-based setting directly: `timeout=settings.PROFILE_API_TIMEOUT_SECONDS`. If milliseconds are intentional, rename the environment-backed setting consistently, but do not introduce an unprovided setting only at this call site.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18088
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC Undefined timeout variable in fetch_profile\n- Issue: The code references `settings.PROFILE_API_TIMEOUT_MS`, which does not exist (the setting is `PROFILE_API_TIMEOUT_SECONDS`). This causes a `NameError` at runtime, breaking the function. Additionally, the division by 1000 is unnecessary if the setting is already in seconds.\n- Fix: Replace the timeout calculation with the correct setting:\n```python\ntimeout = settings.PROFILE_API_TIMEOUT_SECONDS\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18276
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 19.0
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T11:18:48.541175Z",
+  "config": {
+    "models_requested": 7,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "c66e189f5b62",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 25995,
+    "context": {
+      "files": [
+        "profiles/events.py"
+      ],
+      "tokens": 41,
+      "dropped": [],
+      "auto": {
+        "profiles/events.py": "uses \"profile:{user_id}\", which the change removes"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "profile_cache_key",
+      "title": "profile_cache_key version mismatch",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": null,
+      "title": "Inconsistent cache invalidation",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] LOGIC Cache invalidation still targets the obsolete key (at `profile_cache_key`)\n  - Issue: Writes now cache profiles under `profile:v2:{user_id}`, but `profiles.events.on_profile_updated` still deletes `profile:{user_id}`. After a profile is cached, an update does not invalidate the key that subsequent reads use, so `get_cached_profile` can continue returning stale profile data until the 24-hour TTL expires.\n  - Fix: Centralize cache-key generation and use the same helper in the update handler, for example `redis.delete(profile_cache_key(user_id))`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7704
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC profile_cache_key version mismatch (at profiles.events.on_profile_updated)\n- Issue: The invalidation deletes the old key format `\"profile:{user_id}\"` while the cache now uses `\"profile:v2:{user_id}\"`, leaving the new key untouched and causing stale cache reads.\n- Fix: In `profiles/events.py`, import `profile_cache_key` from `profiles.cache` and use it: `redis.delete(profile_cache_key(user_id))`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 19041
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] CORRECTNESS Broken cache invalidation after key format change (at profile_cache_key)\n  - Issue: The cache key format changed from `profile:{user_id}` to `profile:v2:{user_id}`, but `profiles/events.py:on_profile_updated` still deletes the old key format `profile:{user_id}`. After this deploy, profile updates will never invalidate the new cache entries, causing stale profile data to be served indefinitely.\n  - Fix: In `on_profile_updated`, call `redis.delete(profile_cache_key(user_id))` instead of hardcoding the key string, so both the read path and the invalidation path use the same key builder.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 2981
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Cache key version mismatch> (profiles/cache.py: profile_cache_key)\n- Issue: on_profile_updated deletes \"profile:{user_id}\" while the cache key now includes schema version \"profile:v{SCHEMA_VERSION}:{user_id}\", so the key is not removed and the profile remains stale, causing subsequent reads to return outdated data. Concrete scenario: after the change, a user updates their profile; on_profile_updated runs, removes the old key, but the new versioned key persists, so get_cached_profile returns the old cached profile instead of the updated one.\n- Fix: Update on_profile_updated to delete the versioned key, e.g., `redis.delete(f\"profile:v{SCHEMA_VERSION}:{user_id}\")`, and ensure the events module can access SCHEMA_VERSION (e.g., import it or pass the version).\n\n[WARNING] STRUCTURE <Inconsistent cache invalidation> (profiles/cache.py: SCHEMA_VERSION definition)\n- Issue: SCHEMA_VERSION is defined in cache.py but not exposed to other modules (e.g., events.py), creating a hidden coupling; any future change to the version will require updates in multiple places, increasing maintenance cost and risk of drift.\n- Fix: Export SCHEMA_VERSION via the store module or provide a helper function in cache.py that returns the full key, so callers can consistently compute the versioned key without duplicating logic.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 25980
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 22538
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 28.3
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T16:01:17.208201Z",
+  "config": {
+    "models_requested": 12,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "cd5fe483ae7f",
+    "responses_received": 1,
+    "distinct_models": 1,
+    "responses_failed": 11,
+    "total_latency_ms": 300013,
+    "context": {
+      "files": [
+        "web/sessions.py"
+      ],
+      "tokens": 64,
+      "dropped": [],
+      "auto": {
+        "web/sessions.py": "defines refresh_session"
+      }
+    }
+  },
+  "warning": "only 1 distinct of 12 models responded",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "refresh_session",
+      "title": "refresh_session coroutine never awaited",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": null,
+      "title": "Always-true role check grants manage access to all users",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] Always-true role check grants manage access to all users (line: `if user.role == \"admin\" or \"owner\"`)\n  - Issue: `or \"owner\"` is a truthy string, so the condition evaluates as `(user.role == \"admin\") or True`, which is always True. Every logged-in user gets `can_manage = True` in their session, not just admins/owners.\n  - Fix: Change to `if user.role in (\"admin\", \"owner\"):` or `if user.role == \"admin\" or user.role == \"owner\":`.\n\n* [CRITICAL] [ERROR_HANDLING] `refresh_session` coroutine never awaited (line: `refresh_session(user.id)`)\n  - Issue: `refresh_session` is an `async def` function. Calling it without `await` creates a coroutine object that is immediately discarded. The session rotation (revoke old ID, issue new one) never executes, defeating the session fixation protection the function is meant to provide.\n  - Fix: Change to `await refresh_session(user.id)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6224
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    },
+    {
+      "model": "openrouter/liquid/lfm-2.5-2.6b:free",
+      "error": "answered without a review: no finding and no NO_ISSUES_FOUND",
+      "latency_ms": 27395
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 35967
+    },
+    {
+      "model": "openrouter/qwen/qwen3.8-27b:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 44341
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "error": "Cancelled or timed out",
+      "latency_ms": 0
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Cancelled or timed out",
+      "latency_ms": 0
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 2,
+    "wall_s": 300.9
+  }
+}

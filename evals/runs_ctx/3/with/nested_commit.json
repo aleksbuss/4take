@@ -1,0 +1,105 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:36:15.489839Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "b4009490bb65",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 40328,
+    "context": {
+      "files": [
+        "orders/lines.py"
+      ],
+      "tokens": 80,
+      "dropped": []
+    }
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "import_order",
+      "title": "Import Is Not Atomic",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-fin:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 3,
+        "SUGGESTION": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC Import Is Not Atomic (at `import_order`)\n  - Issue: `add_line_item()` commits the shared session after every row. If a later row has a missing/invalid SKU or quantity, `session.rollback()` cannot undo earlier commits. For example, importing two valid rows followed by `{\"sku\": \"X\", \"qty\": \"bad\"}` raises `ValueError` but leaves the order and first line persisted, directly violating the function’s “all of its lines, or nothing at all” contract.\n  - Fix: Make transaction ownership explicit at the import boundary. Remove `session.commit()` from `add_line_item()`, flush there only if needed, and commit once after all rows; or execute the import through a unit-of-work that supports savepoints without intermediate commits.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5597
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC <Incorrect transaction handling due to early commit in helper> (at import_order)\n    - Issue: The function `import_order` aims for atomicity (all lines or nothing) but calls `add_line_item` which commits after each line item. If a later row fails, prior line items remain committed due to the helper's `session.commit()`, violating the all-or-nothing guarantee. For example, with rows [{\"sku\":\"A\",\"qty\":\"1\"},{\"sku\":\"B\",\"qty\":\"x\"}], the first line item commits successfully, then the second fails; rollback only affects uncommitted changes (the order), leaving the first line item persisted.\n    - Fix: Remove the `session.commit()` from `add_line_item` (in orders/lines.py) and let `import_order` handle the single commit after all lines are added. Alternatively, if `add_line_item` must remain independent, restructure `import_order` to use a savepoint or nested transaction, but the former is simpler given the helper's current use.\n\n[WARNING] ERROR_HANDLING <Overly broad exception catching> (at import_order)\n    - Issue: The `except (KeyError, ValueError)` catches only KeyError (missing \"sku\"/\"qty\") and ValueError (from `int(row[\"qty\"])`), but `add_line_item` can raise other exceptions (e.g., `NoResultFound` if SKU doesn't exist, or database errors) that would not trigger a rollback, leaving partial data. For instance, if a SKU is missing, `Product.query.filter_by(...).one()` raises `NoResultFound`, bypassing the catch and committing the order and any prior lines.\n    - Fix: Catch a broader exception (e.g., `Exception`) to ensure rollback on any failure during line processing, or specifically add `NoResultFound` and other expected exceptions from `add_line_item` to the except clause. Given the helper's current design, catching `Exception` is appropriate here to maintain atomicity.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12693
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-fin:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [LOGIC] Atomicity guarantee broken by per-line commits\n\n`add_line_item` (in `orders/lines.py`) calls `session.commit()` after each line item. `import_order` iterates over rows calling `add_line_item`, so each successful line is immediately committed. If row 3 succeeds and row 4 raises, rows 1–3 are already persisted and `session.rollback()` in `import_order` cannot undo them. The docstring \"or nothing at all\" is false.\n\nFix: Remove `session.commit()` from `add_line_item` and move it to `import_order` so the entire order+lines commits atomically. Since `add_line_item` is a public function, either remove the commit entirely and document that the caller must commit, or add a `commit=False` parameter.\n\n[CRITICAL] [ERROR_HANDLING] Unhandled `NoResultFound` leaves partial data\n\n`add_line_item` calls `Product.query.filter_by(sku=sku).one()`, which raises `NoResultFound` if the SKU doesn't exist. `import_order` catches only `KeyError` and `ValueError`. If a row has an invalid SKU, `NoResultFound` propagates without triggering `session.rollback()`. Because `add_line_item` commits per line, any previously processed lines (and the order itself) are already persisted — the database is left in an inconsistent state.\n\nFix: Catch `NoResultFound` in `import_order` (or in `add_line_item`), and ensure rollback is called before re-raising. Better yet, fix the commit-in-loop issue above so rollback actually works.\n\n[WARNING] [STRUCTURE] Transaction boundary coupled inside `add_line_item`\n\n`add_line_item` owns both the line-item creation and the commit. This makes it unusable in any transactional context where the caller needs to group multiple operations — exactly the case `import_order` is in. Every caller of `add_line_item` is forced to accept an implicit commit, and any caller wanting atomicity must duplicate the commit logic or work around it.\n\nFix: Separate the write from the commit. `add_line_item` should only `session.add(item)` and return; the caller controls `session.commit()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 21406
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC import_order atomicity violation (at import_order)\n- Issue: import_order adds an Order to the session, then iterates calling add_line_item, which commits each LineItem immediately. If a later row raises KeyError or ValueError, import_order catches it, rolls back the session, but the already‑committed line items remain persisted while the Order is still uncommitted. This leaves orphaned line items without an owning Order, breaking the “all or nothing” guarantee and corrupting referential integrity.\n- Fix: Remove the internal commit from add_line_item (or make it transactional) and have import_order manage a single transaction: add the Order and all LineItems to the session, then commit once after the loop. On any error, rollback the entire session so either all changes persist or none do.\n\n[WARNING] STRUCTURE add_line_item commits inside a larger transaction (at add_line_item)\n- Issue: add_line_item performs session.commit() after each insertion, forcing callers to handle nested transactions. This couples line‑item creation to a specific transaction scope, making atomic bulk operations impossible without refactoring add_line_item. It also incurs unnecessary commit overhead and can cause partial persistence if the caller rolls back later.\n- Fix: Refactor add_line_item to accept an optional session (or use the current session) and only add/flus h the item, removing its internal commit. Callers then manage the transaction boundary, enabling atomic bulk operations and reducing commit overhead.\n\n[SUGGESTION] SIMPLICITY redundant commits and narrow error handling (at import_order)\n- Issue: import_order commits each line item via add_line_item and then commits again after the loop, resulting in two commits for the same logical operation. The try/except only catches KeyError/ValueError, leaving other DB errors uncaught and causing partial persistence. This adds complexity, risk, and performance cost.\n- Fix: Consolidate to a single commit after all line items are added, catch a broader exception set (or let DB errors propagate but ensure session.rollback() is called), and remove the inner commit from add_line_item. This simplifies control flow, guarantees atomicity, and reduces commit overhead.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 40319
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Partial rollback on validation errors> (import_order)\n  - Issue: add_line_item performs its own session.commit() inside the loop, making the outer transaction non-atomic; if a later line item fails validation (e.g., missing sku), earlier items are already committed, causing partial persistence and violating the \"all-or-nothing\" contract.\n  - Fix: Remove the commit from add_line_item; let import_order handle a single commit after the loop, and ensure rollback on any exception.\n\n[WARNING] RESOURCE_LEAK <Potential session leak on unhandled exceptions> (import_order)\n  - Issue: If an exception other than KeyError/ValueError occurs (e.g., DB constraint violation) after the order is added but before the try block ends, the except clause is skipped, session.rollback() is not called, and the exception propagates after the function attempts to commit, potentially leaving the session in a failed state or causing a double-commit.\n  - Fix: Expand the except clause to catch a broader exception type (e.g., Exception) or move session.rollback() to a finally block to ensure rollback on any error.\n\n[SUGGESTION] SIMPLICITY <Redundant session handling> (import_order)\n  - Issue: The function manually manages session.begin()‑like behavior with explicit commit/rollback while relying on add_line_item's internal commit, creating unnecessary complexity and error-prone flow.\n  - Fix: Refactor to use a single transaction block (session.begin()) around the loop, remove internal commits from add_line_item, and let the outer scope handle commit/rollback.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 34767
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 41.1
+  }
+}

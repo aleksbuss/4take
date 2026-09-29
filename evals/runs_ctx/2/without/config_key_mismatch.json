@@ -1,0 +1,133 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T15:55:55.358644Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "616516c27b6d",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 32957,
+    "context": null
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "PROFILE_API_TIMEOUT_MS",
+      "title": "Incorrect timeout conversion",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "PROFILE_API_TIMEOUT_MS",
+      "title": "Unhandled missing setting",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "SIMPLICITY",
+      "symbol": "timeout",
+      "title": "Redundant variable assignment",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4450
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Incorrect timeout conversion> (at timeout assignment)\n    - Issue: The conversion `settings.PROFILE_API_TIMEOUT_MS / 1000` assumes the setting is in milliseconds, but if the setting is zero or negative, it results in a non-positive timeout value. HTTPX treats zero or negative timeouts as immediately expired, causing the request to fail instantly even if the server would respond quickly. This breaks the intended timeout behavior and could cause spurious failures under normal load.\n    - Fix: Validate the timeout value before use, e.g., `timeout = max(settings.PROFILE_API_TIMEOUT_MS / 1000, 0.001)` to ensure a minimal positive timeout, or handle the setting validation at configuration load time.\n\n* [WARNING] ERROR_HANDLING <Unhandled missing setting> (at timeout assignment)\n    - Issue: If `settings.PROFILE_API_TIMEOUT_MS` is not defined (e.g., due to a configuration error or missing environment variable), accessing it raises an `AttributeError` that is not caught by the function. This crashes the caller unexpectedly instead of failing gracefully with a meaningful error about misconfiguration.\n    - Fix: Add a check for the setting's existence and provide a fallback or raise a clear configuration error, e.g., `timeout = getattr(settings, 'PROFILE_API_TIMEOUT_MS', 10000) / 1000` to default to 10 seconds if unset.\n\n* [WARNING] SIMPLICITY <Redundant variable assignment> (at timeout assignment)\n    - Issue: The intermediate variable `timeout` is assigned only to be passed immediately to `httpx.get`. This adds unnecessary complexity without benefit, as the expression could be inlined. It also creates a maintenance risk if the variable is mistakenly reused or modified later.\n    - Fix: Inline the timeout calculation directly in the `httpx.get` call: `timeout=settings.PROFILE_API_TIMEOUT_MS / 1000`.\n\n* [WARNING] LOGIC <Potential division by zero> (at timeout assignment)\n    - Issue: If `settings.PROFILE_API_TIMEOUT_MS` is zero, the division yields zero timeout. While HTTPX may interpret zero as no timeout (infinite wait) in some contexts, this is ambiguous and likely unintended. A zero-millisecond timeout setting is almost certainly a configuration error, but the code treats it as valid, potentially causing hangs.\n    - Fix: Guard against zero by using a minimum threshold, e.g., `timeout = max(settings.PROFILE_API_TIMEOUT_MS / 1000, 0.001)`, or validate the setting at startup to ensure it is positive.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15167
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16032
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "[WARNING] [LOGIC] Timeout unit conversion assumes milliseconds (at `fetch_profile`)\n- Issue: `settings.PROFILE_API_TIMEOUT_MS` is divided by 1000 to produce a seconds-based timeout for `httpx`. If the setting is actually in seconds (or any unit other than milliseconds), the resulting timeout is wrong by orders of magnitude. A 1000ms setting would yield a 1s timeout (correct), but a 10s setting would yield 0.01s (10ms), causing premature timeouts. The correctness of this conversion depends entirely on the undocumented unit of the setting.\n- Fix: Verify the unit of `PROFILE_API_TIMEOUT_MS` in `settings.py`. If it is already in seconds, remove the division. If it is in milliseconds, the conversion is correct but should be documented. Alternatively, use `httpx.Timeout(timeout)` with explicit units to make the intent unambiguous.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 13248
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Invalid timeout handling> (clients/profiles.py line 4)\n  - Issue: The timeout is computed as settings.PROFILE_API_TIMEOUT_MS / 1000 without validating that the setting is a positive number; if the setting is None, non‑numeric, or zero, a TypeError or immediate timeout occurs, causing the request to fail for valid user_ids.\n  - Fix: Add a check that settings.PROFILE_API_TIMEOUT_MS is a positive number before division, e.g.:\n    ```python\n    ms = settings.PROFILE_API_TIMEOUT_MS\n    if not isinstance(ms, (int, float)) or ms <= 0:\n        raise ValueError(\"PROFILE_API_TIMEOUT_MS must be a positive number\")\n    timeout = ms / 1000.0\n    ```\n\n* [SUGGESTION] SIMPLICITY <Unnecessary indirection> (clients/profiles.py line 3)\n  - Issue: Computing a timeout variable adds a needless indirection when the same constant could be passed directly to httpx.get, increasing cognitive load and future maintenance cost.\n  - Fix: Replace the two‑line timeout calculation with a direct call:\n    ```python\n    response = httpx.get(\n        f\"{settings.PROFILE_API_URL}/profiles/{user_id}\",\n        timeout=settings.PROFILE_API_TIMEOUT_MS / 1000.0,\n    )\n    ```\n  This removes the extra variable while preserving correctness.\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 19700
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Improper timeout calculation may cause immediate or insufficient timeouts> (fetch_profile line with timeout variable)\n- Issue: The timeout is derived from `settings.PROFILE_API_TIMEOUT_MS` divided by 1000; if the setting is 0, `None`, or non‑numeric, the resulting timeout is 0 or raises a `TypeError`, causing `httpx` to fail instantly or timeout too early for valid requests, leading to incorrect results or unhandled exceptions.\n- Fix: Validate the setting and provide a sensible default, e.g.:\n  ```python\n  raw_timeout = settings.PROFILE_API_TIMEOUT_MS\n  timeout = raw_timeout / 1000 if raw_timeout and raw_timeout > 0 else 10.0\n  ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 25770
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 33.4
+  }
+}

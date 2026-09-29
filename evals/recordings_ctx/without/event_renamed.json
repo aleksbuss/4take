@@ -1,0 +1,93 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T11:06:25.610076Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "988e333399d5",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 10256,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "emit",
+      "title": "Event name mismatch",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 1483
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] LOGIC Event contract changed without updating subscribers (service.js)\n  - Issue: `createUser` now emits `userCreated`, while existing subscribers may still listen for `user:created`. Such handlers will silently miss the event, breaking audit, notification, or downstream workflows that depend on the original contract.\n  - Fix: Preserve `user:created`, or update every consumer and document the rename as a coordinated breaking change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 3677
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Event name mismatch (bus.emit(\"userCreated\", user))\n  - Issue: The event name changed from \"user:created\" to \"userCreated\". Any code listening for \"user:created\" will not receive the event, causing missing side effects such as notifications, logging, or downstream processing.\n  - Fix: Change the emit to `bus.emit(\"user:created\", user);` to preserve the contract.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8438
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Event name change breaks listener contracts> (at bus.emit)\n    - Issue: Changing the event name from \"user:created\" to \"userCreated\" without updating all corresponding listeners will cause those listeners to miss the event. This breaks functionality that relies on the event (e.g., welcome emails, analytics, cache updates) if any listener still expects the old name.\n    - Fix: Either revert to the original event name or update all listeners to use \"userCreated\" consistently. Define the event name as a shared constant to prevent future mismatches.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 10250
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 3729
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 10.7
+  }
+}

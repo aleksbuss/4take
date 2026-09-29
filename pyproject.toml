@@ -1,0 +1,109 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/fourtake/__init__.py"
+
+[project]
+name = "4take"
+# Single source of truth: `src/fourtake/__init__.py`. Two hand-maintained version strings
+# drift, and the one that ships on PyPI is not the one `4take --version` prints.
+dynamic = ["version"]
+description = "Universal LLM Council CLI — get 4 independent AI opinions on your code in one command"
+readme = "README.md"
+license = {text = "BUSL-1.1"}
+requires-python = ">=3.10"
+keywords = [
+    "ai",
+    "llm",
+    "code-review",
+    "cli",
+    "multi-model",
+    "mcp",
+    "fastmcp",
+    "developer-tools",
+    "claude-code",
+    "openrouter"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: Other/Proprietary License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Bug Tracking",
+    "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+    "httpx>=0.27",
+    "rich>=13.0",
+    "tiktoken>=0.6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/aleksbuss/4take"
+Repository = "https://github.com/aleksbuss/4take"
+Issues = "https://github.com/aleksbuss/4take/issues"
+Changelog = "https://github.com/aleksbuss/4take/blob/main/CHANGELOG.md"
+
+[project.scripts]
+4take = "fourtake.cli:main"
+4take-mcp = "fourtake.mcp_entry:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fourtake"]
+
+[project.optional-dependencies]
+# The MCP server is opt-in: it drags starlette, uvicorn, sse-starlette, python-multipart,
+# pyjwt and ~12MB of cryptography into an install that otherwise only pipes stdin to an API.
+mcp = ["mcp>=1.28.1"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21", "mcp>=1.28.1"]
+
+[tool.ruff]
+line-length = 110
+# The eval corpus is deliberately defective code: unclosed handles, undefined names and
+# unsafe comparisons are the fixtures, not mistakes. Linting them would be linting the test
+# data. The harness scripts beside it are linted normally.
+extend-exclude = ["evals/corpus", "evals/corpus_ctx"]
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # import sorting
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "SIM",  # simplify
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",   # line length is enforced by the formatter, not the linter
+    "B008",   # function call in default argument — not a pattern used here
+    "SIM105", # try/except/pass is clearer than contextlib.suppress in these hot paths
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests deliberately import inside functions to control patch ordering.
+# Nested `with patch(...)` blocks read better than one combined statement, and tests
+# deliberately import inside functions to control patch ordering.
+"tests/*" = ["E402", "F401", "SIM117"]
+# The classifier is tested on the prose that actually broke it, which is Russian. RUF001
+# flags every Cyrillic letter that resembles a Latin one — here that is the fixture, not a
+# homoglyph attack.
+"tests/test_input_kind.py" = ["E402", "F401", "SIM117", "RUF001"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "ignore:.*found in sys.modules.*:RuntimeWarning",
+]
+

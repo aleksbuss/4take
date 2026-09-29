@@ -1,0 +1,143 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T16:10:52.279028Z",
+  "config": {
+    "models_requested": 11,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "314158d73d18",
+    "responses_received": 4,
+    "distinct_models": 3,
+    "responses_failed": 7,
+    "total_latency_ms": 157267,
+    "context": {
+      "files": [
+        "billing/coupons.py"
+      ],
+      "tokens": 96,
+      "dropped": [],
+      "auto": {
+        "billing/coupons.py": "uses _apply_percentage"
+      }
+    }
+  },
+  "warning": "only 3 distinct of 11 models responded; 1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "_apply_percentage",
+      "title": "Discount calculation reverses sign for negative percentages",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "SIMPLICITY",
+      "symbol": "_apply_percentage",
+      "title": "Redundant Decimal constants and unnecessary quantize",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4396
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Discount calculation reverses sign for negative percentages> (function _apply_percentage)\n  - Issue: The function computes (total * (Decimal(100) - percent) / Decimal(100)). If percent is negative, the subtraction yields a value >100, resulting in a total that is increased rather than discounted, violating the intended discount semantics. Although apply_coupon validates percent > 0, a direct call to _apply_percentage could bypass this check, leading to wrong billing amounts.\n  - Fix: Add a guard asserting percent >= 0 and percent <= 100, or compute as total * (Decimal(100) - percent) / Decimal(100) only after validation; alternatively, compute as total * (Decimal(100) - percent) / Decimal(100) but ensure percent is non‑negative before the subtraction.\n\n[WARNING] SIMPLICITY <Redundant Decimal constants and unnecessary quantize> (function _apply_percentage)\n  - Issue: The function uses Decimal(100) twice and a quantize to \"0.01\" after a division that already yields a Decimal with two‑decimal precision when inputs are monetary values. This adds unnecessary complexity and may hide precision bugs. A simpler expression `total * (Decimal(100) - percent) / Decimal(100)` without quantize, or using `total * (1 - percent/Decimal(100))`, would be clearer and avoid extra rounding steps.\n  - Fix: Replace the body with `return (total * (Decimal(100) - percent) / Decimal(100)).quantize(Decimal('0.01'))` → `return total * (Decimal(100) - percent) / Decimal(100)` (remove quantize) or `return total * (Decimal('1') - percent/Decimal('100'))`.\n\nNO_ISSUES_FOUND: N/A\n\n[CRITICAL] LOGIC <Discount calculation reverses sign for negative percentages> (function _apply_percentage)\n  - Issue: The function computes (total * (Decimal(100) - percent) / Decimal(100)). If percent is negative, the subtraction yields a value >100, resulting in a total that is increased rather than discounted, violating the intended discount semantics. Although apply_coupon validates percent > 0, a direct call to _apply_percentage could bypass this check, leading to wrong billing amounts.\n  - Fix: Add a guard asserting percent >= 0 and percent <= 100, or compute as total * (Decimal(100) - percent) / Decimal(100) only after validation; alternatively, compute as total * (Decimal(100) - percent) / Decimal(100) but ensure percent is non‑negative before the subtraction.\n\n[WARNING] SIMPLICITY <Redundant Decimal constants and unnecessary quantize> (function _apply_percentage)\n  - Issue: The function uses Decimal(100) twice and a quantize to \"0.01\" after a division that already yields a Decimal with two‑decimal precision when inputs are monetary values. This adds unnecessary complexity and may hide precision bugs. A simpler expression `total * (Decimal(100) - percent) / Decimal(100)` without quantize, or using `total * (1 - percent/Decimal(100))`, would be clearer and avoid extra rounding steps.\n  - Fix: Replace the body with `return total * (Decimal(100) - percent) / Decimal(100)` (remove quantize) or `return total * (Decimal('1') - percent/Decimal('100'))`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 43928
+    },
+    {
+      "model": "openrouter/liquid/lfm-2.5-2.6b:free",
+      "served_model": "liquid/lfm-2.5-2.6b:free",
+      "served_provider": "Liquid",
+      "content": "Looking at the change, the `_apply_percentage` function was added to `billing/discounts.py`. The original code already had this function, and the diff shows it being added back. The function performs a percentage-based discount calculation using Decimal arithmetic with proper rounding to two decimal places.\n\nLet me verify the correctness:\n\n1. **Mathematical correctness**: The formula `(total * (Decimal(100) - percent) / Decimal(100))` correctly computes `total * (1 - percent/100)`, which is the standard way to calculate a percentage discount.\n\n2. **Validation alignment**: The calling function `apply_coupon` validates that `percent` is between `0` (exclusive) and `MAX_PERCENT` (50, inclusive). This means:\n   - At `percent = 1`, the discount is minimal (99% of total remains)\n   - At `percent = 50`, half the total is discounted\n   - Zero discount is intentionally disallowed (validation fails for `percent == 0`)\n   \n   This aligns perfectly with the function's purpose.\n\n3. **No security concerns**: The function performs purely arithmetic operations on validated inputs. There are no injection vectors, path traversals, or unauthorized access patterns.\n\n4. **Structure and simplicity**: The function is a single, focused utility that encapsulates the discount logic cleanly. It's not overly complex and doesn't duplicate any functionality.\n\nThe change is a restoration of existing correct code. There are no new bugs, security vulnerabilities, structural problems, or unnecessary complexity introduced. The function is correct, safe, well-structured, and no simpler version is warranted.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 33396
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[SUGGESTION] [SIMPLICITY] Unnecessary indirection for single-use function (at _apply_percentage)\n    - Issue: The function _apply_percentage is only called from apply_coupon in billing/coupons.py. This indirection adds a file jump and maintenance overhead for a trivial one-liner that is unlikely to be reused elsewhere, given that coupons are the only source of percentage discounts per the reference context.\n    - Fix: Inline the calculation directly in apply_coupon: replace the call to _apply_percentage with `(order.total * (Decimal(100) - Decimal(coupon.percent)) / Decimal(100)).quantize(Decimal(\"0.01\"))` and remove the _apply_percentage function.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "latency_ms": 61509
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 41532
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 53108
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "error": "Empty response from model",
+      "latency_ms": 28536
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 75065
+    },
+    {
+      "model": "openrouter/qwen/qwen3.8-27b:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 38701
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 38888
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Empty response from model",
+      "latency_ms": 104142
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 2,
+    "wall_s": 158.1
+  }
+}

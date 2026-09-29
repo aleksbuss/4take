@@ -1,0 +1,122 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T16:10:18.595309Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "b4009490bb65",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 69529,
+    "context": {
+      "files": [
+        "orders/lines.py"
+      ],
+      "tokens": 80,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "import_order",
+      "title": "Atomicity violation when product lookup fails",
+      "models": [
+        "inclusionai/ling-3.0-flash-fin:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 4,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "import_order",
+      "title": "Tight coupling between importer and LineItem",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "add_line_item",
+      "title": "Transaction boundary ownership is split between caller and callee",
+      "models": [
+        "inclusionai/ling-3.0-flash-fin:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Atomicity violation when product lookup fails> (import_order function)\n- Issue: add_line_item queries Product with `filter_by(sku=sku).one()`, which raises `NoResultFound` if the SKU does not exist. This exception is not caught by the surrounding `except (KeyError, ValueError)`, so the transaction is not rolled back and the partially created order remains committed, violating the “all-or-nothing” guarantee. A caller will receive an order with missing lines, causing data inconsistency.\n- Fix: Expand the exception handling to include `sqlalchemy.orm.NoResultFound` (or catch a broader `Exception`) and rollback the session before re‑raising.\n\n[WARNING] STRUCTURE <Tight coupling between importer and LineItem> (import_order function)\n- Issue: `import_order` directly calls `add_line_item`, forcing the importer to depend on the exact signature and internal behavior of `add_line_item`. Any change to `add_line_item` (e.g., added validation, new parameters) will require modifications here, increasing maintenance cost and risk of drift.\n- Fix: Introduce a thin wrapper or service method in `orders.importer` that encapsulates the line‑creation logic, allowing `import_order` to remain agnostic to `add_line_item`’s internal implementation.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 29031
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC: `import_order` is not atomic because `add_line_item` commits each line (at `import_order`)\n  - Issue: `add_line_item` executes `session.commit()` for every row. If a later row has a missing/invalid SKU or quantity, the preceding `Order` and line items are already permanently committed; the subsequent `session.rollback()` cannot undo them. For example, importing two valid rows followed by a row with an unknown SKU leaves the order and first line persisted while the function raises, violating its “all of its lines, or nothing at all” contract.\n  - Fix: Make line creation transaction-neutral (for example, have `add_line_item` use `session.flush()` rather than `commit()`), then perform exactly one commit in `import_order`; rollback that single transaction for every failure, including database exceptions, and re-raise.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 30920
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-fin:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [CORRECTNESS] Broken atomicity guarantee in import_order (at orders/importer.py:9)\n- Issue: `add_line_item` (from `orders/lines.py`) calls `session.commit()` inside the loop on every iteration. If the 3rd of 10 line items fails, lines 1 and 2 are already persisted. The `session.rollback()` in the except block cannot undo committed transactions, so the \"or nothing at all\" contract is false. Partial orders will be left in the database.\n- Fix: Remove `session.commit()` from `add_line_item` and let `import_order` own the transaction boundary. `add_line_item` should only `session.add(item)` and return. The caller commits once after the loop.\n\n[WARNING] [ERROR_HANDLING] Unhandled `NoResultFound` escapes the try block (at orders/importer.py:11)\n- Issue: `add_line_item` calls `Product.query.filter_by(sku=sku).one()`, which raises `NoResultFound` if the SKU doesn't exist. The except block only catches `(KeyError, ValueError)`, so a missing product causes an unhandled exception. The order already added to the session is never rolled back, leaving an orphaned order record.\n- Fix: Add `NoResultFound` to the caught exceptions, or catch a broader exception type like `Exception`.\n\n[STRUCTURE] Transaction boundary ownership is split between caller and callee (at orders/importer.py and orders/lines.py)\n- Issue: `add_line_item` commits internally, which means any caller of it gets an implicit commit. This prevents composing multiple line-item additions into a single atomic operation. The function's signature promises to add an item, but its side effect commits the entire session, coupling it to a specific transaction scope.\n- Fix: Move `session.commit()` out of `add_line_item`. The function should add and return; the caller decides when to commit. This makes `add_line_item` reusable in other contexts that need their own transaction boundaries.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 32732
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC Transaction atomicity broken by internal commits (at orders/lines.py:add_line_item)\n  - Issue: `add_line_item` calls `session.commit()` after each line item, so when `import_order` catches an exception and rolls back, previously committed line items remain in the database. The docstring claims \"Create an order and all of its lines, or nothing at all\" but partial commits violate this guarantee. If row 3 fails, rows 1 and 2 are already persisted.\n  - Fix: Remove `session.commit()` from `add_line_item` and let `import_order` manage the single transaction boundary.\n\n* [WARNING] ERROR_HANDLING Missing exception types in catch block (at orders/importer.py:import_order)\n  - Issue: Only `KeyError` and `ValueError` are caught, but `add_line_item` can raise `NoResultFound` when a product SKU doesn't exist, and database integrity errors can occur. These unhandled exceptions leave the session in an inconsistent state without rollback.\n  - Fix: Catch broader exception types or use a bare `except Exception` with specific re-raising logic, ensuring rollback occurs for all failure paths.\n\n* [WARNING] LOGIC Order added before try block (at orders/importer.py:import_order)\n  - Issue: The Order object is added to the session before the try block starts. If Order creation fails (e.g., foreign key constraint on customer_id), the exception won't be caught, and the session will contain a partially valid Order object.\n  - Fix: Move `session.add(order)` inside the try block to ensure all database operations are covered by the exception handling.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 69519
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 70.1
+  }
+}

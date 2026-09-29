@@ -1,0 +1,85 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T10:59:41.265330Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "616516c27b6d",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 20850,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "fetch_profile",
+      "title": "Missing validation for PROFILE_API_TIMEOUT_MS setting",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 2328
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] ERROR_HANDLING Missing validation for PROFILE_API_TIMEOUT_MS setting (at fetch_profile function)\n  - Issue: The code divides `settings.PROFILE_API_TIMEOUT_MS` by 1000 without validating that the setting exists, is numeric, and is positive. If the setting is None, missing, a string, or negative, the function will crash with a cryptic TypeError or pass invalid values to httpx. A timeout of 0 could cause indefinite hangs if httpx interprets it as \"no timeout\". This creates an unhandled edge case that could crash production requests or cause unexpected behavior.\n  - Fix: Add validation before using the setting:\n    ```python\n    timeout_ms = getattr(settings, 'PROFILE_API_TIMEOUT_MS', 5000)\n    if not isinstance(timeout_ms, (int, float)) or timeout_ms <= 0:\n        timeout_ms = 5000\n    timeout = timeout_ms / 1000\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12537
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15892
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Invalid timeout handling> (fetch_profile)  \n  - Issue: The timeout is derived from `settings.PROFILE_API_TIMEOUT_MS / 1000` without validating that the value is positive; a zero or negative timeout causes httpx to raise an immediate or invalid timeout error, leading to unhandled exceptions and potential denial‑of‑service for legitimate requests.  \n  - Fix: Validate the timeout before use, e.g., `timeout = max(0.1, settings.PROFILE_API_TIMEOUT_MS / 1000)` or raise a configuration error if the value is non‑positive.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 20839
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 21.4
+  }
+}

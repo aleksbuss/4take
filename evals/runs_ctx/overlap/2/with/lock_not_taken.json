@@ -1,0 +1,154 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T17:19:48.524349Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "656049806476",
+    "responses_received": 7,
+    "distinct_models": 4,
+    "responses_failed": 3,
+    "total_latency_ms": 134584,
+    "context": {
+      "files": [
+        "limits/counter.py"
+      ],
+      "tokens": 228,
+      "dropped": []
+    }
+  },
+  "warning": "3 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "reset",
+      "title": "reset does not synchronize with hit",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 4,
+        "SUGGESTION": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": null,
+      "title": "Sliding‑window deques are never pruned",
+      "models": [
+        "cohere/north-mini-code:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] CONCURRENCY `reset` does not synchronize with `hit` (at `RateCounter.reset`)\n  - Issue: `reset` mutates both dictionaries without acquiring `self._lock`, while `hit` performs a multi-step update under that lock. A concurrent `hit` can increment `_counts[key]`, get preempted, then `reset` removes both entries, after which `hit` appends its event to `_windows[key]`. The counter is left in an inconsistent state: `_counts` has no entry while `_windows` contains the newly recorded hit, and the reset no longer “forgets everything” for that hit.\n  - Fix: Acquire `self._lock` in `reset` and perform both removals inside it, matching `hit` and `count`. If reset must provide a strict linearizable read boundary, also calculate `count` while holding the lock rather than copying the deque and summing after release.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4950
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] CONCURRENCY Missing lock in reset method (at reset method)\n    - Issue: The reset method accesses shared mutable state (_counts and _windows) without holding the lock, while hit and count methods use the lock. This creates a race condition where concurrent reset and hit/count operations could lead to inconsistent state, such as a hit being lost or a count seeing a partially updated state.\n    - Fix: Add `with self._lock:` around the two pop operations in the reset method.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 13718
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] CONCURRENCY Reset method lacks synchronization (RateCounter.reset)\n  - Issue: `reset` accesses `self._counts` and `self._windows` without holding `self._lock`. Concurrent calls to `reset` while `hit` or `count` holds the lock can cause inconsistent state: a key may be removed from one dict but not the other, leading to `count` returning stale or missing entries. The race also allows `hit` to add entries after `reset` has cleared them, breaking the per‑key isolation guarantee.\n  - Fix: Acquire the lock for the entire operation:\n    ```python\n    def reset(self, key):\n        \"\"\"Forget everything recorded for `key`.\"\"\"\n        with self._lock:\n            self._counts.pop(key, None)\n            self._windows.pop(key, None)\n    ```\n\n* [WARNING] RESOURCE_LEAK Sliding‑window deques are never pruned (RateCounter.hit / RateCounter.count)\n  - Issue: Old timestamp entries accumulate in `self._windows[key]` indefinitely. `hit` appends a new tuple, and `count` only filters by cutoff but never removes expired entries. Over time, each key’s deque grows linearly with the number of hits, causing unbounded memory consumption and eventual OOM. The only cleanup path is an explicit `reset`, which is not automatic.\n  - Fix: Prune expired entries during `hit` (or `count`) while the lock is held. Example in `hit`:\n    ```python\n    def hit(self, key):\n        now = time.monotonic()\n        with self._lock:\n            # Remove entries older than the window\n            while self._windows[key] and self._windows[key][0][0] < now - self.window_seconds:\n                old = self._windows[key].popleft()\n                self._counts[key] -= old[1]\n                if self._counts[key] == 0:\n                    del self._counts[key]\n            self._counts[key] += 1\n            self._windows[key].append((now, 1))\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 38207
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [WARNING] [CONCURRENCY] `reset` races with `hit`/`count` (at `reset`)\n  - `reset` mutates `self._counts` and `self._windows` without acquiring `self._lock`, while `hit` and `count` both hold the lock for the same structures. Concurrent `reset` + `hit` can corrupt the deque or leave `_counts`/`_windows` inconsistent; concurrent `reset` + `count` can read a partially removed key.\n  - Fix: wrap the pops in `with self._lock:`.\n\n* [SUGGESTION] [SIMPLICITY] `_counts` is dead state (at `_counts`)\n  - `count` computes its result solely from `_windows`; `_counts` is only written in `hit` and cleared in `reset`. It duplicates information, wastes memory, and any future change to one without the other will drift. Remove `_counts` and the `+= 1` in `hit`, or have `count` use it (with a lock).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4174
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Sliding window does not bound deque size leading to unbounded memory growth and O(N) count> (class RateCounter, count method)\n  - Issue: The _windows[key] deque stores all hit records indefinitely; count iterates over the entire deque each call, causing work that grows superlinearly with input size and eventual memory exhaustion.\n  - Fix: Periodically trim the deque to retain only entries within the window (e.g., while deque and deque[0][0] < cutoff: deque.popleft()).\n\n[WARNING] RESOURCE_LEAK <Deque never discards stale entries, causing unbounded memory usage> (class RateCounter, _windows defaultdict)\n  - Issue: The deque for each key grows without bound because entries are never removed, leading to memory leak as the number of hits for a key increases.\n  - Fix: Add a cleanup step in count or a separate method that removes entries older than the window before summing.\n\n[SUGGESTION] SIMPLICITY <reset method duplicates functionality of count> (class RateCounter, reset method)\n  - Issue: reset merely deletes the key’s entries; the same effect could be achieved by clearing the deque and counts in count, avoiding extra method and potential race conditions.\n  - Fix: Replace reset with `self._counts.pop(key, None); self._windows.pop(key, None)` directly in count after summing, or remove reset entirely if not needed.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 38357
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Unbounded deque growth and O(N) count> (class RateCounter, method count)\n- Issue: The _windows deque for each key is never trimmed of stale entries, allowing unlimited memory growth and causing count to scan the entire deque each call, which can become superlinear on unbounded input and lead to resource exhaustion.\n- Fix:\n```python\ndef count(self, key):\n    cutoff = time.monotonic() - self.window_seconds\n    with self._lock:\n        # purge old entries while holding lock\n        dq = self._windows[key]\n        while dq and dq[0][0] < cutoff:\n            stamp, hits = dq.popleft()\n            self._counts[key] -= hits\n        window = list(dq)\n    total = sum(hits for stamp, hits in window if stamp >= cutoff)\n    return total\n```\n\n[WARNING] RESOURCE_LEAK <Unbounded deque growth> (class RateCounter, method hit)\n- Issue: hit appends a (timestamp, 1) tuple to _windows[key] without ever removing expired entries, so the deque can grow without bound, causing memory leak and performance degradation as count must iterate over increasingly large structures.\n- Fix: Integrate periodic or per-hit eviction of entries older than the window, as shown in the count fix, to keep deque size bounded.\n\n[SUGGESTION] SIMPLICITY <Unnecessary list copy> (class RateCounter, method count)\n- Issue: The count method copies the entire deque into a list under lock, which adds O(N) overhead and complexity; the deque can be iterated directly while holding the lock to avoid the copy.\n- Fix:\n```python\ndef count(self, key):\n    cutoff = time.monotonic() - self.window_seconds\n    with self._lock:\n        # purge old entries while holding lock\n        dq = self._windows[key]\n        while dq and dq[0][0] < cutoff:\n            stamp, hits = dq.popleft()\n            self._counts[key] -= hits\n        total = sum(hits for stamp, hits in dq if stamp >= cutoff)\n    return total\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 44733
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "served_model": "nvidia/nemotron-3.5-lightning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC  Race condition in `reset` (at symbol `reset`, line 33)  \n- Issue: `reset` reads and mutates `_counts` and `_windows` without holding `self._lock`. Concurrent calls to `hit` or `count` can observe a partially reset state or corrupt the deque. For example, if `reset` removes a key while `hit` appends to its deque, the deque becomes orphaned and `count` will raise `KeyError` on subsequent accesses. The concrete scenario: Thread A calls `reset(\"key\")`, Thread B calls `hit(\"key\")` simultaneously; `hit` acquires the lock, increments `_counts[\"key\"]` and appends to `_windows[\"key\"]`, but `reset` may have already popped the key, leaving `hit` operating on a deleted key or causing `count` to fail.  \n- Fix: Acquire `self._lock` in `reset` before mutating the shared state.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 85665
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 70104
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 39656
+    },
+    {
+      "model": "openrouter/qwen/qwen3.8-27b:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 43684
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 135.2
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:08:51.020539Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "70b085ae735b",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 24380
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "AUTH_CRYPTO",
+      "symbol": "currentUser",
+      "title": "JWT Signature Verification Bypass",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "exp",
+      "title": "Missing Expiration Claim Validation",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "roles",
+      "title": "roles not validated as array at claims.roles || []",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] AUTH_CRYPTO JWT Signature Verification Bypass (at jwt.decode call)\n  - Issue: The code uses `jwt.decode()` instead of `jwt.verify()`, which decodes the token payload without verifying its cryptographic signature. An attacker can forge arbitrary tokens by creating a JWT with any desired `sub` (user ID) and `roles` claims, then sending it to the server. The server will accept the forged token as valid because no signature verification occurs. For example, an attacker could create a token with `{\"sub\": \"admin\", \"roles\": [\"admin\"]}` to gain administrative access.\n  - Fix: Use `jwt.verify(token, process.env.JWT_SECRET)` with a strong secret key, and handle verification errors appropriately.\n\n* [WARNING] LOGIC Missing Expiration Claim Validation (at claims.exp check)\n  - Issue: If a JWT lacks an `exp` claim, `claims.exp * 1000` evaluates to `NaN`, and `NaN < Date.now()` is `false`. This causes the expiration check to pass, allowing tokens without expiration to remain valid indefinitely. The condition `!claims || claims.exp * 1000 < Date.now()` will be `false` when `claims` exists but has no `exp`, bypassing the intended expiration check.\n  - Fix: Add explicit validation: `if (!claims || !claims.exp || claims.exp * 1000 < Date.now())`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10799,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] [AUTH_CRYPTO] Missing JWT signature verification (at function currentUser)\n  - Issue: The function uses jwt.decode which only extracts the payload without verifying the signature. An attacker can craft a token with any claims (e.g., admin role, future exp) and the function will accept it as a valid user, bypassing authentication.\n  - Fix: Replace jwt.decode with jwt.verify(token, process.env.JWT_SECRET) (or the appropriate key/secret) which validates the signature and standard claims including exp.\n\n* [WARNING] [LOGIC] Missing validation of exp claim leading to acceptance of tokens without expiration (at function currentUser)\n  - Issue: If a token lacks an exp claim, claims.exp is undefined, making the expression claims.exp * 1000 < Date.now() evaluate to false (NaN < … is false). The function then treats the token as valid, allowing indefinite use.\n  - Fix: Check that claims.exp exists and is a number before comparing; otherwise return null. Example: if (!claims || typeof claims.exp !== 'number' || claims.exp * 1000 < Date.now()) return null;",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11595,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "[CRITICAL] [AUTH_CRYPTO] Unverified JWT payload is treated as authenticated identity (currentUser)\n- Issue: `jwt.decode(token)` only parses the token; it does not verify its signature, issuer, audience, algorithm, or required claims. An attacker can send an unsigned JWT containing `sub`, `roles`, and a future `exp`, and this function will return it as a trusted user. Tokens without `exp` are also accepted because `undefined < Date.now()` is false.\n- Fix: Use `jwt.verify()` with the configured key and allowed algorithms, require a valid `sub`, and explicitly validate `exp` and `roles` before returning the user.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9963,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [AUTH_CRYPTO] Unverified JWT signature at `currentUser` (jwt.decode call)\n  - Issue: `jwt.decode(token)` only base64-decodes the token — it does **not** verify the signature. Any attacker can craft a JWT with arbitrary `sub` and `roles` claims (e.g., `{\"sub\":\"admin\",\"roles\":[\"superadmin\"]}`) and `currentUser` will return them as a trusted user. This is a complete authentication bypass.\n  - Fix: Use `jwt.verify(token, signingKey)` (or `jwt.verify(token, signingKey, options)`) which both decodes and validates the signature. This requires access to the secret/public key in the calling context.\n\n* [WARNING] [LOGIC] Missing `exp` claim always passes expiration check at `claims.exp * 1000 < Date.now()`\n  - Issue: If a token has no `exp` claim, `undefined * 1000` evaluates to `NaN`, and `NaN < Date.now()` is always `false`, so the function returns a user object instead of `null`. Tokens without expiration are effectively treated as never-expiring.\n  - Fix: Add an explicit guard: `if (!claims || !claims.exp || claims.exp * 1000 < Date.now()) return null;`\n\n* [WARNING] [LOGIC] `roles` not validated as array at `claims.roles || []`\n  - Issue: If a crafted (or malformed) token sets `\"roles\": \"admin\"` (a string), the `|| []` fallback does not trigger (non-empty string is truthy), and the function returns a string where callers expect an array. Authorization logic that calls `.includes()` or `.length` on the result will behave incorrectly or throw.\n  - Fix: Validate the type: `roles: Array.isArray(claims.roles) ? claims.roles : []`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 24374,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] AUTH_CRYPTO <Signature verification missing> (jwt.decode call)\n  - Issue: jwt.decode verifies only the payload, not the signature, so any token can be forged with arbitrary claims and expiration, allowing unauthorized access.\n  - Fix: Replace jwt.decode with jwt.verify(token, secret) to enforce signature validation.\n\n* [WARNING] LOGIC <Missing exp existence check> (claims.exp usage)\n  - Issue: If claims.exp is undefined, the expression `claims.exp * 1000 < Date.now()` becomes NaN, causing the expiration check to be skipped and returning a user even though the token lacks an expiration.\n  - Fix: Add a guard `if (!claims || typeof claims.exp === 'undefined') return null;` before the expiration comparison.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 14048,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Empty response from model",
+      "latency_ms": 22100
+    }
+  ],
+  "_eval": {
+    "snippet": "auth_jwt_decode.js",
+    "exit_code": 0,
+    "wall_s": 24.8,
+    "duplicate_of_backfilled": true
+  }
+}

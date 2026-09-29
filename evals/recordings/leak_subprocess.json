@@ -1,0 +1,144 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:14:18.261943Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "66df33378953",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 28272
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "RESOURCE_LEAK",
+      "symbol": "probe_versions",
+      "title": "Unreaped child processes",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 3
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "probe_versions",
+      "title": "No timeout on blocking read",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "probe_versions",
+      "title": "Unhandled FileNotFoundError",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "readline",
+      "title": "at stdout.readline() call",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "probe_versions",
+      "title": "No timeout or exit-status validation",
+      "models": [
+        "nex-agi/nex-n2.5-mini:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [RESOURCE_LEAK] Unreaped child processes (at `probe_versions`, line 5)\n  - Issue: Each `subprocess.Popen` is never `wait()`ed or `communicate()`d, so every exited child becomes a zombie. Additionally, `proc.stdout` file handles are never closed, leaking file descriptors. Over many calls this exhausts PID and FD limits.\n  - Fix: Replace with `subprocess.run([name, \"--version\"], capture_output=True, text=True, timeout=...)` and read `result.stdout.splitlines()[0]`.\n\n* [WARNING] [ERROR_HANDLING] No timeout on blocking read (at `probe_versions`, line 7)\n  - Issue: `proc.stdout.readline()` blocks indefinitely if a binary hangs or produces no output. A single misbehaving binary stalls the entire function with no recovery path.\n  - Fix: Pass `timeout=` to `subprocess.run` (or use `communicate(timeout=...)`) and handle `TimeoutExpired`.\n\n* [WARNING] [ERROR_HANDLING] Unhandled `FileNotFoundError` (at `probe_versions`, line 5)\n  - Issue: If a binary name in the list does not exist or is not on `PATH`, `Popen` raises `FileNotFoundError` and the function aborts mid-loop, returning a partial result the caller cannot distinguish from a complete one.\n  - Fix: Wrap `Popen`/`run` in a try/except for `FileNotFoundError` (and `PermissionError`) and record an error sentinel per binary.\n\n* [WARNING] [CORRECTNESS] Potential pipe-buffer deadlock (at `probe_versions`, line 7)\n  - Issue: If `--version` output exceeds the OS pipe buffer (typically 64 KiB) before `readline()` drains it, the child blocks on `write()` while the parent blocks on `readline()` — a deadlock. `communicate()` avoids this by draining stdout/stderr concurrently.\n  - Fix: Use `subprocess.run(..., capture_output=True)` which internally uses `communicate()` and handles pipe buffering safely.\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8389,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] RESOURCE_LEAK at subprocess.Popen call\n  - Issue: File descriptors and process handles are never closed. Each iteration leaks a pipe (stdout) and creates a zombie process since `proc.wait()` or `proc.communicate()` is never called. With many binaries, this exhausts system resources.\n  - Fix: Use `proc.communicate()` to read output and wait for process completion, or use a context manager pattern.\n\n* [WARNING] ERROR_HANDLING at subprocess.Popen call\n  - Issue: If a binary doesn't exist or fails to execute, `FileNotFoundError` or `PermissionError` propagates uncaught. Additionally, `readline()` on a non-existent process's stdout will fail. The function provides no way to handle missing or failing binaries gracefully.\n  - Fix: Wrap in try/except, check `proc.returncode`, or use `subprocess.run()` with `capture_output=True` and proper error handling.\n\n* [WARNING] LOGIC at stdout.readline() call\n  - Issue: `readline()` may return incomplete data if the process hasn't finished writing. The process could still be running while reading, leading to truncated version strings. No `communicate()` or `wait()` ensures the process completes before reading.\n  - Fix: Use `proc.communicate()[0]` to read all output after process termination.\n\n* [CRITICAL] AUTH_CRYPTO at subprocess.Popen call\n  - Issue: If `binaries` contains user-controlled input, arbitrary executables can be launched with full privileges of the running process. An attacker could pass `[\"/bin/sh\", \"-c\", \"malicious_command\"]` or any system binary with arguments, achieving arbitrary command execution.\n  - Fix: Validate binary names against an allowlist of permitted executables, or use `shlex.quote()` if shell invocation is necessary (though list form is preferred).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10593,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] [ERROR_HANDLING] No timeout or exit-status validation (probe_versions)\n  - Issue: `readline()` can block forever if a command never emits a newline or never exits. A command that exits unsuccessfully produces an empty string in `out`, so callers may trust a nonexistent version; stderr is inherited and not available for diagnosis.\n  - Fix: Use `subprocess.run([name, \"--version\"], capture_output=True, text=True, timeout=...)`, inspect `returncode`, and parse the first stdout line.\n\n* [WARNING] [RESOURCE_LEAK] Processes are not reaped (probe_versions)\n  - Issue: After reading one line, each `Popen` object is overwritten without `wait()` or `communicate()`. Commands that exit leave zombie children, while commands that continue retain open pipe resources; many binaries can exhaust process or file-descriptor capacity.\n  - Fix: Reap each process before continuing, preferably by using `subprocess.run()` or `proc.communicate()` and checking the result.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 12654,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Uncaught Subprocess Failure> (at symbol/line)\n  - Issue: probe_versions passes each binary name directly to subprocess.Popen without validating that it is a string; if the list contains a non‑string (e.g., None) or a non‑existent binary, Popen raises TypeError or FileNotFoundError, which propagates and crashes the caller.\n  - Fix:\n    ```python\n    def probe_versions(binaries):\n        out = {}\n        for name in binaries:\n            if not isinstance(name, str):\n                continue  # or raise a clear error\n            proc = subprocess.Popen([name, \"--version\"], stdout=subprocess.PIPE)\n            try:\n                out[name] = proc.stdout.readline().decode().strip()\n            except UnicodeDecodeError:\n                out[name] = \"<decode error>\"\n        return out\n    ```\n\n* [WARNING] RESOURCE_LEAK <Potential Hang> (at symbol/line)\n  - Issue: The subprocess is started with stdout=PIPE but never waited for termination; if the invoked binary hangs or produces unbounded output, the pipe may block indefinitely, leaking the process handle and exhausting system resources.\n  - Fix:\n    ```python\n    def probe_versions(binaries):\n        out = {}\n        for name in binaries:\n            if not isinstance(name, str):\n                continue\n            proc = subprocess.Popen([name, \"--version\"], stdout=subprocess.PIPE)\n            try:\n                out[name] = proc.communicate(timeout=5)[0].decode().strip()\n            except subprocess.TimeoutExpired:\n                proc.kill()\n                out[name] = \"<timeout>\"\n        return out\n    ```\n\nNO_ISSUES_FOUND: Not applicable.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 28266,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "leak_subprocess.py",
+    "exit_code": 0,
+    "wall_s": 28.6,
+    "duplicate_of_backfilled": true
+  }
+}

@@ -1,0 +1,50 @@
+---
+name: 4take-code-review
+description: Get multiple independent AI opinions on your code using the 4take CLI or FastMCP server.
+---
+# 4take Code Review Skill
+
+## When to use
+- After writing a new feature or complex algorithm
+- Before committing critical security, database, or async logic
+- When you want multiple independent AI reviews to catch hallucinations and blindspots
+- When code works and you want to know whether its structure will survive the next change
+
+Reviews four axes: correctness, security, structure and simplicity. Takes code, a diff or
+config — a design question is refused unless you pass `--force-review`.
+
+## How to use
+Runs exclusively on 100% free OpenRouter models (`:free` tier) with zero token expenditure.
+
+```bash
+cat path/to/file.py | 4take --format json --accept-risk --quiet
+
+# With a diff, send the code it touches as reference context: read, never reviewed.
+git diff -W | 4take --format json --accept-risk --quiet --context-file src/caller.py
+```
+
+A diff alone hides defects between files. Pass each changed function's direct callers, the
+functions it calls and the types or config it relies on with `--context-file PATH[:START-END]`,
+most relevant first: a few files, not the repository (16000-token budget by default).
+
+## How to interpret the output
+The command outputs a JSON object to stdout. Read the `consensus` array first — findings
+already grouped across models:
+- `consensus[].agreement`: how many independent reviewers raised it
+- `consensus[].severity`, `consensus[].category`, `consensus[].symbol`, `consensus[].title`
+- `category` is what the reviewers declared, `UNKNOWN` when none did; it is never guessed
+
+`responses[].content` holds each model's full review when you need a finding's wording.
+
+## Synthesizer Protocol
+1. **Read `consensus`, then the responses behind it**: Parse every critique you act on.
+2. **Weigh agreement as measured**: on the eval corpus, an entry all four reviewers raised held
+   a labelled defect 96% of the time — fix it once you have confirmed it in the code. Two or
+   three reviewers: 60% — verify before fixing. One reviewer: 41% — judge it on its merits.
+3. **Verify security findings at any agreement**: fix a confirmed vulnerability even if only 1
+   model spotted it.
+4. **Judge structure findings on their cost**, not on agreement: reviewers rarely word one
+   design opinion alike, so a real structural flaw usually arrives with `agreement: 1`.
+5. **Dismiss noise**: Disregard hallucinated syntax or minor stylistic differences.
+6. **Apply fixes**: Implement refined code and summarize findings to the user.
+

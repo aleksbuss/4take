@@ -1,0 +1,102 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:16:36.722356Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "38bdaad282ae",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 20291
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "page_slice",
+      "title": "page_slice off-by-one error",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-fin:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": null,
+      "title": "ZeroDivisionError on per_page=0",
+      "models": [
+        "inclusionai/ling-3.0-flash-fin:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-fin:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [LOGIC] `page_slice` off-by-one error (at function page_slice)\n- Issue: For a 1-indexed page, page 1 should start at index 0, but `start = page * per_page` yields `start = per_page`, skipping the first page's items entirely. Page 1 returns items[per_page:2*per_page] instead of items[0:per_page].\n- Fix: Change to `start = (page - 1) * per_page`.\n\n[CRITICAL] [LOGIC] `total_pages` undercounts due to floor division (at function total_pages)\n- Issue: `len(items) // per_page` floors the result, so any remainder items are dropped. E.g., 10 items with per_page=3 yields 3 pages but there are actually 4 (the last page has 1 item).\n- Fix: Use `-(-len(items) // per_page)` or `(len(items) + per_page - 1) // per_page`.\n\n[WARNING] [ERROR_HANDLING] ZeroDivisionError on `per_page=0` (at both functions)\n- Issue: Both functions divide by `per_page` without guarding against zero. Passing `per_page=0` raises an unhandled `ZeroDivisionError` rather than returning a sensible value or raising a descriptive error.\n- Fix: Add a guard (e.g., `if per_page <= 0: return 0` or raise `ValueError`).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 5422,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC Incorrect start index for 1‑based page (at page_slice)\n    - Issue: `start = page * per_page` skips the first page; for page=1 it returns items[per_page:2*per_page] instead of items[0:per_page]. Example: items=[0,1,2,3,4], per_page=2, page=1 yields [] instead of [0,1].\n    - Fix: `start = (page - 1) * per_page`\n\n* [CRITICAL] LOGIC total_pages undercounts when there is a remainder (at total_pages)\n    - Issue: `len(items) // per_page` uses floor division, omitting the final partial page. Example: len=7, per_page=3 returns 2 but three pages are needed.\n    - Fix: `return (len(items) + per_page - 1) // per_page`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16925,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] LOGIC page_slice uses incorrect start index (at page_slice)\n  - Issue: The function treats `page` as 1‑indexed per its docstring, but computes `start = page * per_page`. This off‑by‑one error causes the slice to skip the first `per_page` items for page 1, the first `2*per_page` for page 2, etc. A caller expecting the first page to contain `items[0:per_page]` will receive `items[per_page:2*per_page]`, corrupting pagination logic and potentially causing out‑of‑range accesses when the caller later uses `total_pages` to iterate.\n  - Fix: Change `start = page * per_page` to `start = (page - 1) * per_page`.\n\n* [WARNING] LOGIC total_pages truncates remainder (at total_pages)\n  - Issue: The function returns `len(items) // per_page`, which discards any partial final page. For example, with 10 items and `per_page = 3`, the result is `3`, yet the data actually spans four pages (`3,3,3,1`). Callers that rely on `total_pages` to bound iteration will stop early, leaving the last page unprocessed, or they may attempt to slice beyond the returned count, raising an `IndexError`.\n  - Fix: Compute ceiling division: `return (len(items) + per_page - 1) // per_page`.\n\n* [CRITICAL] LOGIC per_page zero leads to division by zero and empty slice (at total_pages and page_slice)\n  - Issue: When `per_page <= 0`, `total_pages` raises `ZeroDivisionError` because integer division by zero is undefined. Simultaneously, `page_slice` computes `start = page * per_page` and `end = start + per_page`, both evaluating to `0`, so any page request returns an empty slice. This combination can crash the application or silently return no data, violating the contract of pagination.\n  - Fix: Validate `per_page` early: `if per_page <= 0: raise ValueError(\"per_page must be positive\")`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19823,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC page_slice uses wrong pagination formula (at page_slice function)\n  - Issue: The docstring claims 1-indexed pages, but `start = page * per_page` treats page as 0-indexed. For `page_slice([1,2,3,4,5], 1, 2)`, it returns `[3,4]` instead of the expected `[1,2]` for page 1.\n  - Fix: Change to `start = (page - 1) * per_page`\n\n* [CRITICAL] LOGIC total_pages undercounts pages (at total_pages function)\n  - Issue: Integer division `len(items) // per_page` discards remainder, so 25 items with per_page=10 returns 2 instead of 3. The last partial page is never counted.\n  - Fix: Change to `(len(items) + per_page - 1) // per_page` or `math.ceil(len(items) / per_page)`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 20281,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "offbyone_pagination.py",
+    "exit_code": 0,
+    "wall_s": 20.8,
+    "duplicate_of_backfilled": true
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:19:02.706039Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "38bdaad282ae",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 21456
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "page_slice",
+      "title": "page_slice off-by-one for 1-indexed pages",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": null,
+      "title": "total_pages undercounts partial final page",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "len",
+      "title": "total_pages ZeroDivisionError on per_page=0",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] page_slice off-by-one for 1-indexed pages (page_slice, `start = page * per_page`)\n  - Issue: The docstring promises 1-indexed pages, but `start = page * per_page` means page 1 returns `items[per_page:2*per_page]` — the second page's data — while page 0 would accidentally return the first. Every valid call returns the wrong slice, shifted by one page.\n  - Fix: `start = (page - 1) * per_page`\n\n* [CRITICAL] [LOGIC] total_pages undercounts partial final page (total_pages, `return len(items) // per_page`)\n  - Issue: Integer division truncates, so any remainder is lost. With 10 items and per_page=3, this returns 3 instead of 4, causing the last page of items to be unreachable and potentially invisible to callers.\n  - Fix: `return (len(items) + per_page - 1) // per_page` or `return math.ceil(len(items) / per_page)`\n\n* [WARNING] [ERROR_HANDLING] total_pages ZeroDivisionError on per_page=0 (total_pages, `len(items) // per_page`)\n  - Issue: When `per_page` is 0, this raises `ZeroDivisionError` with no guard or meaningful message. A caller iterating with a configurable page size could hit this on an empty or misconfigured input.\n  - Fix: Guard with `if per_page <= 0: return 0` (or raise a descriptive `ValueError`) before the division.\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8189,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC page_slice uses wrong pagination formula (at page_slice function)\n  - Issue: The function claims to use 1-indexed pages but calculates start = page * per_page, which for page=1 returns items[per_page:2*per_page] instead of items[0:per_page]. This returns the second page when the user requests the first page.\n  - Fix: Change `start = page * per_page` to `start = (page - 1) * per_page`\n\n* [CRITICAL] LOGIC total_pages undercounts pages (at total_pages function)\n  - Issue: Uses integer division which truncates partial pages. With 10 items and per_page=3, returns 3 instead of 4 pages. The last page with 1 item is never counted.\n  - Fix: Change `return len(items) // per_page` to `return (len(items) + per_page - 1) // per_page` or `return -(-len(items) // per_page)`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11924,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Off‑by‑one in page_slice (page_slice)\n  - Issue: The function treats `page` as 1‑indexed per its docstring, but computes `start = page * per_page`. This shifts the slice forward by one page, so page 1 returns items starting at index `per_page` instead of index 0. A caller expecting the first page will receive an empty slice or the second page’s items, corrupting pagination results.\n  - Fix: Change `start = page * per_page` to `start = (page - 1) * per_page`.\n\n* [CRITICAL] LOGIC total_pages truncates remainder (total_pages)\n  - Issue: `total_pages` uses integer division `len(items) // per_page`, which discards any partial page. When `len(items)` is not a multiple of `per_page`, the result underestimates the number of pages, causing callers to think there are fewer pages than actually exist.\n  - Fix: Compute `total_pages = (len(items) + per_page - 1) // per_page` (ceil division) or use `math.ceil(len(items) / per_page)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19569,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC page_slice_invalid_page_and_per_page (at page_slice start calculation)\n  - Issue: page_slice accepts any integer page and per_page without validation; when page is 0 or negative or per_page ≤ 0 the computed slice indices are wrong, causing incorrect or empty results for invalid inputs.\n  - Fix: Add checks raising ValueError if page < 1 or per_page <= 0, e.g. `if page < 1 or per_page <= 0: raise ValueError(\"page must be >=1 and per_page >0\")`.\n\n* [WARNING] LOGIC total_pages_floor_division (at total_pages return)\n  - Issue: total_pages uses floor division (len(items) // per_page), which undercounts the number of pages when items length is not an exact multiple of per_page, leading callers to miss the final partial page.\n  - Fix: Replace with ceiling division, e.g. `return (len(items) + per_page - 1) // per_page` or use `math.ceil(len(items) / per_page)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21450,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "offbyone_pagination.py",
+    "exit_code": 0,
+    "wall_s": 21.9,
+    "duplicate_of_backfilled": true
+  }
+}

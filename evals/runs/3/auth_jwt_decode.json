@@ -1,0 +1,102 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:38:55.811686Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "70b085ae735b",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 20368
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "AUTH_CRYPTO",
+      "symbol": "currentUser",
+      "title": "Missing token signature verification",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4,
+        "WARNING": 3
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "decode",
+      "title": "Unhandled Token Decode Exception",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] [AUTH_CRYPTO] Missing token signature verification (at currentUser)\n  - Issue: The function uses jwt.decode which only decodes the token without verifying its signature, allowing an attacker to forge a JWT with arbitrary claims (e.g., set sub to any user ID, roles to admin) and bypass authentication.\n  - Fix: Replace jwt.decode with jwt.verify, passing the appropriate secret or public key, and catch the VerifierError to return null.\n\n* [WARNING] [LOGIC] Missing expiration claim treated as valid (at currentUser)\n  - Issue: If a token lacks the exp claim, claims.exp is undefined, causing claims.exp * 1000 to be NaN; the comparison NaN < Date.now() is false, so the token is incorrectly considered not expired and accepted.\n  - Fix: Verify that claims.exp exists and is a number before comparing, e.g., if (!claims || typeof claims.exp !== 'number' || claims.exp * 1000 < Date.now()) return null;.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10466,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] AUTH_CRYPTO Missing JWT signature verification (at currentUser)\n  - Issue: The function uses `jwt.decode` which only decodes the token without validating its signature, allowing any token with a valid `exp` claim to be accepted. An attacker can forge a token with arbitrary `sub` and `roles` claims and bypass authentication.\n  - Fix: Replace `jwt.decode` with `jwt.verify`, providing the secret or public key, and handle verification errors: try { const decoded = jwt.verify(token, secret); return { id: decoded.sub, roles: decoded.roles || [] }; } catch { return null; }",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 11333,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] SECURITY JWT Signature Bypass (at jwt.decode call)\n  - Issue: Using `jwt.decode()` instead of `jwt.verify()` completely bypasses JWT signature verification. An attacker can forge tokens by modifying the payload (e.g., changing `sub` to any user ID or adding `roles: [\"admin\"]`) without knowing the secret key. The token format `header.payload.signature` can be decoded client-side, and since only `decode()` is used, any tampered token will be accepted.\n  - Fix: Replace `jwt.decode(token)` with `jwt.verify(token, process.env.JWT_SECRET)` and wrap in try-catch to handle verification failures.\n\n* [WARNING] ERROR_HANDLING Unhandled Token Decode Exception (at jwt.decode call)\n  - Issue: `jwt.decode()` throws on malformed tokens (invalid base64, wrong structure). If an attacker sends a malformed token, the exception propagates up, potentially crashing the request handler or leaking stack traces. This creates an availability risk and could expose implementation details.\n  - Fix: Wrap the decode/verify logic in try-catch and return null on any error.\n\n* [WARNING] SECURITY Missing Token Presence Validation (at token extraction line)\n  - Issue: Empty string tokens pass through `replace(\"Bearer \", \"\")` and get decoded. While `jwt.decode(\"\")` returns null, the code doesn't explicitly validate that a token was actually provided. This could mask missing authentication headers in logs or lead to unexpected behavior in downstream code that assumes a token was present.\n  - Fix: Add explicit check: `if (!token) return null;` after extraction.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 19371,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [AUTH_CRYPTO] Unverified JWT signature in `currentUser` (jwt.decode call)\n  - Issue: `jwt.decode(token)` only decodes the token payload without verifying the signature. Any attacker can base64-encode a crafted JWT header/payload with arbitrary `sub` and `roles` values, and `currentUser` will accept it as a legitimate authenticated user. This is a complete authentication bypass — the function trusts client-supplied identity and role data unconditionally.\n  - Fix: Replace `jwt.decode(token)` with `jwt.verify(token, process.env.JWT_SECRET)` (or your signing key) to cryptographically validate the token. Handle the thrown `JsonWebTokenError` / `TokenExpiredError` to return `null`.\n\n* [WARNING] [ERROR_HANDLING] Expiration check bypassed when `claims.exp` is undefined\n  - Issue: When `claims` exists but `exp` is undefined, `undefined * 1000` evaluates to `NaN`, and `NaN < Date.now()` is `false`, so the expiration guard does not trigger. A token with no `exp` claim (which `jwt.decode` will still decode) is treated as non-expiring and returned indefinitely. This also differs from the case where `exp` is `null` (`null * 1000 = 0`, which correctly fails the check).\n  - Fix: Add an explicit guard: `if (!claims || !claims.exp || claims.exp * 1000 < Date.now()) return null;` to reject tokens lacking an expiration claim.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 20361,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "auth_jwt_decode.js",
+    "exit_code": 0,
+    "wall_s": 20.8,
+    "duplicate_of_backfilled": true
+  }
+}

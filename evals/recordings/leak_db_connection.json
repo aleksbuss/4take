@@ -1,0 +1,151 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:13:22.733556Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "bb9a736a368a",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 31216
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "RESOURCE_LEAK",
+      "symbol": "run_migration",
+      "title": "Connection leak on exception path",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "run_migration",
+      "title": "SQL injection via raw statements",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "run_migration",
+      "title": "Misleading return value",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "run_migration",
+      "title": "No input validation for `statements` parameter - if None or containing non-strin",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [RESOURCE_LEAK] Connection leak on exception path (at `run_migration`)\n- Issue: If `cur.execute(stmt)` or `conn.commit()` raises, `pool.release(conn)` is never reached, leaking a connection from the pool. Under repeated migration failures or malformed DDL, the pool is drained one connection per failure, eventually causing `pool.acquire()` to block or timeout for all subsequent callers.\n- Fix: Wrap execution and release in a `try/finally` (or use the pool as a context manager) to guarantee release on every exit path:\n  ```python\n  def run_migration(pool, statements):\n      conn = pool.acquire()\n      try:\n          cur = conn.cursor()\n          for stmt in statements:\n              cur.execute(stmt)\n          conn.commit()\n          return len(statements)\n      finally:\n          pool.release(conn)\n  ```\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 5566,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK <Connection not released on exception> (in run_migration)\n  - Issue: If an execute or commit raises, the connection remains checked out of the pool, causing a leak that can exhaust resources; the caller receives a misleading count of statements.\n  - Fix: Use a try/finally or context manager to ensure pool.release(conn) runs even on error.\n\n* [WARNING] LOGIC <Misleading return value> (in run_migration)\n  - Issue: The function returns len(statements) regardless of whether any statements succeeded or failed, so callers may assume all statements executed when some were rolled back, leading to incorrect assumptions.\n  - Fix: Return the count of successfully executed statements, e.g., track a success counter and return that.\n\n* [CRITICAL] INJECTION <SQL injection via raw statements> (in run_migration)\n  - Issue: The function executes arbitrary SQL strings directly; if statements contain user‑controlled data, injection can occur, allowing attackers to modify or delete data.\n  - Fix: Use parameterized queries or a safe SQL builder instead of executing raw strings.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 20302,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [WARNING] [RESOURCE_LEAK] Connection is not returned when setup or execution fails (run_migration)\n  - Issue: `pool.acquire()` succeeds, but `conn.cursor()` may raise, or any `cur.execute()`/`conn.commit()` call may fail. In every such case, control exits before `pool.release(conn)`, leaving the connection checked out. A repeated failure can exhaust the pool and cause unrelated operations to block or fail.\n  - Fix: wrap acquisition through release in `try/finally`, and close the cursor before returning the connection.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 5753,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] RESOURCE_LEAK (at run_migration function)\n  - Issue: If any statement execution raises an exception, the connection acquired from the pool is never released. This will eventually exhaust the connection pool under error conditions. Additionally, the transaction is left uncommitted without rollback, potentially leaving the database in an inconsistent state.\n  - Fix: Wrap the execution in try-finally and add rollback on exception:\n    ```python\n    try:\n        for stmt in statements:\n            cur.execute(stmt)\n        conn.commit()\n    except Exception:\n        conn.rollback()\n        raise\n    finally:\n        pool.release(conn)\n    ```\n\n* [CRITICAL] INJECTION (at run_migration function)\n  - Issue: The function executes arbitrary SQL statements without any validation, sanitization, or parameterization. If `statements` contains user-controlled input, this enables arbitrary SQL injection attacks allowing data exfiltration, modification, or deletion.\n  - Fix: Either validate statements against a whitelist of allowed operations, use parameterized queries where possible, or require statements to come from a trusted source with explicit documentation.\n\n* [WARNING] ERROR_HANDLING (at run_migration function)\n  - Issue: No input validation for `statements` parameter - if None or containing non-string values is passed, the function will crash with AttributeError/TypeError without releasing the connection.\n  - Fix: Add input validation at the start:\n    ```python\n    if not statements:\n        return 0\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 31207,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [ERROR_HANDLING] Connection leak on statement execution failure (in run_migration)\n    - Issue: If any statement in `statements` raises an exception during `cur.execute`, the function exits before `conn.commit()` and `pool.release(conn)`, leaving the connection checked out from the pool and the transaction uncommitted, causing a resource leak and potential pool exhaustion.\n    - Fix: Wrap the execution block in a try/except/finally: on exception, call `conn.rollback()`; in finally, always release the connection. Example:\n        try:\n            for stmt in statements:\n                cur.execute(stmt)\n            conn.commit()\n        except Exception:\n            conn.rollback()\n            raise\n        finally:\n            pool.release(conn)\n\n* [SUGGESTION] [SIMPLICITY] Manual connection management obscures intent and couples to pool API (in run_migration)\n    - Issue: The function manually acquires and releases the connection, mixing resource lifecycle with migration logic. If the pool’s acquisition/release contract changes (e.g., adds timeout or context‑manager support), every caller of this pattern must be updated, increasing maintenance cost.\n    - Fix: Delegate resource management to a context manager: use `with pool.connection() as conn:` and `with conn.cursor() as cur:` to guarantee release and simplify the body to just the execution loop. Example:\n        with pool.connection() as conn:\n            with conn.cursor() as cur:\n                for stmt in statements:\n                    cur.execute(stmt)\n            conn.commit()\n        return len(statements)",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21170,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] ERROR_HANDLING Resource leak and missing rollback on failure (at run_migration)\n    - Issue: If any statement in `statements` raises an exception, the function exits before `pool.release(conn)` is called, leaking the database connection, and the transaction is left uncommitted which may leave locks or partial changes.\n    - Fix: Wrap the execution in a try/except/finally block; on exception rollback the connection, close the cursor, and always release the pool connection in the finally clause (or use context managers if available). Example:\n        ```\n        conn = pool.acquire()\n        try:\n            cur = conn.cursor()\n            try:\n                for stmt in statements:\n                    cur.execute(stmt)\n                conn.commit()\n            finally:\n                cur.close()\n        except Exception:\n            conn.rollback()\n            raise\n        finally:\n            pool.release(conn)\n        ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 23464,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "leak_db_connection.py",
+    "exit_code": 0,
+    "wall_s": 31.7,
+    "duplicate_of_backfilled": true
+  }
+}

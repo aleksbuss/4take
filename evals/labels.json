@@ -1,0 +1,515 @@
+{
+  "sqli_user_search": [
+    {
+      "id": "sqli",
+      "symbol": "search_users",
+      "severity": "CRITICAL",
+      "keywords": [
+        "sql inject",
+        "sqli",
+        "parameter",
+        "placeholder",
+        "concaten",
+        "interpolat"
+      ]
+    }
+  ],
+  "sqli_order_by": [
+    {
+      "id": "sqli-orderby",
+      "symbol": "list_orders",
+      "severity": "CRITICAL",
+      "keywords": [
+        "sort_field",
+        "direction",
+        "allowlist",
+        "allow-list",
+        "whitelist",
+        "order by"
+      ]
+    }
+  ],
+  "toctou_config_write": [
+    {
+      "id": "toctou",
+      "symbol": "save_user_config",
+      "severity": "WARNING",
+      "keywords": [
+        "toctou",
+        "time-of-check",
+        "time of check",
+        "symlink",
+        "between the check",
+        "race"
+      ]
+    },
+    {
+      "id": "late-chmod",
+      "symbol": "save_user_config",
+      "severity": "WARNING",
+      "keywords": [
+        "chmod",
+        "world-readable",
+        "world readable",
+        "umask",
+        "0o600",
+        "0600"
+      ]
+    }
+  ],
+  "toctou_upload_quota": [
+    {
+      "id": "toctou-quota",
+      "symbol": "accept_upload",
+      "severity": "WARNING",
+      "keywords": [
+        "race",
+        "concurrent",
+        "toctou",
+        "atomic",
+        "check",
+        "quota"
+      ]
+    }
+  ],
+  "offbyone_pagination": [
+    {
+      "id": "off-by-one-start",
+      "symbol": "page_slice",
+      "severity": "WARNING",
+      "keywords": [
+        "page - 1",
+        "page-1",
+        "1-indexed",
+        "one-indexed",
+        "skips the first",
+        "first page"
+      ]
+    },
+    {
+      "id": "off-by-one-pages",
+      "symbol": "total_pages",
+      "severity": "WARNING",
+      "keywords": [
+        "ceil",
+        "remainder",
+        "floor division",
+        "last page",
+        "truncat",
+        "rounds down"
+      ]
+    }
+  ],
+  "offbyone_ring_buffer": [
+    {
+      "id": "off-by-one-full",
+      "symbol": "push",
+      "severity": "CRITICAL",
+      "keywords": [
+        "off-by-one",
+        ">=",
+        "overwrit",
+        "capacity",
+        "one too many"
+      ]
+    }
+  ],
+  "offbyone_retry_window": [
+    {
+      "id": "off-by-one-trunc",
+      "symbol": "truncateWithEllipsis",
+      "severity": "SUGGESTION",
+      "keywords": [
+        "<=",
+        "less than or equal",
+        "exactly maxlen",
+        "equal to maxlen",
+        "boundary"
+      ]
+    },
+    {
+      "id": "off-by-one-tail",
+      "symbol": "lastNLines",
+      "severity": "WARNING",
+      "keywords": [
+        "n + 1",
+        "n+1",
+        "one extra",
+        "one more line",
+        "slice"
+      ]
+    }
+  ],
+  "leak_file_handle": [
+    {
+      "id": "leak-file",
+      "symbol": "load_rows",
+      "severity": "WARNING",
+      "keywords": [
+        "leak",
+        "not closed",
+        "with",
+        "context manager",
+        "try/finally",
+        "raise"
+      ]
+    }
+  ],
+  "leak_db_connection": [
+    {
+      "id": "leak-conn",
+      "symbol": "run_migration",
+      "severity": "WARNING",
+      "keywords": [
+        "leak",
+        "never released",
+        "not released",
+        "pool exhaust",
+        "finally"
+      ]
+    },
+    {
+      "id": "no-rollback",
+      "symbol": "run_migration",
+      "severity": "WARNING",
+      "keywords": [
+        "rollback",
+        "partially applied",
+        "partial migration",
+        "uncommitted"
+      ]
+    }
+  ],
+  "leak_subprocess": [
+    {
+      "id": "leak-proc",
+      "symbol": "probe_versions",
+      "severity": "WARNING",
+      "keywords": [
+        "zombie",
+        "wait()",
+        "reaped",
+        "not reaped",
+        "communicate",
+        "leak"
+      ]
+    },
+    {
+      "id": "proc-deadlock",
+      "symbol": "probe_versions",
+      "severity": "WARNING",
+      "keywords": [
+        "deadlock",
+        "pipe buffer",
+        "block",
+        "hang",
+        "fills"
+      ]
+    }
+  ],
+  "none_env_parse": [
+    {
+      "id": "none-attr",
+      "symbol": "build_endpoint",
+      "severity": "CRITICAL",
+      "keywords": [
+        "attributeerror",
+        "strip",
+        "none has no",
+        "nonetype"
+      ]
+    },
+    {
+      "id": "none-int",
+      "symbol": "build_endpoint",
+      "severity": "CRITICAL",
+      "keywords": [
+        "typeerror",
+        "valueerror",
+        "int(",
+        "port"
+      ]
+    }
+  ],
+  "none_lookup_chain": [
+    {
+      "id": "none-record",
+      "symbol": "primary_email",
+      "severity": "CRITICAL",
+      "keywords": [
+        "attributeerror",
+        "unknown user",
+        "missing user",
+        "record is none",
+        "nonetype"
+      ]
+    },
+    {
+      "id": "empty-contacts",
+      "symbol": "primary_email",
+      "severity": "WARNING",
+      "keywords": [
+        "indexerror",
+        "empty list",
+        "no contacts",
+        "contacts[0]",
+        "index 0"
+      ]
+    }
+  ],
+  "none_json_response": [
+    {
+      "id": "none-nested",
+      "symbol": "fetchProfile",
+      "severity": "CRITICAL",
+      "keywords": [
+        "undefined",
+        "optional chaining",
+        "cannot read",
+        "typeerror"
+      ]
+    },
+    {
+      "id": "no-status-check",
+      "symbol": "fetchProfile",
+      "severity": "WARNING",
+      "keywords": [
+        "res.ok",
+        "status code",
+        "http status",
+        "404",
+        "error response"
+      ]
+    }
+  ],
+  "race_counter_increment": [
+    {
+      "id": "race-counter",
+      "symbol": "hit",
+      "severity": "CRITICAL",
+      "keywords": [
+        "outside the lock",
+        "not atomic",
+        "lost update",
+        "race",
+        "increment"
+      ]
+    }
+  ],
+  "race_lazy_singleton": [
+    {
+      "id": "race-singleton",
+      "symbol": "get_client",
+      "severity": "WARNING",
+      "keywords": [
+        "race",
+        "lock",
+        "double-checked",
+        "two clients",
+        "concurrent",
+        "thread"
+      ]
+    }
+  ],
+  "race_async_cache": [
+    {
+      "id": "race-stampede",
+      "symbol": "get",
+      "severity": "WARNING",
+      "keywords": [
+        "stampede",
+        "concurrent",
+        "await",
+        "lock",
+        "thundering",
+        "duplicate refresh"
+      ]
+    }
+  ],
+  "cmdinjection_backup": [
+    {
+      "id": "cmd-injection",
+      "symbol": "archive_directory",
+      "severity": "CRITICAL",
+      "keywords": [
+        "command inject",
+        "shell",
+        "os.system",
+        "subprocess",
+        "shlex",
+        "semicolon"
+      ]
+    }
+  ],
+  "cmdinjection_git": [
+    {
+      "id": "cmd-injection-js",
+      "symbol": "checkoutBranch",
+      "severity": "CRITICAL",
+      "keywords": [
+        "command inject",
+        "exec",
+        "execfile",
+        "shell",
+        "branch",
+        "sanitiz"
+      ]
+    }
+  ],
+  "pathtraversal_download": [
+    {
+      "id": "path-traversal",
+      "symbol": "read_report",
+      "severity": "CRITICAL",
+      "keywords": [
+        "traversal",
+        "..",
+        "realpath",
+        "abspath",
+        "escape",
+        "outside"
+      ]
+    }
+  ],
+  "pathtraversal_zip": [
+    {
+      "id": "zip-slip",
+      "symbol": "unpack",
+      "severity": "CRITICAL",
+      "keywords": [
+        "zip slip",
+        "traversal",
+        "..",
+        "absolute",
+        "outside",
+        "member"
+      ]
+    }
+  ],
+  "divzero_average_latency": [
+    {
+      "id": "div-zero",
+      "symbol": "summarise",
+      "severity": "CRITICAL",
+      "keywords": [
+        "zerodivision",
+        "division by zero",
+        "divide by zero",
+        "divided by zero"
+      ]
+    },
+    {
+      "id": "index-empty",
+      "symbol": "summarise",
+      "severity": "CRITICAL",
+      "keywords": [
+        "indexerror",
+        "index error",
+        "out of range",
+        "no successful",
+        "no successes"
+      ]
+    }
+  ],
+  "overflow_backoff": [
+    {
+      "id": "unbounded-backoff",
+      "symbol": "retry_with_backoff",
+      "severity": "WARNING",
+      "keywords": [
+        "unbounded",
+        "2 **",
+        "2**",
+        "exponential growth",
+        "hours",
+        "cap the"
+      ]
+    },
+    {
+      "id": "no-jitter",
+      "symbol": "retry_with_backoff",
+      "severity": "SUGGESTION",
+      "keywords": [
+        "jitter",
+        "thundering herd",
+        "synchronis",
+        "synchroniz",
+        "stampede"
+      ]
+    }
+  ],
+  "unbounded_memory_tail": [
+    {
+      "id": "unbounded-memory",
+      "symbol": "follow",
+      "severity": "WARNING",
+      "keywords": [
+        "unbounded",
+        "memory",
+        "grows",
+        "deque",
+        "maxlen",
+        "oom"
+      ]
+    }
+  ],
+  "auth_timing_compare": [
+    {
+      "id": "timing-unsafe",
+      "symbol": "verify_webhook",
+      "severity": "WARNING",
+      "keywords": [
+        "timing",
+        "constant-time",
+        "constant time",
+        "compare_digest",
+        "side channel"
+      ]
+    },
+    {
+      "id": "not-hmac",
+      "symbol": "verify_webhook",
+      "severity": "CRITICAL",
+      "keywords": [
+        "length extension",
+        "length-extension",
+        "mac construction",
+        "not an hmac",
+        "hmac(",
+        "keyed hash"
+      ]
+    }
+  ],
+  "auth_jwt_decode": [
+    {
+      "id": "jwt-unverified",
+      "symbol": "currentUser",
+      "severity": "CRITICAL",
+      "keywords": [
+        "verify",
+        "decode",
+        "signature",
+        "unverified",
+        "forge",
+        "jwt.verify"
+      ]
+    }
+  ],
+  "async_gather_swallow": [
+    {
+      "id": "swallowed-errors",
+      "symbol": "fan_out",
+      "severity": "WARNING",
+      "keywords": [
+        "exception",
+        "silently",
+        "swallow",
+        "return_exceptions",
+        "isinstance",
+        "discard"
+      ]
+    }
+  ],
+  "clean_slugify": [],
+  "clean_lru": []
+}

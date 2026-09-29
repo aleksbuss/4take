@@ -1,0 +1,15 @@
+diff --git a/profiles/cache.py b/profiles/cache.py
+--- a/profiles/cache.py
++++ b/profiles/cache.py
+@@ -3,8 +3,10 @@ from profiles.store import redis
+ TTL_SECONDS = 24 * 3600
+
++SCHEMA_VERSION = 2
++
+
+ def profile_cache_key(user_id):
+-    return f"profile:{user_id}"
++    return f"profile:v{SCHEMA_VERSION}:{user_id}"
+
+
+ def get_cached_profile(user_id):

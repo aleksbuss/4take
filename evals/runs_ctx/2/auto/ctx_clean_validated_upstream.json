@@ -1,0 +1,157 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T13:47:43.614436Z",
+  "config": {
+    "models_requested": 11,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "314158d73d18",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 7,
+    "total_latency_ms": 252103,
+    "context": {
+      "files": [
+        "billing/coupons.py"
+      ],
+      "tokens": 96,
+      "dropped": [],
+      "auto": {
+        "billing/coupons.py": "uses _apply_percentage"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": null,
+      "title": "Incorrect discount calculation",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "SIMPLICITY",
+      "symbol": null,
+      "title": "Unnecessary custom implementation",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": null,
+      "title": "Misplaced responsibility",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 3435
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Incorrect discount calculation> (billing/discounts.py:4)\n- Issue: _apply_percentage computes (total * (Decimal(100) - percent) / Decimal(100)), which yields the price after subtracting the discount from 100, but the intended behavior is to apply the discount, i.e., total * (1 - percent/100). For a 20% coupon, this results in 80% of the original price, which is correct, but the function name and docstring imply it applies the percentage directly, causing confusion and potential misuse if percent is interpreted as the discount amount rather than the discount rate. This mismatch can lead to wrong totals when callers pass percent values derived from external data.\n- Fix: Change the calculation to total * (Decimal(100) - percent) / Decimal(100) → total * (Decimal(100) - percent) / Decimal(100) is already correct; however, rename the function to _apply_discount and add a comment clarifying that percent is the discount rate, not the discount amount, to prevent misuse.\n\n[WARNING] SIMPLICITY <Unnecessary custom implementation> (billing/discounts.py:4)\n- Issue: The language provides Decimal arithmetic natively; rolling a custom quantized division adds indirection with no benefit over using Decimal.quantize(Decimal('0.01')) directly on the result, increasing maintenance cost and obscuring intent.\n- Fix: Replace the function body with `return (total * (Decimal(100) - percent) / Decimal(100)).quantize(Decimal('0.01'))` inline in the caller or remove the function entirely if used only here.\n\n[SUGGESTION] STRUCTURE <Misplaced responsibility> (billing/discounts.py:4)\n- Issue: The discount logic resides in a utility module imported by coupons.py, but the validation of coupon percent occurs in apply_coupon, coupling discount calculation to coupon handling and making the discount function less reusable.\n- Fix: Move percent validation into _apply_percentage or introduce a separate validation helper to keep discount logic pure and reusable.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 36895
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15418
+    },
+    {
+      "model": "openrouter/liquid/lfm-2.5-2.6b:free",
+      "served_model": "liquid/lfm-2.5-2.6b:free",
+      "served_provider": "Liquid",
+      "content": "Looking at the diff and the reference context, the change adds a new `_apply_percentage` helper function to `billing/discounts.py`. This function performs the percentage discount calculation: `(total * (Decimal(100) - percent) / Decimal(100)).quantize(Decimal(\"0.01\"))`.\n\nThe change is mathematically correct:\n- For a 20% discount on $100: `(100 * (100 - 20) / 100) = 80` ✓\n- For a 50% discount on $200: `(200 * (100 - 50) / 100) = 100` ✓\n- The `.quantize(Decimal(\"0.01\"))` ensures proper 2-decimal-place rounding for currency.\n\nThe validation in `apply_coupon` (rejecting percentages ≤ 0 and > 50) remains intact, and the new helper cleanly separates the arithmetic from the business logic. This is a straightforward refactoring that improves clarity without introducing any bugs or security concerns.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 87475
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 46366
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "Empty response from model",
+      "latency_ms": 121595
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Exceeded per-model timeout of 150s",
+      "latency_ms": 150000
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 43005
+    },
+    {
+      "model": "openrouter/qwen/qwen3.8-27b:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 40036
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 41917
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 253.0
+  }
+}

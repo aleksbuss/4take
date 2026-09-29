@@ -1,0 +1,109 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:20:42.137423Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "1cad309642b5",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 37123
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "push",
+      "title": "Off-by-one in buffer-full check",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1,
+        "SUGGESTION": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] Off-by-one in buffer-full check (push, line 7)\n  - Issue: The guard `self._count > len(self._buf)` uses strict greater-than instead of `>=`. When `_count` exactly equals the buffer length (i.e., every slot is occupied), the check passes and `push` silently overwrites an existing slot rather than raising `BufferFull()`. `_count` then exceeds capacity before the guard finally fires, meaning one item is lost with no error.\n  - Fix: Change the condition to `self._count >= len(self._buf)`.\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9405,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Incorrect full detection and buffer overflow> (push method)\n  - Issue: The condition `if self._count > len(self._buf):` is wrong; it should be `>=` to detect a full buffer. As written, the buffer can exceed its capacity, causing an IndexError when `self._buf[self._head] = item` is executed (e.g., with capacity 0 or after many pushes). This violates the invariant that count never exceeds capacity and can crash the program on valid input.\n  - Fix: Replace the check with `if self._count >= len(self._buf): raise BufferFull()` and ensure the buffer is not accessed when full.\n\n* [SUGGESTION] SIMPLICITY <Redundant capacity check> (push method)\n  - Issue: The capacity check is unnecessary because the buffer size is fixed; the logic can be simplified by using a boolean `full = self._count == len(self._buf)` and adjusting the condition accordingly, removing the fragile `>` comparison.\n  - Fix: Simplify to `if self._count == len(self._buf): raise BufferFull()` and adjust head/tail logic accordingly.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 22323,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Incorrect buffer full check (in push)\n  - Issue: The condition `if self._count > len(self._buf):` permits one extra element beyond the declared capacity before raising `BufferFull`. After `capacity` pushes, `_count == len(self._buf)`, but the next `push` still writes and increments `_count` to `capacity+1`, breaking the capacity invariant. For `capacity == 0`, `len(self._buf)` is zero, causing an `IndexError` when indexing `self._buf[self._head]` and a `ZeroDivisionError` on the modulo operation.\n  - Fix: Change the guard to `if self._count >= len(self._buf):` (or `if self._count == len(self._buf):` if you want to raise only when the buffer is already full). Additionally, validate `capacity > 0` in `__init__` to avoid division‑by‑zero and indexing errors.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 25236,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC RingBuffer push incorrectly checks fullness (at push)\n  - Issue: The condition `if self._count > len(self._buf):` permits a push when `_count` equals the buffer capacity, causing `_count` to exceed `len(self._buf)` after the push. This breaks the invariant that `_count` never exceeds capacity, leading to incorrect fullness state and potential index errors in later operations (e.g., pop or size queries) once the buffer wraps.\n  - Fix: Change the fullness test to `if self._count >= len(self._buf):` and cap `_count` at capacity to preserve the invariant:\n```\nif self._count >= len(self._buf):\n    raise BufferFull()\nself._buf[self._head] = item\nself._head = (self._head + 1) % len(self._buf)\nself._count = min(self._count + 1, len(self._buf))\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 32603,
+      "duplicate_of": "cohere/north-mini-code:free"
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] [LOGIC] BufferFull check uses wrong comparison operator (in `push`)\n  - Issue: The condition `self._count > len(self._buf)` can never be true because `self._count` is incremented after each push and starts at 0, so it reaches at most `len(self._buf)`. This means the buffer never raises `BufferFull` when it should, allowing unbounded overwrites of the oldest elements once the buffer is full. For example, with capacity 3, pushing 4 items silently overwrites the first item instead of raising.\n  - Fix: Change the condition to `if self._count >= len(self._buf):` so that the buffer correctly raises `BufferFull` when it is full before overwriting.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 4511,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC Incorrect full check leads to buffer overflow (at push)\n    - Issue: The condition `if self._count > len(self._buf):` allows a push when the buffer is already full (`_count == capacity`), causing the internal count to exceed the buffer's capacity and breaking the invariant that `_count` never exceeds the buffer size.\n    - Fix: Change the condition to `if self._count >= len(self._buf):` to reject pushes when the buffer is full.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 25709,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "offbyone_ring_buffer.py",
+    "exit_code": 0,
+    "wall_s": 37.5,
+    "duplicate_of_backfilled": true
+  }
+}

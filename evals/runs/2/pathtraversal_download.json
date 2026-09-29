@@ -1,0 +1,118 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T05:26:03.736509Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "8b93eaecd064",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 2,
+    "total_latency_ms": 72359
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "read_report",
+      "title": "Path Traversal in read_report",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [INJECTION] Path Traversal in read_report (read_report)\n- Issue: The `name` parameter is concatenated with `ROOT` via `os.path.join` without any normalization or boundary check. Inputs like `\"../../etc/passwd\"` or an absolute path like `\"/etc/passwd\"` cause `os.path.join` to return a path outside `/srv/reports`, allowing arbitrary file reads. `os.path.join(\"/srv/reports\", \"/etc/passwd\")` returns `/etc/passwd` because the second argument is absolute.\n- Fix: Normalize the resolved path and verify it remains under ROOT before opening:\n  ```python\n  full = os.path.realpath(os.path.join(ROOT, name))\n  if not (full == os.path.realpath(ROOT) or full.startswith(os.path.realpath(ROOT) + os.sep)):\n      raise PermissionError(name)\n  ```\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7023,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] [INJECTION] Path traversal allows reading arbitrary files (at read_report)\n    - Issue: The function joins user‑supplied `name` with `ROOT` without validating that the resulting path stays inside the intended directory. If `name` contains `..` components or is an absolute path (e.g., `../../etc/passwd` or `/etc/passwd`), `os.path.join` will produce a path outside `/srv/reports`, allowing an attacker to read any file the process can access.\n    - Fix: After constructing `full`, verify that its real path is within `ROOT` before opening, e.g.:\n        ```\n        full = os.path.join(ROOT, name)\n        full_real = os.path.realpath(full)\n        if not full_real.startswith(os.path.realpath(ROOT)):\n            raise FileNotFoundError(name)\n        with open(full_real, \"rb\") as fh:\n            return fh.read()\n        ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 12392,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] [INJECTION] Path Traversal in `read_report` (at `read_report`)\n  - Issue: `name` is joined directly to `ROOT` without normalization or containment validation. A caller passing `../../etc/passwd` (or `..\\..\\etc\\passwd` on Windows) yields `os.path.join(\"/srv/reports\", \"../../etc/passwd\")` → `/etc/passwd`, which `os.path.isfile` resolves and `open` reads. This crosses a trust boundary: untrusted input selects an arbitrary file outside the intended directory, enabling disclosure of sensitive files.\n  - Fix: Resolve the joined path and verify it remains within `ROOT` before opening:\n    ```python\n    full = os.path.realpath(os.path.join(ROOT, name))\n    if os.path.commonpath([ROOT, full]) != ROOT:\n        raise ValueError(\"invalid report name\")\n    ```\n    Also reject absolute `name` values (e.g. `/etc/passwd`) and names containing null bytes, since `os.path.join` discards `ROOT` when `name` is absolute.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7117,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Path traversal in read_report (read_report)\n  - Issue: The function joins user‑controlled `name` with `ROOT` without validation, allowing absolute paths or “..” components to escape the intended directory and read arbitrary files (e.g., `read_report(\"/etc/passwd\")` or `read_report(\"../secret\")`).\n  - Fix: Resolve the joined path and verify it stays within `ROOT`:\n\n```\ndef read_report(name):\n    full = os.path.join(ROOT, name)\n    full = os.path.realpath(full)\n    root_real = os.path.realpath(ROOT)\n    if not full.startswith(root_real):\n        raise PermissionError(\"Path traversal attempt\")\n    with open(full, \"rb\") as fh:\n        return fh.read()\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 72354,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION Path traversal via os.path.join (read_report)\n  - Issue: An attacker can supply a filename containing '..' to escape ROOT, causing os.path.join to produce a path outside /srv/reports and allowing read of arbitrary files. This violates the intended access boundary.\n  - Fix: Replace the manual join and check with os.path.realpath to resolve and enforce that the final path is still under ROOT, e.g.:\n    ```python\n    full = os.path.realpath(os.path.join(ROOT, name))\n    if not full.startswith(ROOT + os.sep):\n        raise FileNotFoundError(name)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16907,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] SECURITY Path Traversal Vulnerability (at read_report function)\n  - Issue: The `name` parameter is directly joined with `ROOT` without validation, allowing path traversal attacks. An attacker can supply `name=\"../../../etc/passwd\"` or `name=\"/etc/passwd\"` to read arbitrary files outside `/srv/reports`. `os.path.join()` does not prevent `../` sequences or absolute paths from escaping the intended directory.\n  - Fix: Validate the resolved path stays within ROOT:\n    ```python\n    def read_report(name):\n        full = os.path.join(ROOT, name)\n        real_path = os.path.realpath(full)\n        if not real_path.startswith(ROOT + os.sep) and real_path != ROOT:\n            raise FileNotFoundError(name)\n        if not os.path.isfile(real_path):\n            raise FileNotFoundError(name)\n        with open(real_path, \"rb\") as fh:\n            return fh.read()\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 28043,
+      "duplicate_of": "poolside/laguna-s-2.1:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 1599
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "Provider error 503 after 4 retries: Provider returned error",
+      "latency_ms": 46734
+    }
+  ],
+  "_eval": {
+    "snippet": "pathtraversal_download.py",
+    "exit_code": 0,
+    "wall_s": 72.8,
+    "duplicate_of_backfilled": true
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T11:06:43.270651Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "988e333399d5",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 15241,
+    "context": {
+      "files": [
+        "src/notifications/subscribers.js"
+      ],
+      "tokens": 55,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "createUser",
+      "title": "user:created event renamed without updating subscribers",
+      "models": [
+        "cohere/north-mini-code:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 1
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC `user:created` event renamed without updating subscribers (at `createUser`)\n  - Issue: `createUser` now emits `userCreated`, but the registered subscribers listen for `user:created`. Every successful user creation therefore skips both `sendWelcome` and `trackSignup`, silently leaving users without the welcome email and without signup analytics.\n  - Fix: Keep the existing event name (`bus.emit(\"user:created\", user)`), or update every subscriber to use `userCreated` in the same change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4550
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC Event name mismatch breaks subscriber chain (at bus.emit in createUser)\n  - Issue: The event name is changed from \"user:created\" to \"userCreated\", but the subscribers in src/notifications/subscribers.js are still registered for \"user:created\". This causes welcome emails and signup analytics to never fire when users are created, silently breaking critical user onboarding flows.\n  - Fix: Either update subscribers to `bus.on(\"userCreated\", sendWelcome)` and `bus.on(\"userCreated\", trackSignup)`, or revert the event name change to maintain consistency.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8826
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC Silent failure of event subscribers due to event name mismatch (at bus.emit)\n    - Issue: The event name emitted by createUser was changed from \"user:created\" to \"userCreated\", but the subscribers in src/notifications/subscribers.js still listen for \"user:created\". This causes sendWelcome and trackSignup to never execute when a user is created, silently breaking core functionality.\n    - Fix: Revert the event name to \"user:created\" in the bus.emit call to match the existing subscribers.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15115
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] LOGIC Event name mismatch breaks listeners (at line 8)\n- Issue: The emit changed from \"user:created\" to \"userCreated\". Listeners registered for \"user:created\" will never be invoked, causing missing welcome emails and analytics tracking.\n- Fix: Change bus.emit back to \"user:created\".",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15233
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 15.7
+  }
+}

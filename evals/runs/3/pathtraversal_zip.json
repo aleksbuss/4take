@@ -1,0 +1,112 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T08:55:29.926809Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "327c26020d67",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 37102
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "unpack",
+      "title": "Path Traversal via Zip Slip",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "SIMPLICITY",
+      "symbol": "unpack",
+      "title": "Unnecessary per‑member extraction loop",
+      "models": [
+        "cohere/north-mini-code:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] Path Traversal via Zip Slip (at `unpack`, `zf.extract` call)\n  - Issue: `zf.extract(member, dest)` trusts member names from the archive without validation. A malicious zip containing entries like `../../../etc/cron.d/malicious` or absolute paths (`/tmp/evil`) causes `extract` to write files outside `dest`, enabling arbitrary file write. Any user-controlled or untrusted zip archive triggers this.\n  - Fix: Resolve each member path against `dest` and verify it stays within the destination before extraction:\n    ```python\n    import os\n    def unpack(archive_path, dest):\n        dest_real = os.path.realpath(dest)\n        with zipfile.ZipFile(archive_path) as zf:\n            for member in zf.namelist():\n                member_path = os.path.realpath(os.path.join(dest, member))\n                if not (member_path == dest_real or member_path.startswith(dest_real + os.sep)):\n                    raise ValueError(f\"Path traversal detected: {member}\")\n                zf.extract(member, dest)\n    ```\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 7959,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [INJECTION] Path traversal vulnerability via zip slip (at symbol/unpack)\n    - Issue: The function extracts archive members without checking for directory traversal sequences (e.g., \"../../etc/passwd\") in member names, allowing an attacker to write files outside the intended destination directory.\n    - Fix: Before extraction, compute the target path = os.path.join(dest, member), normalize it, and verify that it starts with dest (using os.path.commonpath). Skip or raise if outside.\n\n* [WARNING] [INJECTION] Path traversal vulnerability via zip slip (at symbol/unpack)\n    - Issue: The function extracts archive members without checking for directory traversal sequences (e.g., \"../../etc/passwd\") in member names, allowing an attacker to write files outside the intended destination directory.\n    - Fix: Before extraction, compute the target path = os.path.join(dest, member), normalize it, and verify that it starts with dest (using os.path.commonpath). Skip or raise if outside.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 17736,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Path Traversal via zipfile.extract (unpack function)\n  - Issue: If the zip archive contains entries with absolute paths or '..' components, extract will write outside the intended destination directory, allowing an attacker to overwrite arbitrary files. For example, a member named \"../../etc/passwd\" will cause extraction to /etc/passwd, bypassing the dest argument.\n  - Fix: Validate each member's path before extraction. Use os.path.normpath to resolve '..' and ensure the resulting path is within dest. Example:\n    import os\n    target = os.path.join(dest, member)\n    if not os.path.commonprefix([os.path.realpath(target), os.path.realpath(dest)]) == os.path.realpath(dest):\n        raise ValueError(f\"Attempted path traversal in zip entry: {member}\")\n    zf.extract(member, dest)\n\n* [WARNING] SIMPLICITY Unnecessary per‑member extraction loop (unpack function)\n  - Issue: The loop extracts each member individually, adding overhead and maintenance burden. The zipfile module provides extractall which performs the same operation in a single call, reducing code complexity and potential for future bugs.\n  - Fix: Replace the loop with a single call to zf.extractall(dest) after applying the path‑traversal safeguard.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 29645,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "* [CRITICAL] [INJECTION] Archive paths can escape the extraction directory (`unpack`)\n  - Issue: `zf.extract(member, dest)` trusts each archive path. An entry such as `../../secret.txt` or an absolute path can overwrite files outside `dest`, enabling arbitrary-file overwrite. Symlink entries can redirect subsequent writes through the same escape.\n  - Fix: Reject absolute paths and every `..` component; resolve each member against `dest`, verify it remains under `dest` with `commonpath`, and reject or safely handle symlinks before extraction.\n* [WARNING] [BOUNDS] Extraction has no member-count or decompressed-size limits (`unpack`)\n  - Issue: `namelist()` loads all names into memory, and `extract` streams every member without limiting total bytes or entries. A valid archive containing many entries or a small compressed file with a huge uncompressed size can exhaust memory or disk space.\n  - Fix: Enforce configurable maximum member count and cumulative uncompressed size before and while extracting, using streaming reads and rejecting oversized members.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18129,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION <Path traversal via zip member names> (zf.extract)\n  - Issue: Member names containing '..' or absolute paths cause extraction outside dest, enabling arbitrary file write and potential code execution.\n  - Fix: Validate member path safety before extraction, e.g., `if not os.path.abspath(os.path.join(dest, member)).startswith(os.path.abspath(dest)): continue`.\n\n* [WARNING] LOGIC <Unhandled extraction errors> (zf.extract)\n  - Issue: Any exception during extraction aborts the loop, leaving partially extracted archive and potentially corrupt state; no retry or cleanup.\n  - Fix: Wrap extraction in try/except, log error, and continue to next member.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary manual loop> (zf.extract)\n  - Issue: Extracting members one-by-one adds O(n) Python overhead versus zipfile.extractall which handles it internally.\n  - Fix: Replace loop with `zf.extractall(dest)` after safety validation.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18965,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "pathtraversal_zip.py",
+    "exit_code": 0,
+    "wall_s": 37.5,
+    "duplicate_of_backfilled": true
+  }
+}

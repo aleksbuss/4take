@@ -1,0 +1,150 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-15T06:32:59.123795Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "99e8aadee29b",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 7,
+    "total_latency_ms": 137179
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor; inclusionai held more than one seat: no other vendor answered in time, so agreement between those seats is weaker evidence",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "summarise",
+      "title": "Crash on empty input",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "summarise",
+      "title": "[summarise] Incorrect median for even-sized ok list",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [ERROR_HANDLING] Crash on empty input (at `summarise`)\n  - Issue: When `samples` is empty, `len(samples)` is 0, causing `ZeroDivisionError` on the `success_rate` line and `IndexError` on the p50 line. Any caller passing an empty list crashes.\n  - Fix: Add an early return for the empty case, e.g. `if not samples: return {\"count\": 0, \"success_rate\": 0.0, \"p50_ms\": None}`.\n\n* [CRITICAL] [ERROR_HANDLING] Crash when no samples are ok (at `summarise`)\n  - Issue: If every sample has `\"ok\": False`, the `ok` list is empty, and `sorted([])[0]` raises `IndexError`. The `success_rate` line would compute `0 / len(samples)` fine, but the p50 line always crashes in this case.\n  - Fix: Guard the p50 computation with `if not ok: ...` or use the same early-return pattern.\n\n* [WARNING] [LOGIC] p50 median is wrong for even-length ok lists (at `summarise`)\n  - Issue: `sorted(...)[len(ok) // 2]` picks the upper-middle element for even-length lists instead of the true median (average of the two middle values). For example, latencies [10, 20, 30, 40] yields index 2 → 30, whereas the correct median is 25. This silently reports a biased latency figure.\n  - Fix: Use `statistics.median()` or compute the average of the two central elements for even-length lists.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 4418,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC [summarise] Incorrect median for even-sized ok list (at summarise)\n    - Issue: When `ok` has an even number of elements, the code returns the element at index `len(ok)//2`, which is the upper middle rather than the statistical median (average of the two middle values). For example, with latencies [10, 20, 30, 40] the function returns 30 instead of 25, producing a wrong success metric that callers may trust.\n    - Fix: Compute the true median: if `n = len(ok)` is odd, return `sorted_lat[n//2]`; if even, return `(sorted_lat[n//2 - 1] + sorted_lat[n//2]) / 2`.\n\n* [CRITICAL] ERROR_HANDLING [summarise] Division by zero when samples is empty (at summarise)\n    - Issue: If `samples` is an empty list, `len(samples)` is zero and the expression `len(ok) / len(samples)` raises `ZeroDivisionError`, crashing the caller.\n    - Fix: Guard against empty input: if not `samples`: return {\"count\": 0, \"success_rate\": 0.0, \"p50_ms\": None} (or another suitable default).\n\n* [CRITICAL] ERROR_HANDLING [summarise] Index error when no successful samples (at summarise)\n    - Issue: When `ok` is empty (all samples have `\"ok\": False`), `sorted(...)` yields an empty list and indexing `[len(ok)//2]` attempts to access index 0, raising `IndexError`.\n    - Fix: Check if `ok` is empty before computing the percentile: if not `ok`: set `\"p50_ms\": None` (or 0) instead of attempting to index.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10661,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] [BOUNDS] Division by zero and index error on empty input (summarise)\n  - Issue: When `samples` is empty, `len(samples)` is 0, so `len(ok) / len(samples)` raises `ZeroDivisionError`. Even if that were guarded, `sorted(...)[len(ok) // 2]` would raise `IndexError` because `ok` is also empty. A caller passing an empty list (e.g. no samples collected) crashes instead of getting a defined result.\n  - Fix: Guard the empty case at the top: `if not samples: return {\"count\": 0, \"success_rate\": 0.0, \"p50_ms\": 0.0}` (or `None` for p50).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 3709,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [ERROR_HANDLING] ZeroDivisionError on empty input (summarise)\n  - Issue: When `samples` is empty, `len(ok) / len(samples)` raises ZeroDivisionError. This is a valid input scenario (e.g., a test run with no samples) and the caller will not expect an unhandled exception.\n  - Fix: Guard with `if not samples: return {\"count\": 0, \"success_rate\": 0.0, \"p50_ms\": None}` or similar sentinel before computing.\n\n* [CRITICAL] [ERROR_HANDLING] IndexError when no samples are OK (summarise, p50_ms line)\n  - Issue: If `ok` is empty (all samples failed), `sorted(...)[len(ok) // 2]` evaluates to `[][0]`, raising IndexError. This occurs independently of the empty-samples case — a non-empty batch where every sample failed triggers it.\n  - Fix: Check `if not ok:` before indexing and return a sentinel (e.g., `None`) for `p50_ms`.\n\n* [CRITICAL] [LOGIC] p50_ms is not a true median for even-length lists (summarise, p50_ms line)\n  - Issue: `sorted(latencies)[len(ok) // 2]` returns the upper-middle element for even-length lists, not the median. For `[10, 20, 30, 40]` (n=4), it returns `30` instead of `25`. Callers trusting \"p50\" will get a systematically inflated value, skewing any SLA or alerting logic built on it.\n  - Fix: Use `statistics.median(sorted(...))` or explicitly average indices `n//2 - 1` and `n//2` when `n` is even.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 10630,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC <Division by zero and index error when samples empty> (in summarise function)\n  - Issue: When samples is empty, len(samples) is 0 causing ZeroDivisionError in success_rate and IndexError when accessing sorted list for p50_ms, leading to crash.\n  - Fix: Add early return for empty input, e.g., if not samples: return {\"count\":0,\"success_rate\":0.0,\"p50_ms\":None}.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 17128,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "error": "",
+      "latency_ms": 21142
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "",
+      "latency_ms": 37774
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 47285
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 37737
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 38497
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "error": "",
+      "latency_ms": 105397
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-pro:free",
+      "error": "",
+      "latency_ms": 61658
+    }
+  ],
+  "_eval": {
+    "snippet": "divzero_average_latency.py",
+    "exit_code": 0,
+    "wall_s": 137.6,
+    "duplicate_of_backfilled": true
+  }
+}

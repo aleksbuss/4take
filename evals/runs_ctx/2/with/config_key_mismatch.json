@@ -1,0 +1,93 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-25T15:56:14.506640Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "616516c27b6d",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 16390,
+    "context": {
+      "files": [
+        "app/settings.py"
+      ],
+      "tokens": 64,
+      "dropped": []
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "fetch_profile",
+      "title": "AttributeError on undefined setting",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] ERROR_HANDLING AttributeError on undefined setting (at fetch_profile)\n- Issue: The code references `settings.PROFILE_API_TIMEOUT_MS`, but `app/settings.py` only defines `PROFILE_API_TIMEOUT_SECONDS`. This will raise `AttributeError` at runtime. Additionally, even if the name were corrected, dividing seconds by 1000 would produce a 0.01s timeout instead of the intended 10s.\n- Fix: Replace `settings.PROFILE_API_TIMEOUT_MS / 1000` with `settings.PROFILE_API_TIMEOUT_SECONDS` (no division needed — the setting is already in seconds).\n\n[CRITICAL] LOGIC Timeout value off by 1000x (at fetch_profile)\n- Issue: If the setting name were fixed to `PROFILE_API_TIMEOUT_SECONDS`, the `/ 1000` would turn a 10-second timeout into 0.01 seconds, causing every profile request to fail with a timeout. The original hardcoded `timeout=10` matched the setting's default of 10 seconds, confirming the setting is in seconds.\n- Fix: Remove the `/ 1000` division; use the setting value directly as it already represents seconds.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4152
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] LOGIC `fetch_profile` reads a nonexistent timeout setting (at `fetch_profile`)\n  - Issue: Every invocation evaluates `settings.PROFILE_API_TIMEOUT_MS`, but the provided settings module defines only `PROFILE_API_TIMEOUT_SECONDS`. Consequently, `fetch_profile()` raises `AttributeError` before issuing the request, so all valid profile lookups fail.\n  - Fix: Use the existing seconds-valued setting directly: `timeout = settings.PROFILE_API_TIMEOUT_SECONDS` (or rename and migrate the setting everywhere if milliseconds are required).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4788
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "[CRITICAL] [LOGIC] Undefined PROFILE_API_TIMEOUT_MS setting (at fetch_profile)\n- Issue: The function fetch_profile references `settings.PROFILE_API_TIMEOUT_MS`, which does not exist in the settings module. The defined setting is `PROFILE_API_TIMEOUT_SECONDS`. This causes an AttributeError at runtime when fetch_profile is invoked, breaking the service. The division by 1000 also indicates a unit mismatch.\n- Fix: Replace the timeout assignment with the correct setting: `timeout = settings.PROFILE_API_TIMEOUT_SECONDS`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 14182
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "[CRITICAL] LOGIC <Undefined timeout setting causing crash> (clients/profiles.py line after import)\n- Issue: The code uses `settings.PROFILE_API_TIMEOUT_MS`, which is not defined in `app/settings.py`; when the environment variable is absent the attribute lookup raises `AttributeError`, causing `fetch_profile` to fail and return no result, breaking callers that expect a successful HTTP response.\n- Fix: Replace the timeout assignment with the existing second‑based setting, e.g. `timeout = settings.PROFILE_API_TIMEOUT_SECONDS`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16380
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 17.1
+  }
+}

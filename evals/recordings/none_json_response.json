@@ -1,0 +1,162 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:15:09.960175Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "99c9b53936e4",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 21551
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "fetchProfile",
+      "title": "body.profile.displayName access without null guard",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "fetchProfile",
+      "title": "SECURITY INJECTION URL Path Traversal",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nex-agi/nex-n2.5-mini:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "fetchProfile",
+      "title": "No HTTP status check before parsing response",
+      "models": [
+        "inclusionai/ling-3.0-flash-vl:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "AUTH_CRYPTO",
+      "symbol": "start",
+      "title": "Potential unauthorized profile access",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": null,
+      "title": "Unnecessary optional chaining fallback",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [BOUNDS] `body.profile.displayName` access without null guard (fetchProfile)\n  - Issue: If the API returns a response where `profile` is `null`/`undefined`, or `displayName` is missing, the chain `body.profile.displayName.trim()` throws a `TypeError`, crashing the caller. The `avatarUrl` access shows awareness that fields can be absent (via `||`), but `displayName` is left unprotected. Concrete trigger: `{ profile: {} }` or `{ profile: null }` as the response body.\n  - Fix: Use optional chaining and nullish fallback: `name: body?.profile?.displayName?.trim() ?? \"Unknown\",`\n\n* [WARNING] [INJECTION] Unvalidated `id` interpolated into URL path (fetchProfile)\n  - Issue: `id` is inserted directly into `` `/users/${id}` `` without encoding or validation. If `id` originates from user input and contains `../`, `%2e%2e%2f`, or query-string characters, it can alter the request path or inject query parameters, enabling path traversal or SSRF. Concrete trigger: `id = \"../admin/delete?confirm=true\"`.\n  - Fix: Validate `id` against an expected pattern (e.g., `/^\\d+$/` or a UUID regex) before use, or encode with `encodeURIComponent(id)`.\n\n* [WARNING] [ERROR_HANDLING] No HTTP status check before parsing response (fetchProfile)\n  - Issue: The function calls `res.json()` unconditionally regardless of the response status. A `4xx` or `5xx` response (e.g., 404 Not Found, 500 Internal Server Error) will either throw on `res.json()` or return an error-shaped body lacking `profile`, which then crashes at the property access. The caller receives no indication that the request failed.\n  - Fix: Add a status guard before parsing: `if (!res.ok) throw new Error(`fetchProfile failed: ${res.status}`);` before `const body = await res.json();`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 9756,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Missing profile guard> (at function body)\n  - Issue: If `body.profile` is missing or null, accessing `body.profile.displayName` throws a TypeError, causing the function to crash on valid inputs where the API returns an error payload or empty profile. This violates correctness as callers will receive an unhandled exception.\n  - Fix: Add a guard before accessing profile properties, e.g., `if (!body.profile) throw new Error('Invalid profile');` or return a default.\n\n* [WARNING] AUTH_CRYPTO <Potential unauthorized profile access> (at function start)\n  - Issue: The function trusts the provided `client` to enforce authorization; if the client is compromised or the endpoint lacks auth checks, any caller can fetch arbitrary user profiles, leading to data exposure. This is a security concern because no explicit authorization is performed.\n  - Fix: Ensure the client or surrounding code validates the caller’s permissions before invoking `client.get`.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary optional chaining fallback> (at avatar assignment)\n  - Issue: Using `body.profile.avatarUrl || \"/static/default.png\"` relies on truthiness; if `avatarUrl` is an empty string, the fallback is incorrectly used, and the logic adds cognitive overhead for a simple default value. A clearer, safer approach is to explicitly check for null/undefined.\n  - Fix: Replace with `const avatar = body.profile?.avatarUrl ?? \"/static/default.png\";` or `if (body.profile?.avatarUrl) return { avatar: body.profile.avatarUrl } else { avatar: \"/static/default.png\" }`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 15964,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nex-agi/nex-n2.5-mini:free",
+      "served_model": "nex-agi/nex-n2.5-mini:free",
+      "served_provider": "Nex AGI",
+      "content": "[WARNING] [INJECTION] Unencoded identifier in URL path (`fetchProfile`)\n- Issue: `id` is interpolated directly into the path, so an input such as `../other` can alter the requested resource (`/users/../other`) if the client preserves path segments. Validate `id` against the expected format and encode it with `encodeURIComponent(id)`.\n- Fix: `const encodedId = encodeURIComponent(String(id)); const res = await client.get(\\`/users/\\${encodedId}\\`);`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 8448,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] SECURITY INJECTION URL Path Traversal (at `fetchProfile` function, line with `/users/${id}`)\n  - Issue: The `id` parameter is directly interpolated into the URL path without validation or sanitization. An attacker could pass `id` values like `123/../../../admin` or `123?malicious=param` to manipulate the request path or inject query parameters, potentially accessing unauthorized resources or bypassing intended access controls.\n  - Fix: Validate `id` against a strict pattern (e.g., alphanumeric only) or use URL encoding: `const safeId = encodeURIComponent(id); const res = await client.get(`/users/${safeId}`);`\n\n* [WARNING] ERROR_HANDLING Missing Error Handling and Response Validation (at `fetchProfile` function)\n  - Issue: No try/catch block, no HTTP status validation, and unsafe property access on `body.profile.displayName.trim()`. If the API returns a 4xx/5xx status, malformed JSON, or unexpected structure (missing `profile` or `displayName`), the function throws an uncaught exception. Callers cannot distinguish between network errors, API errors, and data structure errors.\n  - Fix: Add response status check, validate response structure, and handle missing properties: `if (!res.ok) throw new Error(`HTTP ${res.status}`); if (!body?.profile?.displayName) throw new Error('Invalid response');`\n\n* [WARNING] LOGIC Unsafe Property Access (at `fetchProfile` function, `body.profile.displayName.trim()`)\n  - Issue: Accessing `body.profile.displayName.trim()` without null/undefined checks will throw `TypeError: Cannot read property 'trim' of undefined` if the API response lacks the expected nested structure, causing unexpected crashes in production.\n  - Fix: Use optional chaining with fallback: `name: body?.profile?.displayName?.trim() || 'Unknown',`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 21544,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [LOGIC] Missing null checks on profile fields (at fetchProfile)\n    - Issue: If the API response lacks a `profile` object or `displayName` is not a string, `body.profile.displayName.trim()` throws a TypeError, causing the function to crash and potentially propagate an unhandled rejection.\n    - Fix: Use safe access with fallback, e.g., `const name = body.profile?.displayName?.trim() ?? '';`.\n\n* [WARNING] [INJECTION] Potential path injection via user-supplied id (at fetchProfile)\n    - Issue: The `id` parameter is interpolated directly into the URL path without encoding; if `id` contains characters like `'../'` or `'/'`, an attacker could traverse paths or access unintended endpoints, leading to unauthorized data exposure.\n    - Fix: Encode the id before interpolation: `const res = await client.get(\\`/users/${encodeURIComponent(id)}\\`);`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 16984,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 11859
+    }
+  ],
+  "_eval": {
+    "snippet": "none_json_response.js",
+    "exit_code": 0,
+    "wall_s": 21.9,
+    "duplicate_of_backfilled": true
+  }
+}

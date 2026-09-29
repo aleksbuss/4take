@@ -1,0 +1,88 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-14T21:20:05.814246Z",
+  "config": {
+    "models_requested": 1,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "96f444bcad73",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 33253
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "get",
+      "title": "Race condition in async token refresh",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-vl:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 1,
+        "WARNING": 3
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-vl:free",
+      "served_model": "inclusionai/ling-3.0-flash-vl:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [CONCURRENCY] Race condition in async token refresh (TokenCache.get)\n  - Issue: Multiple concurrent callers of `get()` can race past the `if self._token is None or self._token.expired` check before either assignment completes, causing all of them to invoke `_refresh()` simultaneously. This can produce duplicate network calls, wasted resources, and potentially inconsistent token state if `_refresh` has side effects or returns different values on each call.\n  - Fix: Use an `asyncio.Lock` around the check-and-refresh block, or store the in-flight refresh task (`asyncio.create_task`) and await it on subsequent calls so only one refresh executes at a time.\n",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 13627,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] CONCURRENCY Race Condition in TokenCache.get() (at TokenCache.get method)\n  - Issue: Multiple concurrent calls to `get()` can all observe `self._token is None` or `self._token.expired` as true, causing multiple simultaneous refresh operations. The last refresh to complete will overwrite `self._token`, potentially using a stale or incorrect token. This violates the invariant that only one token should be active, and can cause resource exhaustion or incorrect authentication under concurrent load.\n  - Fix: Add an `asyncio.Lock` to serialize refresh operations:\n    ```python\n    def __init__(self, refresh):\n        self._token = None\n        self._refresh = refresh\n        self._lock = asyncio.Lock()\n    \n    async def get(self):\n        if self._token is None or self._token.expired:\n            async with self._lock:\n                if self._token is None or self._token.expired:\n                    self._token = await self._refresh()\n        return self._token\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 18539,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC MissingAwaitAndRaceCondition (at token refresh call)  \n- Issue: `self._refresh()` is called without `await`, so the coroutine never runs; `token` stays unchanged, causing repeated refresh attempts and potential infinite loops. Concurrent `get` calls can also trigger multiple refreshes because there is no synchronization.  \n- Fix: Use `token = await self._refresh()` and guard the refresh with an `asyncio.Lock` to ensure only one refresh occurs at a time.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 20181,
+      "duplicate_of": null
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] CONCURRENCY Race condition on token refresh (TokenCache.get)\n    - Issue: Two concurrent calls to get() can both evaluate `self._token is None or self._token.expired` as true before either refreshes, causing multiple invocations of `self._refresh()` and overwriting `self._token`. This leads to unnecessary work, potential token inconsistency, and degraded performance under load.\n    - Fix: Protect the refresh and assignment with an asyncio lock. In `__init__`, add `self._lock = asyncio.Lock()`. In `get`, wrap the check and refresh in `async with self._lock:` and assign `self._token = await self._refresh()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "latency_ms": 33246,
+      "duplicate_of": null
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "race_async_cache.py",
+    "exit_code": 0,
+    "wall_s": 33.6,
+    "duplicate_of_backfilled": true
+  }
+}

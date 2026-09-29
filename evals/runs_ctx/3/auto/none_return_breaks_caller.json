@@ -1,0 +1,115 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T16:15:40.638122Z",
+  "config": {
+    "models_requested": 8,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "14236218e783",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 31829,
+    "context": {
+      "files": [
+        "app/api.py",
+        "app/mailer.py"
+      ],
+      "tokens": 134,
+      "dropped": [],
+      "auto": {
+        "app/api.py": "uses find_user",
+        "app/mailer.py": "uses find_user"
+      }
+    }
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "find_user",
+      "title": "find_user returns None instead of raising UserNotFound",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [CRITICAL] [LOGIC] `find_user` no longer raises the exception required by its callers (at `find_user`)\n  - Issue: Returning `None` for a missing user breaks the established contract visible in `app/api.py` and `app/mailer.py`. For a valid request to a nonexistent ID, `get_profile` catches `UserNotFound` but never receives it and then dereferences `user.email`, causing an `AttributeError` and a 500 response. `send_welcome_email` likewise fails with `AttributeError` instead of handling the missing user through its existing exception-based flow.\n  - Fix: Preserve the contract by retaining `raise UserNotFound(user_id)`; update callers only if the API is intentionally being changed, and then handle `None` consistently in every caller.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9136
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "[WARNING] LOGIC <Incorrect return type for error case> (at find_user)\n    - Issue: The function `find_user` was changed to return `None` on missing user instead of raising `UserNotFound`. However, the callers in `app/api.py` (get_profile) and `app/mailer.py` (send_welcome_email) do not check for `None` and will attempt to access attributes on `None`, causing an AttributeError. This breaks the existing contract expected by the callers.\n    - Fix: Revert the change to raise `UserNotFound(user_id)` when `row is None` to maintain compatibility with existing callers, or update the callers to handle `None` (but the callers are not under review in this diff). Since we are only reviewing the changed file, the fix is to restore the exception.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 19453
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [CORRECTNESS] find_user returns None instead of raising, breaking callers that rely on UserNotFound (at app/users.py:14)\n- Issue: `get_profile` in `app/api.py` catches `UserNotFound` to return a 404; after this change it receives `None` and crashes with `AttributeError` on `user.email`, turning a controlled \"not found\" response into an unhandled 500. `send_welcome_email` in `app/mailer.py` has no guard and will similarly crash on missing users.\n- Fix: Either restore `raise UserNotFound(user_id)` in `find_user`, or update every caller (`get_profile`, `send_welcome_email`, and any others) to explicitly check for `None` before dereferencing.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5883
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC find_user returns None instead of raising UserNotFound (at find_user)\n  - Issue: The function now returns None when a user is not found, causing callers like get_profile and send_welcome_email to dereference None and crash with AttributeError on valid input (non‑existent user_id). This breaks error handling and violates the existing contract that find_user raises UserNotFound.\n  - Fix: Revert the change; keep raising UserNotFound(user_id) when row is None.\n\n* [WARNING] STRUCTURE find_user’s exception‑based contract is broken (at find_user)\n  - Issue: Changing find_user from raising UserNotFound to returning None is a breaking interface change. Callers that rely on the exception for control flow (e.g., get_profile’s try/except) now receive a None object, forcing them to be updated. This coupling makes future changes costly.\n  - Fix: Restore the original behavior (raise UserNotFound) or provide a wrapper that preserves the exception contract.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 31820
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <find_user returns None causing crash in get_profile (app/users.py)>\n  - Issue: get_profile expects find_user to raise UserNotFound for missing ids; after the change it returns None, so the subsequent access to user.email raises AttributeError and crashes the request for any valid but non‑existent user_id.\n  - Fix: return UserNotFound(user_id)  # restore the original exception",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 21045
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 15015
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 32.6
+  }
+}

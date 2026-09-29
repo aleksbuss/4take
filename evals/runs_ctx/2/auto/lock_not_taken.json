@@ -1,0 +1,103 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T14:33:09.641122Z",
+  "config": {
+    "models_requested": 7,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "656049806476",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 48379,
+    "context": {
+      "files": [
+        "limits/counter.py (lines 6-23)"
+      ],
+      "tokens": 157,
+      "dropped": [],
+      "auto": {
+        "limits/counter.py (lines 6-23)": "the rest of class RateCounter"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "reset",
+      "title": "Missing lock in reset()",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free",
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CORRECTNESS Race condition in reset method (at reset method)\n  - Issue: The `reset` method modifies shared state (`_counts` and `_windows`) without acquiring `self._lock`. This violates the thread-safety contract established by `hit` and `count` methods which both acquire the lock. Concurrent calls to `reset` with another thread's `hit` or `count` can cause data corruption, RuntimeError from dict modification during iteration, or inconsistent state where `_counts` and `_windows` become desynchronized.\n  - Fix: Wrap the operations in the lock:\n    ```python\n    def reset(self, key):\n        \"\"\"Forget everything recorded for `key`.\"\"\"\n        with self._lock:\n            self._counts.pop(key, None)\n            self._windows.pop(key, None)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7598
+    },
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] CONCURRENCY `reset()` bypasses the counter’s synchronization (at `RateCounter.reset`)\n  - Issue: `hit()` and `count()` access `_counts` and `_windows` while holding `self._lock`, but `reset()` mutates both dictionaries without it. A concurrent `hit()` can increment `_counts[key]`, be preempted, and then have `_windows[key]` appended after `reset()` removes the entries. The key is left in `_windows` but absent from `_counts`, violating the class invariant. Future changes that use `_counts` as an authoritative count can silently return incorrect totals.\n  - Fix: Acquire `self._lock` around both removals so reset is atomic with respect to `hit()` and `count()`:\n    ```python\n    with self._lock:\n        self._counts.pop(key, None)\n        self._windows.pop(key, None)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 33698
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] CONCURRENCY Missing lock in reset() (at reset:4)\n  - Issue: `reset` mutates `self._counts` and `self._windows` without acquiring `self._lock`, while `hit` and `count` both hold that lock for the same structures. A concurrent `hit`/`count` during `reset` can corrupt the defaultdict/deque state or observe inconsistent snapshots (one dict cleared, the other not).\n  - Fix: Wrap the body in `with self._lock:` to match the locking discipline of `hit` and `count`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7988
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] CONCURRENCY ResetWithoutLock (in RateCounter.reset method)\n  - Issue: The reset method modifies `_counts` and `_windows` without acquiring `_lock`, causing concurrent threads to observe inconsistent state (e.g., `count` may read a partially cleared dictionary), resulting in incorrect hit counts and potential data corruption.\n  - Fix: Acquire the lock before performing the deletions:\n    ```python\n    def reset(self, key):\n        \"\"\"Forget everything recorded for `key`.\"\"\"\n        with self._lock:\n            self._counts.pop(key, None)\n            self._windows.pop(key, None)\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 48365
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 28921
+    }
+  ],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 49.5
+  }
+}

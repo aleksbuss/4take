@@ -1,0 +1,109 @@
+{
+  "version": "0.1.0",
+  "timestamp": "2026-09-29T16:12:01.016549Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 300,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "988e333399d5",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 33911,
+    "context": {
+      "files": [
+        "src/notifications/subscribers.js"
+      ],
+      "tokens": 55,
+      "dropped": [],
+      "auto": {
+        "src/notifications/subscribers.js": "uses \"user:created\", which the change removes"
+      }
+    }
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "emit",
+      "title": "Event rename leaves subscribers orphaned",
+      "models": [
+        "dots-studio/dots-3-note-preview:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 3
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "createUser",
+      "title": "User-created event no longer reaches subscribers",
+      "models": [
+        "stealth/space-bunny-alpha"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/stealth/space-bunny-alpha",
+      "served_model": "stealth/space-bunny-alpha",
+      "served_provider": "Stealth",
+      "content": "* [WARNING] LOGIC User-created event no longer reaches subscribers (in `createUser`)\n  - Issue: The publisher now emits `\"userCreated\"`, but `src/notifications/subscribers.js` subscribes to `\"user:created\"`. Every successful user creation therefore bypasses both `sendWelcome` and `trackSignup`, causing missing expected side effects. This is an unconditional integration break.\n  - Fix: Emit the event name used by the registered subscribers (`bus.emit(\"user:created\", user)`), or update and consistently centralize the event contract across publisher and subscribers.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4076
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC bus.emit(\"userCreated\", user) (in createUser function)\n  - Issue: The event name mismatch prevents the notifications/subscribers.js listeners for \"user:created\" from being triggered, so welcome emails and signup analytics are not sent, causing incorrect user onboarding behavior that callers rely on.\n  - Fix: Change the emit back to bus.emit(\"user:created\", user);",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12198
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n* [CRITICAL] [LOGIC] Event rename leaves subscribers orphaned (src/users/service.js, bus.emit)\n    - Issue: The emitter was renamed from `user:created` to `userCreated`, but `src/notifications/subscribers.js` still registers listeners on `bus.on(\"user:created\", ...)` for both `sendWelcome` and `trackSignup`. Because Node.js EventEmitter matches event names exactly, emitting `userCreated` fires zero listeners. `createUser` still returns the user successfully, so the caller sees a normal 200/create and trusts the signup flow completed — but the welcome email is never sent and signup analytics are never tracked. This triggers on every valid `createUser` call, not just an edge case.\n    - Fix: Make the names consistent in one direction. Either revert the emitter to `bus.emit(\"user:created\", user)`, or update both subscribers to `bus.on(\"userCreated\", sendWelcome)` / `bus.on(\"userCreated\", trackSignup)`. Prefer a single source of truth for the event name (e.g., a shared constant exported from a shared module) so the emitter and listeners cannot drift apart again.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 19202
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CORRECTNESS Event Name Mismatch Breaking Subscribers (at bus.emit in src/users/service.js)\n  - Issue: The event name is changed from `\"user:created\"` to `\"userCreated\"`, but the subscribers in `src/notifications/subscribers.js` still listen for `\"user:created\"`. This breaks the contract between emitter and listeners, causing `sendWelcome` and `trackSignup` handlers to never fire. Users won't receive welcome emails and signups won't be tracked.\n  - Fix: Either change the event name in both places consistently, or revert the change in service.js. If the new naming convention is intentional, update subscribers.js: `bus.on(\"userCreated\", sendWelcome);` and `bus.on(\"userCreated\", trackSignup);`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 33899
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "review.diff",
+    "exit_code": 0,
+    "wall_s": 35.1
+  }
+}
