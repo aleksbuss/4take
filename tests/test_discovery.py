@@ -2,6 +2,7 @@ import pytest
 import respx
 
 from fourtake.discovery import evaluate_model_intelligence, get_best_free_models
+from fourtake.telemetry import ModelStats
 
 
 def test_evaluate_model_intelligence():
@@ -264,3 +265,19 @@ def test_null_pricing_is_not_free_unless_the_id_says_so():
 
     assert not is_model_free({"id": "vendor/paid-model", "pricing": None})
     assert is_model_free({"id": "vendor/model:free", "pricing": None})
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_model_its_provider_keeps_refusing_is_left_out_of_the_pool():
+    """
+    Demoting is not enough: with a dozen free models a demoted one still fills the rotation
+    tail, and every council that reached it spent its time on 429 retries.
+    """
+    respx.get("https://openrouter.ai/api/v1/models").respond(json={"data": [
+        {"id": "a/model-qwen-2-72b:free", "pricing": {"prompt": "0", "completion": "0"}, "context_length": 32000},
+        {"id": "b/model-llama-3-8b:free", "pricing": {"prompt": "0", "completion": "0"}, "context_length": 8192},
+    ]})
+    stats = {"openrouter/a/model-qwen-2-72b:free": ModelStats(attempts=20, successes=0, p50_latency_ms=0, unavailable=True)}
+
+    assert await get_best_free_models(min_context=4000, count=2, stats=stats) == ["openrouter/b/model-llama-3-8b:free"]

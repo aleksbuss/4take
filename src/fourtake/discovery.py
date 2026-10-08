@@ -203,6 +203,13 @@ LATENCY_PENALTY_POINTS = 25
 SUCCESS_POINTS = 100
 
 
+def _observed(model_id: str, stats: dict[str, ModelStats] | None) -> ModelStats | None:
+    if not stats:
+        return None
+    # Discovery names models bare; telemetry records them as dispatched, with the prefix.
+    return stats.get(model_id) or stats.get(f"openrouter/{model_id}")
+
+
 def blend_with_observed(model_id: str, prior: int, stats: dict[str, ModelStats] | None) -> float:
     """
     Combine the name heuristic with what the model has actually done.
@@ -212,10 +219,7 @@ def blend_with_observed(model_id: str, prior: int, stats: dict[str, ModelStats] 
     `MIN_SAMPLES_FOR_RANKING` observations the two halves count equally; by three times that
     the measurements decide.
     """
-    observed = stats.get(model_id) if stats else None
-    if observed is None:
-        # Discovery names models bare; telemetry records them as dispatched, with the prefix.
-        observed = stats.get(f"openrouter/{model_id}") if stats else None
+    observed = _observed(model_id, stats)
     if observed is None or not observed.attempts:
         return float(prior)
 
@@ -269,6 +273,10 @@ async def get_best_free_models(min_context: int = 4000, count: int = 4, pool_siz
         
         # Filter strictly for free, compatible models satisfying minimum context length
         if is_model_free(model) and is_model_compatible(model_id, model) and context_length >= min_context:
+            observed = _observed(model_id, stats)
+            if observed is not None and observed.unavailable:
+                logger.debug("skipping %s: its provider refused every recent request", model_id)
+                continue
             prior = evaluate_model_intelligence(model_id)
 
             free_models.append({

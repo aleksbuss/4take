@@ -35,6 +35,12 @@ MAX_EVENTS = 2000
 # in charge. Four council seats per run means this is roughly two or three runs of exposure.
 MIN_SAMPLES_FOR_RANKING = 8
 
+# Failures that are the provider declining to serve, not the model answering badly.
+REFUSAL_CODES = frozenset({"rate_limited", "auth"})
+# How far back a run of refusals counts. Once it has aged out the model is tried again, so an
+# endpoint that recovers is not shut out for good.
+REFUSAL_WINDOW_S = 72 * 3600
+
 
 @dataclass(frozen=True)
 class ModelStats:
@@ -43,6 +49,10 @@ class ModelStats:
     attempts: int
     successes: int
     p50_latency_ms: int
+    # The provider refused every recent request. Ranking only demotes such a model, and with a
+    # dozen free models a demoted one still fills the rotation tail: gemma-4-31b was refused
+    # 27 of 27 times in a week and kept spending councils' time on 429 retries.
+    unavailable: bool = False
 
     @property
     def success_rate(self) -> float:
@@ -167,8 +177,9 @@ def _atomic_write(path: Path, events: list[dict]) -> None:
         raise
 
 
-def aggregate(path: Path | None = None) -> dict[str, ModelStats]:
-    """Observed success rate and median latency per model id."""
+def aggregate(path: Path | None = None, now: float | None = None) -> dict[str, ModelStats]:
+    """Observed success rate, median latency and recent availability per model id."""
+    now = time.time() if now is None else now
     events = _read(path or stats_path())
     by_model: dict[str, list[dict]] = {}
     for e in events:
@@ -183,7 +194,15 @@ def aggregate(path: Path | None = None) -> dict[str, ModelStats]:
         # the model answers; only successful calls go into the median.
         latencies = sorted(int(r.get("latency_ms") or 0) for r in successes)
         p50 = latencies[len(latencies) // 2] if latencies else 0
-        stats[model] = ModelStats(attempts=len(rows), successes=len(successes), p50_latency_ms=p50)
+        recent = [r for r in rows if isinstance(r.get("ts"), (int, float)) and now - r["ts"] <= REFUSAL_WINDOW_S]
+        # Every recent request, not most: a model that was served at all, even an empty answer,
+        # has a provider that still serves it.
+        refused = len(recent) >= MIN_SAMPLES_FOR_RANKING and all(
+            not r.get("ok") and r.get("error_code") in REFUSAL_CODES for r in recent
+        )
+        stats[model] = ModelStats(
+            attempts=len(rows), successes=len(successes), p50_latency_ms=p50, unavailable=refused
+        )
     return stats
 
 

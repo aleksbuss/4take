@@ -6,6 +6,7 @@ what it must never contain is asserted as carefully as what it must.
 """
 
 import json
+import time
 from unittest.mock import patch
 
 import pytest
@@ -13,7 +14,15 @@ import pytest
 from fourtake import telemetry
 from fourtake.client import ModelResponse
 from fourtake.discovery import blend_with_observed, evaluate_model_intelligence
-from fourtake.telemetry import MAX_EVENTS, ModelStats, aggregate, clear, record
+from fourtake.telemetry import (
+    MAX_EVENTS,
+    MIN_SAMPLES_FOR_RANKING,
+    REFUSAL_WINDOW_S,
+    ModelStats,
+    aggregate,
+    clear,
+    record,
+)
 
 
 def _ok(model, latency_ms=1000, served=None):
@@ -118,6 +127,47 @@ def test_aggregate_separates_success_rate_from_latency(tmp_path):
 
 def test_aggregate_of_a_missing_file_is_empty(tmp_path):
     assert aggregate(tmp_path / "absent.json") == {}
+
+
+def _refused(model):
+    return _failed(model, "Provider error 429 after 4 retries: Provider returned error", latency_ms=500)
+
+
+def test_a_model_its_provider_refuses_every_time_is_unavailable(tmp_path):
+    """gemma-4-31b: 27 of 27 requests in a week came back 429."""
+    path = tmp_path / "stats.json"
+    record([], [_refused("gone:free")] * MIN_SAMPLES_FOR_RANKING, path=path)
+
+    assert aggregate(path)["gone:free"].unavailable
+
+
+def test_a_rate_limited_model_that_still_answers_sometimes_stays_available(tmp_path):
+    """Poolside: about one 429 retry in three gets through, and laguna is worth the seat."""
+    path = tmp_path / "stats.json"
+    record([], [_refused("busy:free")] * 10, path=path)
+    record([_ok("busy:free")], [], path=path)
+
+    assert not aggregate(path)["busy:free"].unavailable
+
+
+def test_a_model_that_answered_badly_is_not_unavailable(tmp_path):
+    """
+    An empty answer is the model, or 4take's budget, not the provider refusing: laguna-s came
+    back empty 19 times in a week until the reasoning budget was fixed, then answered.
+    """
+    path = tmp_path / "stats.json"
+    record([], [_failed("thinker:free", "Empty response from model")] * 12, path=path)
+    record([], [_refused("thinker:free")] * 9, path=path)
+
+    assert not aggregate(path)["thinker:free"].unavailable
+
+
+def test_refusals_older_than_the_window_are_forgiven(tmp_path):
+    path = tmp_path / "stats.json"
+    record([], [_refused("gone:free")] * 20, path=path)
+
+    later = time.time() + REFUSAL_WINDOW_S + 60
+    assert not aggregate(path, now=later)["gone:free"].unavailable
 
 
 # --------------------------------------------------------------------------------------
