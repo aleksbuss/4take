@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Reasoning models get room to think.** The output budget was sized for the answer (2048
+  tokens for a short input) with 40% of it for reasoning, and most free providers ignore that
+  cap: Novita (ling, apodex), Cohere and Poolside think until `max_tokens` runs out and return no
+  content (`finish_reason: length`). Councils of 6-7 October seated 1-2 vendors instead of 4. A
+  reasoning model now gets up to 32768 tokens, or its own maximum if lower, while the reasoning
+  cap stays sized on the answer, so a provider that honours it (Nvidia) thinks as briefly as
+  before. Free models are metered per request, not per token, so the room costs only a model
+  that uses it. Measured on the inputs that had come back empty at 2048: ling answered 12/12 of
+  corpus snippets and 6/8 diffs, apodex 13/14 and 5/8, after 2-7k tokens of thought on a snippet
+  and 15-26k on a diff. A model that thinks through the whole 32768 without answering, or past
+  the per-model timeout (cohere and laguna-s on every diff, which ran 5-14 minutes unbounded),
+  gives up its seat to another model rather than being asked again with reasoning off. Every
+  evaluation figure for 0.2.0 was recorded before this fix.
+
 ### Added
 - **Reference context.** `--context-file PATH[:START-END]` (CLI) and `context_files` / `context`
   (MCP) send related code (callers, callees, types, config, tests) that the reviewers read but do
