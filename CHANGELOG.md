@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the per-model timeout (cohere and laguna-s on every diff, which ran 5-14 minutes unbounded),
   gives up its seat to another model rather than being asked again with reasoning off. Every
   evaluation figure for 0.2.0 was recorded before this fix.
+- **A model its provider keeps refusing is left out of the pool.** Ranking only demoted it, and
+  with a dozen free models a demoted model still filled the rotation tail: gemma-4-31b was
+  refused 27 of 27 times in a week, and every council that reached it spent its time on 429
+  retries. A model whose provider refused every request in the last 72 hours, at least 8 of
+  them, is now skipped until the refusals age out. A model that was served at all stays in.
 
 ### Added
 - **Reference context.** `--context-file PATH[:START-END]` (CLI) and `context_files` / `context`
