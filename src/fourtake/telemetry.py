@@ -75,6 +75,8 @@ def _lock_path(path: Path) -> Path:
 
 # Ordered: the first match wins, so the specific label precedes the general one.
 _ERROR_PATTERNS = (
+    # A reasoning model that thought through its whole budget: it reads "budget", not "empty".
+    ("reasoned through", "reasoning_loop"),
     ("per-model timeout", "per_model_timeout"),
     ("timeout", "timeout"),
     ("timed out", "timeout"),

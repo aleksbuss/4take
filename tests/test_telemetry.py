@@ -59,6 +59,7 @@ def test_the_file_is_not_readable_by_other_users(tmp_path):
 
 
 @pytest.mark.parametrize("error,expected", [
+    ("Reasoned through the whole 32768-token budget without answering", "reasoning_loop"),
     ("Per-model timeout after 90s", "per_model_timeout"),
     ("Request timed out", "timeout"),
     ("HTTP 429: rate limit exceeded", "rate_limited"),
