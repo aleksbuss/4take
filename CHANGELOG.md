@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refused 27 of 27 times in a week, and every council that reached it spent its time on 429
   retries. A model whose provider refused every request in the last 72 hours, at least 8 of
   them, is now skipped until the refusals age out. A model that was served at all stays in.
+- **A rate-limited provider is retried eight times instead of four.** A retry after Poolside's
+  429 got through in 21-50% of cases, so four retries still cost laguna about one seat in four.
+  A 5xx keeps the shorter limit.
 
 ### Added
 - **Reference context.** `--context-file PATH[:START-END]` (CLI) and `context_files` / `context`

@@ -237,6 +237,25 @@ async def test_query_model_retry_after():
 
 
 @pytest.mark.asyncio
+async def test_a_rate_limited_provider_is_outlasted_rather_than_given_up_on():
+    """
+    A retry after Poolside's 429 got through in 21-50% of cases, so giving up after four left
+    laguna out of about one council in four. A 5xx keeps the shorter limit.
+    """
+    limited = MagicMock()
+    limited.status_code = 429
+    limited.headers = {}
+    client = AsyncMock()
+    client.post.side_effect = [limited] * 6 + [_completion("1. [WARNING] bug", "stop")]
+
+    with patch("fourtake.client.asyncio.sleep", new=AsyncMock()):
+        response = await query_model(client, "http://dummy", "key", "m", "m", "code")
+
+    assert response.content == "1. [WARNING] bug"
+    assert client.post.call_count == 7
+
+
+@pytest.mark.asyncio
 async def test_query_model_timeout_exception():
     client = AsyncMock()
     client.timeout.read = 10

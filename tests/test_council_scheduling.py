@@ -164,7 +164,7 @@ async def test_every_retry_spends_a_rate_limit_token():
 
     with patch("fourtake.client.asyncio.sleep", new=AsyncMock()):
         await query_model(
-            client, "http://d", "k", "m", "m", "code", max_retries=3, acquire_token=acquire
+            client, "http://d", "k", "m", "m", "code", rate_limit_retries=3, acquire_token=acquire
         )
 
     assert calls["posts"] == 4  # initial + 3 retries

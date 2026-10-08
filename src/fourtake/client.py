@@ -47,6 +47,11 @@ MIN_REASONING_TOKENS = 256
 # ceiling costs only a model that spends it.
 REASONING_OUTPUT_TOKENS = 32768
 
+# A provider's 429 is worth outlasting. Measured on 2026-10-07/08, a retry after Poolside's 429
+# got through in 21-50% of cases, so four retries still cost laguna about one seat in four. A
+# provider that never relents (gemma: 0 of 69) is left out of the pool by telemetry instead.
+RATE_LIMIT_RETRIES = 8
+
 
 def reasoning_budget(total_tokens: int) -> int:
     """Thinking allowance that can never crowd out the findings."""
@@ -149,6 +154,7 @@ async def query_model(
     max_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
     semaphore: asyncio.Semaphore | None = None,
     max_retries: int = 4,
+    rate_limit_retries: int = RATE_LIMIT_RETRIES,
     max_output_cap: int | None = None,
     supports_reasoning: bool = False,
     deadline: float | None = None,
@@ -262,7 +268,7 @@ async def query_model(
 
             # 2. Transient errors: 429 (Rate limit) or 5xx (Server error)
             if response.status_code == 429 or response.status_code >= 500:
-                if attempt >= max_retries:
+                if attempt >= (rate_limit_retries if response.status_code == 429 else max_retries):
                     err_msg = _extract_error_message(response)
                     detail = f": {err_msg}" if err_msg else ""
                     return ModelResponse(
