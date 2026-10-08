@@ -97,6 +97,10 @@ cat path/to/file.py | 4take --format json --accept-risk --quiet
 | `2` | Partial: at least one review, but fewer than `--min-responses`. Check `warning`. |
 | `1` | Total failure: no model responded. Check `error`. |
 
+A large diff can take up to `--timeout` (600 s) and often ends with exit code `2` and fewer than
+four reviewers: few free models reason through one to an answer. A partial council is still a
+usable review; read `agreement` against `summary.distinct_models`.
+
 > **Zero-Token-Cost Guarantee**: `4take` operates exclusively with 100% free OpenRouter models (`:free` tier). It consumes ZERO paid tokens or account balance. Do not pass `--models` with paid models (they will be rejected by the validation guard).
 
 ---

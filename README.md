@@ -237,6 +237,16 @@ it shadows, and does not count towards `agreement`. It never takes a seat, even 
 vendor answers in time: the council then reports fewer seats (exit code `2`, and `warning`
 says how many), and no spare is launched from a vendor that already holds one.
 
+A review lasts as long as the council waits for its seats. Most free models reason before they
+answer, and each gets up to 32768 tokens to do it in, so a short file is usually reviewed in about
+a minute, while a large diff can take up to `--timeout` (600 s). On a large diff some models
+reason without ever reaching an answer and lose their seat at the per-model timeout, and only
+three or four free vendors reliably finish one, so the council often seats fewer than four
+reviewers (exit code `2`). Measured on 8 real diffs of 3.5–29 KB, each run twice on 8 October:
+8 of the 16 councils seated four reviewers, 5 seated three and 3 seated one or two; the median
+council took about 8½ minutes, and 6 ran to the 600 s limit. On the 28 short snippets of the eval
+corpus the median was about 50 s, and 27 of 28 councils seated four.
+
 ### Ready-to-Use Agent Configuration Files:
 - **Universal Agent Instructions**: [`AGENTS.md`](AGENTS.md)
 - **Claude Code**: [`CLAUDE.md`](CLAUDE.md)
@@ -533,7 +543,11 @@ more request. On recorded runs a review took 6 requests when the pool was quiet 
 - **Funded Account ($10+ lifetime balance)**: OpenRouter expands free model limits to **1,000
   requests per day**, about **80 to 160 reviews** a day.
 
-If any model encounters an HTTP 429 rate limit, `4take` automatically applies exponential backoff with jitter and rotates in candidate models from its 12-model backup pool. The 429s come from the free pool's global load, not from your own usage, so a quiet hour is the best way to get full councils.
+If a model hits an HTTP 429 rate limit, `4take` retries it up to eight times with exponential
+backoff and jitter, then rotates in a candidate from its 12-model backup pool. A model whose
+provider refused every request of the last 72 hours is left out of the pool until those refusals
+age out. The 429s come from the free pool's global load, not from your own usage, so a quiet hour
+is the best way to get full councils.
 
 ---
 

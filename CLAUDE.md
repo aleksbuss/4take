@@ -55,6 +55,11 @@ stdout is a JSON object and nothing else (all logs go to stderr). Key fields:
 
 Exit codes: `0` met min-responses, `2` partial (see `warning`), `1` total failure (see `error`).
 
+A large diff can take up to the 600 s timeout and often seats fewer than four reviewers (exit
+code `2`): few free models reason through one to an answer. A partial council is still a review.
+Read `agreement` against `summary.distinct_models`; the shares in step 2 below were measured on
+councils of four.
+
 ## Your role as Synthesizer / Chairman
 1. Read `consensus` first; it is the cross-referencing already done.
 2. Weight a finding by `agreement`, not by how confident one model sounds, and read it as

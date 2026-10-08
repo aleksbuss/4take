@@ -21,6 +21,7 @@
 - `4take --init-config`: Create config file at `~/.config/4take/config.json`.
 - `cat file.py | 4take --no-telemetry`: Skip the local record of model latency and success rate (`~/.cache/4take/stats.json`, model ids and timings only — never code).
 - Exit codes: `0` met `--min-responses`, `2` partial (see `warning`), `1` total failure (see `error`).
+- Timing: about a minute for a short file. A large diff can take up to `--timeout` (600 s) and often seats fewer than four reviewers (exit code `2`), because few free models reason through one to an answer; a partial council is still a usable review.
 - stdout carries only the payload; all logs go to stderr, so `json.loads(stdout)` is safe.
 - JSON output leads with `consensus[]`: findings grouped across models and ranked by `agreement`, the number of independent reviewers who raised each one. Each entry carries the `category` the reviewers declared (`UNKNOWN` when none did).
 - `cat file.py | 4take --strict`: Report only findings more than one reviewer raised, plus any CRITICAL one.

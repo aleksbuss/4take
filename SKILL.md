@@ -36,6 +36,10 @@ already grouped across models:
 
 `responses[].content` holds each model's full review when you need a finding's wording.
 
+A large diff can take up to 10 minutes and often seats fewer than four reviewers (exit code `2`):
+few free models reason through one to an answer. A partial council is still a usable review; read
+`agreement` against `summary.distinct_models`.
+
 ## Synthesizer Protocol
 1. **Read `consensus`, then the responses behind it**: Parse every critique you act on.
 2. **Weigh agreement as measured**: on the eval corpus, an entry all four reviewers raised held
