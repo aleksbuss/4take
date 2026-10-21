@@ -123,12 +123,17 @@ async def test_mcp_call_tool_interface():
 @pytest.mark.asyncio
 async def test_full_stdio_mcp_client_session():
     """End-to-end test spawning 4take-mcp over stdio and running JSON-RPC handshake."""
+    import sys
+
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
 
+    # The interpreter running the tests, not `uv run`: that re-syncs the project first, which
+    # needs a lockfile and the network, and from an unpacked sdist (no uv.lock) it dropped the
+    # mcp extra, so the server died on import and the handshake failed.
     server_params = StdioServerParameters(
-        command="uv",
-        args=["run", "4take-mcp"],
+        command=sys.executable,
+        args=["-m", "fourtake.mcp_entry"],
         env=None,
     )
 
