@@ -1,0 +1,155 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:16:51.715543Z",
+  "config": {
+    "models_requested": 7,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "d8f40b17fb4e",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 41169,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "get_client",
+      "title": "Race condition during lazy initialization",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 3,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "get_client",
+      "title": "Stale configuration on repeated calls",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 3
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "get_client",
+      "title": "No teardown path for the singleton",
+      "models": [
+        "apodex/apodex-1.1-mini:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "get_client",
+      "title": "No cleanup mechanism for global client",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "get_client",
+      "title": "Global state with ignored parameter",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [CONCURRENCY] Race condition in lazy singleton initialization (at get_client)\n    - Issue: If two threads enter `get_client` concurrently while `_client` is `None`, both will create separate `HttpClient` instances and call `connect()`, violating the intended singleton behavior and potentially causing duplicate connections.\n    - Fix: Protect the initialization block with a `threading.Lock` (e.g., create a lock at module scope and acquire it before checking/setting `_client`).\n\n* [WARNING] [ERROR_HANDLING] Half‑initialized client left on connection failure (at get_client)\n    - Issue: If `HttpClient(config).connect()` raises an exception, `_client` remains bound to a partially constructed `HttpClient` object; later calls return this broken client, causing downstream errors.\n    - Fix: Only assign `_client` after a successful connect, or catch the exception, set `_client` back to `None`, and re‑raise. Example:\n        ```\n        try:\n            client = HttpClient(config)\n            client.connect()\n        except Exception:\n            raise\n        else:\n            global _client\n            _client = client\n        ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9707
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] CONCURRENCY Race condition in singleton initialization (at `_client = None` / `get_client`)\n  - Issue: Multiple threads calling `get_client()` simultaneously when `_client` is None can all pass the `if _client is None` check before any assignment occurs, leading to multiple `HttpClient` instances being created and `connect()` called multiple times. The last thread's assignment wins, potentially with a different `config` than what the caller expects.\n  - Fix: Use a lock or thread-safe initialization pattern:\n    ```python\n    import threading\n    _client = None\n    _lock = threading.Lock()\n    \n    def get_client(config):\n        global _client\n        if _client is None:\n            with _lock:\n                if _client is None:\n                    _client = HttpClient(config)\n                    _client.connect()\n        return _client\n    ```\n\n* [WARNING] STRUCTURE Global state with ignored parameter (at `get_client`)\n  - Issue: The `config` parameter becomes meaningless after the first call since the singleton ignores it on subsequent invocations. Callers cannot obtain a client configured with a different config, and testing with different configurations requires manual global state manipulation.\n  - Fix: Either make the function pure (return a new client each time) or accept that config is only used on first call and document this clearly. For testability, consider dependency injection instead of global state.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 20909
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [WARNING] [CONCURRENCY] Race condition in lazy initialization (at get_client)\n  - Issue: The check-then-act sequence on the global `_client` is not atomic. Two concurrent callers can both observe `_client is None`, create separate `HttpClient` instances, and the second assignment overwrites the first before its `connect()` completes. The caller receives a reference to an instance that may still be connecting or may have failed, violating the singleton invariant and potentially leaking the unreferenced client's resources.\n  - Fix: Wrap the initialization block in a `threading.Lock`, or use a double-checked locking pattern with a volatile flag, or switch to module-level eager initialization.\n\n* [WARNING] [ERROR_HANDLING] Broken client cached after connect failure (at get_client)\n  - Issue: If `HttpClient(config)` succeeds but `_client.connect()` raises an exception, `_client` is already assigned to the partially constructed instance. Subsequent calls return this unconnected client without retrying, causing every future call to fail or behave incorrectly. The error path leaves the module in an inconsistent state where the global is non-None but the client is unusable, and the original exception is lost.\n  - Fix: Only assign `_client` after `connect()` succeeds, or reset `_client = None` in an `except` block so the next call retries initialization.\n\n* [WARNING] [RESOURCE_LEAK] No cleanup mechanism for global client (at get_client)\n  - Issue: The module exposes no way to disconnect or close the `HttpClient`, so underlying TCP connections, file descriptors, or background threads persist for the process lifetime. If the client must be recreated (e.g., after config changes or certificate rotation), the old instance is unreachable and its resources are leaked. This also prevents proper shutdown during testing or graceful termination, and makes the global state impossible to reset.\n  - Fix: Add a `close_client()` or `reset_client()` function that calls `_client.close()` and sets `_client = None`, or implement a context manager protocol on the wrapper.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 24342
+    },
+    {
+      "model": "openrouter/apodex/apodex-1.1-mini:free",
+      "served_model": "apodex/apodex-1.1-mini:free",
+      "served_provider": "Novita",
+      "content": "\n\n* [WARNING] [LOGIC] Stale configuration on repeated calls (at get_client)\n  - Issue: The singleton guard `if _client is None` ignores any `config` argument passed after the first successful call. If `get_client(cfg_a)` is followed by `get_client(cfg_b)`, the returned client remains bound to `cfg_a`. Callers will trust the client but it uses stale endpoints or credentials, causing silent data routing errors or authentication failures against the wrong target.\n  - Fix: Raise `ValueError` if `config` differs from the stored one, or remove the singleton guard so each call initializes fresh.\n\n* [WARNING] [CONCURRENCY] Race condition during lazy initialization (at get_client)\n  - Issue: The check-then-act on `_client` is not atomic. In a multi-threaded process, two threads can observe `_client is None` simultaneously, each instantiate and connect an `HttpClient`, then race to assign the global. One connection is discarded (leak), and the final state depends on thread scheduling, making behavior non-deterministic at startup.\n  - Fix: Protect the initialization block with a `threading.Lock` or use `threading.local()` if per-thread clients are intended.\n\n* [WARNING] [RESOURCE_LEAK] No teardown path for the singleton (at get_client)\n  - Issue: `_client` is created once and never closed. There is no function to release the underlying socket or session held by the global. On config reload or process shutdown, connections remain open until garbage collection, and the client cannot be refreshed to a new configuration without restarting the process.\n  - Fix: Expose a `close()` or `shutdown()` function and call it at process exit, or wrap the client in a context manager.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 14594
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] CONCURRENCY <Thread‑unsafe client singleton> (global _client)\n  - Issue: Simultaneous calls from multiple threads may create duplicate HttpClient instances, causing double connections or resource exhaustion.\n  - Fix:\n    ```python\n    import threading\n    _lock = threading.Lock()\n    def get_client(config):\n        global _client\n        with _lock:\n            if _client is None:\n                _client = HttpClient(config)\n                _client.connect()\n        return _client\n    ```\n\n* [WARNING] LOGIC <Partial client initialization on connect failure> (global _client)\n  - Issue: If HttpClient.connect() raises, _client is set to a possibly inconsistent object, so subsequent calls will fail or return a broken client.\n  - Fix:\n    ```python\n    def get_client(config):\n        global _client\n        if _client is None:\n            try:\n                _client = HttpClient(config)\n                _client.connect()\n            except Exception:\n                _client = None\n                raise\n        return _client\n    ```\n\n* [WARNING] STRUCTURE <Global state couples client lifecycle to function> (global _client, get_client)\n  - Issue: The function manages client creation and retention via a module‑level variable, forcing every caller to rely on hidden global state and preventing safe reconfiguration or testing.\n  - Fix:\n    ```python\n    class ClientManager:\n        def __init__(self):\n            self._client = None\n        def get_client(self, config):\n            if self._client is None:\n                self._client = HttpClient(config)\n                self._client.connect()\n            return self._client\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 26568
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "race_lazy_singleton.py",
+    "exit_code": 0,
+    "wall_s": 41.6
+  }
+}

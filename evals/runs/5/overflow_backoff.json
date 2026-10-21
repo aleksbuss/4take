@@ -1,0 +1,158 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:12:59.737634Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "468dcb9285ab",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 38077,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "BOUNDS",
+      "symbol": "retry_with_backoff",
+      "title": "[SECURITY] Unbounded exponential backoff enables DoS",
+      "models": [
+        "dots-studio/dots-3-note-preview:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "retry_with_backoff",
+      "title": "Final retry sleeps before raising",
+      "models": [
+        "dots-studio/dots-3-note-preview:free",
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "retry_with_backoff",
+      "title": "No timeout on fn() execution",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "retry_with_backoff",
+      "title": "Missing Attempts Parameter Validation",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "retry_with_backoff",
+      "title": "No support for passing arguments to the wrapped function",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "retry_with_backoff",
+      "title": "Backoff parameters are hard‑coded, reducing adaptability",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [WARNING] [LOGIC] Unnecessary sleep after final attempt (in retry_with_backoff)\n  - On the last iteration (`i == attempts - 1`), if `fn()` raises `TransientError`, the function sleeps `2 ** i` seconds before raising `ExhaustedRetries()`. That sleep delays the error with no retry benefit. Fix: only sleep when `i < attempts - 1`.\n\n* [CRITICAL] [SECURITY] Unbounded exponential backoff enables DoS (in retry_with_backoff)\n  - `2 ** i` grows without a cap. For `attempts=100`, the last sleep is `2^99` seconds (~10^27 years), effectively hanging the process. An attacker or bug passing a large `attempts` value causes a denial-of-service. Fix: cap the sleep duration (e.g., `min(2 ** i, MAX_BACKOFF)`) and/or validate `attempts` against a reasonable maximum.\n\n* [WARNING] [RESOURCE_LEAK] No timeout on `fn()` execution (in retry_with_backoff)\n  - If `fn()` hangs (blocks indefinitely without raising or returning), the retry loop never progresses and the process is stuck. Fix: wrap the `fn()` call with a timeout mechanism so each attempt is bounded.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7736
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] LOGIC Unbounded Sleep Duration in Exponential Backoff (at retry_with_backoff function)\n  - Issue: The exponential backoff calculation `2 ** i` grows without bound. With `attempts=100`, the final sleep would be `2**99` seconds (~8×10²⁹ years), creating a denial-of-service vulnerability if an attacker controls the `attempts` parameter. Even `attempts=50` yields `2**49` seconds (~17 years).\n  - Fix: Add a maximum sleep duration cap: `time.sleep(min(2 ** i, MAX_BACKOFF_SECONDS))` where `MAX_BACKOFF_SECONDS` could be 300 (5 minutes) or similar.\n\n* [WARNING] ERROR_HANDLING Missing Attempts Parameter Validation (at retry_with_backoff function)\n  - Issue: Negative or zero `attempts` values cause immediate `ExhaustedRetries()` without validation. `range(-5)` and `range(0)` both produce empty iterators, making the function fail immediately for invalid inputs rather than raising a clear error.\n  - Fix: Add input validation at function start: `if attempts <= 0: raise ValueError(\"attempts must be positive\")`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7819
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [ERROR_HANDLING] Unnecessary sleep after final retry attempt (at retry_with_backoff)\n    - Issue: When the function exhausts all attempts, it still sleeps for the backoff period of the last failed attempt before raising ExhaustedRetries. For example, with attempts=1 and a failing fn, the code sleeps 1 second then raises, wasting time and delaying error propagation.\n    - Fix: Only sleep when another retry will follow. Replace the loop with:\n        for i in range(attempts):\n            try:\n                return fn()\n            except TransientError as e:\n                if i == attempts - 1:\n                    raise ExhaustedRetries from e\n                time.sleep(2 ** i)\n\n* [LOGIC] Limited exception scope prevents retry on non‑TransientError failures (at retry_with_backoff)\n    - Issue: The function only retries on TransientError. If fn raises any other exception (e.g., ValueError, IOError) the retry loop aborts immediately, which may be surprising if the caller expects retries on any transient failure. This can mask retry‑worthy bugs.\n    - Fix: Either document the narrow scope explicitly or broaden the catch to BaseException (with caution) or allow a custom predicate. A minimal safe change is to retry on Exception:\n        except Exception as e:\n            if not isinstance(e, TransientError):\n                raise\n            # then same backoff logic as above.\n\n* [SIMPLICITY] No support for passing arguments to the wrapped function (at retry_with_backoff)\n    - Issue: The caller must wrap fn in a lambda or functools.partial to supply arguments, adding boilerplate at each call site. This couples the retry logic to the call site and increases duplication when many functions need retries.\n    - Fix: Accept *args, **kwargs and forward them:\n        def retry_with_backoff(fn, attempts, *args, **kwargs):\n            for i in range(attempts):\n                try:\n                    return fn(*args, **kwargs)\n                except TransientError as e:\n                    if i == attempts - 1:\n                        raise ExhaustedRetries from e\n                    time.sleep(2 ** i)\n\n* [STRUCTURE] Backoff parameters are hard‑coded, reducing adaptability (at retry_with_backoff)\n    - Issue: The base delay (2) and exponentiation are fixed inside the function. Callers that need a different base, max delay, or jitter must duplicate or modify the function, scattering the policy across the codebase.\n    - Fix: Introduce optional parameters for base, max_delay, and jitter_fn, with sensible defaults, allowing callers to configure the policy without altering the function. Example signature: retry_with_backoff(fn, attempts, base=2, max_delay=None, jitter=None). Then compute delay = min(base ** i, max_delay) if max_delay else base ** i; apply jitter if provided. This centralizes the policy and eliminates duplicated logic when requirements change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 23183
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n* [WARNING] [LOGIC] Final retry sleeps before raising (in `retry_with_backoff`)\n    - Issue: On the last iteration, when `fn()` raises `TransientError`, the code executes `time.sleep(2 ** i)` and only then falls through to `raise ExhaustedRetries()`. That sleep is wasted because no further attempt is made, so the caller pays the full backoff of the final attempt as pure dead time. Concrete case: `attempts=1` with an always-failing `fn` blocks for 1 second before raising; `attempts=4` adds 4s of pointless delay after the last failure.\n    - Fix: only sleep when another attempt remains, e.g. `if i + 1 < attempts: time.sleep(2 ** i)`.\n\n* [WARNING] [BOUNDS] Backoff grows without a cap (in `retry_with_backoff`)\n    - Issue: The sleep duration is `2 ** i` with no upper bound, so it scales with the `attempts` argument. `attempts=30` produces a final sleep of ~2^29 seconds (≈18 years); `attempts=60` is an effective infinite hang. Any caller that passes a large or externally-supplied retry count converts a transient failure into an unbounded block with no way to abort.\n    - Fix: cap the sleep and add jitter, e.g. `time.sleep(min(2 ** i, max_backoff) * random.uniform(0.5, 1.0))` with a sane `max_backoff` (e.g. 60s).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 38070
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "overflow_backoff.py",
+    "exit_code": 0,
+    "wall_s": 38.5
+  }
+}

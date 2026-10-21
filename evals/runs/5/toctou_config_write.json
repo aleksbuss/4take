@@ -1,0 +1,169 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:18:25.542016Z",
+  "config": {
+    "models_requested": 7,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "931533ff040e",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 51522,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "save_user_config",
+      "title": "TOCTOU race condition allows symlink substitution and arbitrary file overwrite",
+      "models": [
+        "dots-studio/dots-3-note-preview:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 4,
+        "SUGGESTION": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "UNKNOWN",
+      "symbol": "remove",
+      "title": "CORRECTNESS Data Loss on Write Failure",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "save_user_config",
+      "title": "/ ERROR_HANDLING File may be left with insecure permissions if an exception occurs before chmod",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "UNKNOWN",
+      "symbol": "save_user_config",
+      "title": "CORRECTNESS Missing Error Handling",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "LOGIC",
+      "symbol": "save_user_config",
+      "title": "Non-atomic delete-and-write pattern risks data loss on crash",
+      "models": [
+        "dots-studio/dots-3-note-preview:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "access",
+      "title": "Redundant os.access Check",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [WARNING] SECURITY TOCTOU / Symlink Race (at `os.path.exists` → `open`)\n  - Between the existence/permission checks and the actual `open`/`write`, an attacker with filesystem access can swap `path` for a symlink pointing to a sensitive file. `open(path, \"w\")` follows symlinks and overwrites the target. The `os.access` check does not mitigate this.\n  - Fix: Open with `os.O_NOFOLLOW | os.O_WRONLY | os.O_CREAT | os.O_EXCL` (or use `os.open` with `O_NOFOLLOW`) to atomically reject symlinks, then `os.chmod` after writing.\n\n* [WARNING] CORRECTNESS Data Loss on Write Failure (at `os.remove` / `open`)\n  - If `os.remove(path)` succeeds but `open`/`write` raises (disk full, I/O error), the original config is deleted and never replaced. No rollback or temp-file-then-rename pattern is used.\n  - Fix: Write to a temporary file in the same directory, `os.replace` it atomically over `path`, then `os.chmod`. This also avoids the TOCTOU issue.\n\n* [SUGGESTION] SIMPLICITY Redundant `os.access` Check (at `os.access(path, os.W_OK)`)\n  - `os.access` is a TOCTOU-prone check that duplicates what `open` will do anyway — it raises `PermissionError` on unwritable files. Removing it simplifies the code and eliminates one race window.\n  - Fix: Drop the `os.access` call; let `open` raise `PermissionError` naturally.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8746
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK / ERROR_HANDLING File may be left with insecure permissions if an exception occurs before chmod (at save_user_config)\n  - Issue: If writing blob or any prior step raises an exception, the with block closes the file but os.chmod is never executed, leaving the file with the default umask (potentially world‑readable). This creates a temporary window where sensitive user config could be read by other users on the system.\n  - Fix: Use a try/finally block (or separate try/except) to ensure chmod runs regardless of success, or set the mode via open flags (e.g., using os.open with O_CREAT|O_WRONLY|O_TRUNC and then os.fdopen) and apply chmod in finally.\n\n* [WARNING] BOUNDS / CONCURRENCY Symlink race between removal and open (at save_user_config)\n  - Issue: After os.remove(path) (which removes a symlink if present), an attacker can recreate a symlink at the same path before the subsequent open(path, \"w\") call. Opening the symlink for writing follows it and truncates the target file, allowing the attacker to cause arbitrary file overwrite or data leakage.\n  - Fix: Open the file with os.open using O_CREAT|O_EXCL|O_WRONLY|O_NOFOLLOW (or open in Python with os.open and then os.fdopen) to atomically create a non‑following file descriptor, eliminating the window for symlink attacks.\n\n* [SUGGESTION] SIMPLICITY Redundant existence and access checks (at save_user_config)\n  - Issue: The function first checks os.path.exists and os.access, then removes the file. These checks introduce TOCTOU complexity and can be omitted because opening with \"w\" will truncate an existing file and fail with PermissionError if not writable, achieving the same safety with fewer steps and no race windows.\n  - Fix: Remove the pre‑checks and rely on open's behavior; handle PermissionError from open if needed, and perform chmod in a finally block to guarantee mode setting. This reduces coupling and eliminates the race conditions tied to the checks.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12473
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] SECURITY Path Traversal (at save_user_config)\n  - Issue: The `path` parameter is used directly in filesystem operations without validation. An attacker controlling `path` could write arbitrary content to sensitive system files (e.g., `/etc/passwd`, `/etc/shadow`, SSH authorized_keys) or overwrite application configuration files. The function provides no directory restriction or path canonicalization.\n  - Fix: Validate `path` is within an expected base directory using `os.path.realpath()` and check it starts with the allowed prefix before any filesystem operations.\n\n* [CRITICAL] SECURITY Symlink Attack (at save_user_config)\n  - Issue: If `path` is a symbolic link, `os.remove(path)` follows the symlink and deletes the target file. An attacker could create a symlink from the expected config path to a privileged file (e.g., `/etc/passwd`), causing the function to delete the target when called. This enables arbitrary file deletion and potential privilege escalation.\n  - Fix: Use `os.lstat()` to check if `path` is a symlink before removal, or use `os.open()` with `O_NOFOLLOW` flag to prevent symlink following.\n\n* [WARNING] CORRECTNESS Race Condition TOCTOU (at save_user_config)\n  - Issue: Time-of-check-time-of-use vulnerability exists between `os.path.exists(path)` and `os.remove(path)`/`open(path, \"w\")`. An attacker could replace the file with a symlink between these calls, causing the function to either delete an unintended file or write to an attacker-controlled location.\n  - Fix: Use atomic file operations with `os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)` to create/truncate the file atomically, eliminating the race window.\n\n* [WARNING] CORRECTNESS Missing Error Handling (at save_user_config)\n  - Issue: If `os.remove(path)` fails after the existence check (e.g., due to permissions on an existing file), the exception propagates but leaves the system in an undefined state. Additionally, if `fh.write(blob)` fails partway through, a partial file remains with incorrect permissions.\n  - Fix: Wrap operations in try/except to handle partial failures, or use atomic write pattern: write to temporary file, then `os.replace()` to atomically move into place.\n\n* [SIMPLICITY] Redundant Permission Check (at save_user_config)\n  - Issue: The `os.access(path, os.W_OK)` check is redundant when immediately followed by `os.remove(path)` and `open(path, \"w\")`. If the file exists and is not writable, `os.remove()` will fail anyway. This adds complexity without benefit.\n  - Fix: Remove the explicit permission check and handle `PermissionError` from the actual filesystem operations.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 47610
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n* [CRITICAL] [CONCURRENCY] TOCTOU race condition allows symlink substitution and arbitrary file overwrite (in `save_user_config`)\n    - Issue: The function performs a non-atomic check-then-act sequence (`os.path.exists` -> `os.access` -> `os.remove` -> `open`). An attacker with write access to the directory can replace the target file with a symlink between these steps. For example, after the permission check passes, the attacker can swap `path` with a symlink pointing to a sensitive file (e.g., `/etc/passwd` or a system config). The subsequent `open(path, \"w\")` will follow the symlink and truncate/overwrite the attacker's target, bypassing the original permission check and potentially escalating privileges or corrupting system files.\n    - Fix: Avoid checking and opening the path separately. Use `os.open` with the `O_NOFOLLOW` flag to prevent symlink traversal, or open the file first and verify the real path of the file descriptor (e.g., `os.path.realpath(os.path.join('/proc/self/fd', str(fd)))`) matches the expected directory and is not a symlink. Alternatively, write to a temporary file in the same directory and use `os.replace` for atomic rename.\n\n* [WARNING] [CONCURRENCY] `os.chmod` operates on path string, vulnerable to post-write file replacement (at `os.chmod(path, 0o600)`)\n    - Issue: `os.chmod(path, 0o600)` is called on the path string after the file has been written. If the file is replaced (e.g., by a symlink swap) between the `open` call and the `chmod` call, the permission change will be applied to the new file at that path, which may be an unintended file owned by another user, leading to incorrect permissions or a failed security control.\n    - Fix: Apply permissions to the file descriptor before closing the file. Use `os.fchmod(fh.fileno(), 0o600)` inside the `with open(...)` block, or use `os.open` with the desired mode and then `os.fchmod`.\n\n* [SUGGESTION] [LOGIC] Non-atomic delete-and-write pattern risks data loss on crash (in `save_user_config`)\n    - Issue: The function deletes the existing file before writing the new one. If the process crashes or the system loses power between `os.remove` and `fh.write`, the configuration file is permanently lost. This is a fragile pattern for persistent configuration data.\n    - Fix: Write the new configuration to a temporary file (e.g., `path + '.tmp'`) in the same directory, flush and fsync it, and then atomically rename it to the target path using `os.replace`. This ensures crash consistency and avoids the delete-then-write race for the data itself (though symlink protection still needs to be addressed).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 51516
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Data loss on write failure> (path existence check, removal, write)\n  - Issue: The function deletes the existing file before successfully writing new content; if the write operation fails (e.g., due to disk full, permission loss after removal), the original data is permanently lost with no recovery path, violating correctness invariants.\n  - Fix: Remove the file only after confirming the new write succeeds, or use a temporary file and rename atomically to ensure data integrity.\n\n* [WARNING] AUTH_CRYPTO <Symlink TOCTOU vulnerability> (@)\n  - Issue: The code checks file existence and writability but does not verify that the path refers to a regular file, allowing a malicious symlink to be swapped in after the check; os.remove will then delete the target of the symlink, enabling path traversal and unauthorized file overwrite.\n  - Fix: Use os.lstat to ensure the path is a regular file (not a symlink) before removal, or open the file with O_EXCL to avoid existing file issues.\n\n* [SUGGESTION] SIMPLICITY <Atomic replace via temporary file> (@)\n  - Issue: The current logic manually removes then writes, creating race conditions and data loss risk; using a temporary file with atomic rename simplifies the code and eliminates the need for separate removal and chmod steps.\n  - Fix: Create a temporary file (e.g., via tempfile.NamedTemporaryFile), write blob, fsync, then os.replace(tmp_path, path) and set permissions on the final path.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 38503
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "toctou_config_write.py",
+    "exit_code": 0,
+    "wall_s": 51.9
+  }
+}

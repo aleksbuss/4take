@@ -1,0 +1,116 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:18:59.465738Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "ac396b55405f",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 31470,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "accept_upload",
+      "title": "Non-atomic quota check and state mutation",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 4
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "bytes_used",
+      "title": "Quota invariant enforced outside the store",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "accept_upload",
+      "title": "Missing input validation",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] CONCURRENCY Race condition in quota check (at accept_upload)\n    - Issue: Multiple concurrent calls for the same user can each pass the quota check before any bumps usage, causing the total stored bytes to exceed the user's quota after all writes complete.\n    - Fix: Perform the quota check and usage bump atomically, e.g., replace the check‑then‑bump with a single store method like `if not store.try_consume_quota(user, len(payload)): raise QuotaExceeded(user)` that reserves the quota only if sufficient space exists.\n\n* [WARNING] RESOURCE_LEAK Reserved key not released on write failure (at accept_upload)\n    - Issue: If `store.write(key, payload)` raises an exception after `store.reserve_key(user)`, the reserved key is never released, leaking a resource (e.g., an identifier or storage slot).\n    - Fix: Wrap the write in a try/except block and release the key on error:\n        key = store.reserve_key(user)\n        try:\n            store.write(key, payload)\n        except Exception:\n            store.release_key(key)\n            raise\n        store.bump_usage(user, len(payload))\n        return key",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12473
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "apodex/apodex-1.1-mini:free",
+      "served_provider": "Novita",
+      "content": "\n\n* [CRITICAL] [CONCURRENCY] Non-atomic quota check and state mutation (at accept_upload)\n    - Issue: The read of `bytes_used`, the quota comparison, and the subsequent mutation (`reserve_key` -> `write` -> `bump_usage`) are separate operations. Under concurrent load for the same `user`, two requests can read the same `used` value, both pass the quota check, and both commit. The aggregate usage exceeds `store.quota(user)`, silently violating the resource limit contract. This is a classic TOCTOU race where the caller trusts the returned `key` implies quota compliance.\n    - Fix: Perform the check and mutation atomically inside the storage layer (e.g. `store.reserve_and_write(user, payload)` which validates quota under a lock/transaction), or serialize `accept_upload` calls per user via a lock.\n\n* [WARNING] [ERROR_HANDLING] Write/bump split risks under-accounting on partial failure (at accept_upload)\n    - Issue: `store.write` executes before `store.bump_usage`. If `write` succeeds but `bump_usage` raises (or the process dies between them), the logical usage counter remains lower than the actual bytes persisted. Subsequent quota checks will then overestimate available space, allowing uploads that exceed physical capacity or the intended quota. This silently weakens the quota guarantee over time.\n    - Fix: Make `bump_usage` idempotent, or require `store.write` to accept a callback/transaction that atomically persists data and updates usage.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 20002
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] CONCURRENCY TOCTOU quota bypass (at `if used + len(payload) > store.quota(user):`)\n  - Issue: The check-then-act sequence between `bytes_used` and `write`/`bump_usage` is not atomic. Two concurrent uploads can read the same `used` value, both pass the quota check, and both write, causing total usage to exceed quota.\n  - Fix: Move quota enforcement into the store so reservation and write are atomic, e.g. `store.reserve(user, len(payload))` that checks quota and decrements available space in one operation.\n\n* [WARNING] ERROR_HANDLING Partial failure leaks reserved key or under-reports usage (at `key = store.reserve_key(user)` through `store.bump_usage`)\n  - Issue: If `store.write` raises after `reserve_key`, a key is reserved but no data is written and usage is not bumped, leaking the reservation. If `bump_usage` raises after a successful write, usage is under-reported, silently allowing future uploads to exceed quota.\n  - Fix: Wrap the write/bump sequence in try/except and release the reserved key on failure, or use a transactional store API that commits reserve+write+bump atomically.\n\n* [WARNING] STRUCTURE Quota invariant enforced outside the store (at `used = store.bytes_used(user)`)\n  - Issue: The caller reads `bytes_used` and `quota` separately, exposing internal accounting and making it impossible to enforce the “total usage ≤ quota” invariant without a lock or transaction around every upload.\n  - Fix: Remove the external check and let `store.reserve_key`/`store.write` reject the operation if it would exceed quota, keeping the invariant inside the store.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 27188
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] CONCURRENCY Race condition in quota check (at accept_upload function)\n  - Issue: The quota check `used + len(payload) > store.quota(user)` and subsequent operations are not atomic. Between the check and `store.bump_usage()`, another concurrent upload for the same user could pass the same check and both operations would exceed the quota. This TOCTOU (time-of-check to time-of-use) vulnerability allows quota bypass under concurrent load.\n  - Fix: Move the quota check inside the write operation or use atomic compare-and-swap semantics. Consider: `store.write_with_quota_check(key, payload, user)` that atomically verifies and updates quota.\n\n* [WARNING] ERROR_HANDLING Missing rollback on partial failure (at accept_upload function)\n  - Issue: If `store.write(key, payload)` succeeds but `store.bump_usage(user, len(payload))` fails (e.g., due to storage error), the usage counter becomes inconsistent with actual stored data. The key is already written but not accounted for in quota tracking.\n  - Fix: Use a transaction or ensure `bump_usage` is called before `write`, with proper rollback on failure. Consider: `store.reserve_and_write_with_usage(key, payload, user, len(payload))` that handles both atomically.\n\n* [WARNING] LOGIC Missing input validation (at accept_upload function)\n  - Issue: The function assumes `payload` supports `len()` and `user` is valid for store operations. If `payload` is None or lacks `__len__`, or if `user` is invalid, the function will raise unhandled exceptions rather than returning meaningful errors.\n  - Fix: Add explicit validation: `if not hasattr(payload, '__len__'): raise InvalidPayload()` and validate user early.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 31465
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "toctou_upload_quota.py",
+    "exit_code": 0,
+    "wall_s": 31.9
+  }
+}

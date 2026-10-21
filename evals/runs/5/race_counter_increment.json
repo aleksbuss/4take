@@ -1,0 +1,119 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:16:08.117805Z",
+  "config": {
+    "models_requested": 10,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "2a1ac2f8ce88",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 2,
+    "total_latency_ms": 71712,
+    "context": null
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "hit",
+      "title": "Lost update race on concurrent hit calls for new keys",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "google/gemma-4-26b-a4b-it:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "CRITICAL": 3,
+        "WARNING": 2
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] CONCURRENCY Race condition in hit method (at hit)\n    - Issue: The check‑then‑set pattern for missing keys is not atomic; two threads can both observe `key not in self.counts`, each set `self.counts[key] = 0` under the lock, then both increment `self.counts[key] += 1` without holding the lock, causing one increment to be lost.\n    - Fix: Perform both the initialization and the increment while holding the lock, e.g. wrap the entire operation in `with self.lock:` or use `defaultdict(int)` with a lock for the increment.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6390
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] CONCURRENCY Race condition on increment (in `hit`)\n  - Issue: `self.counts[key] += 1` executes outside the lock. The read-modify-write is not atomic, so concurrent threads can lose increments (both read the same value, both write back value+1, one increment is silently dropped).\n  - Fix: Move the entire read-modify-write inside the lock, or use `collections.defaultdict(int)` with the lock held for the whole operation.\n\n* [WARNING] CONCURRENCY TOCTOU on key initialization (in `hit`)\n  - Issue: `if key not in self.counts` is checked outside the lock. Multiple threads can simultaneously see a missing key and all enter the locked block, causing redundant re-initialization to 0. While the end count is unaffected (the lost increments above are the real damage), this pattern is fragile — if initialization logic ever becomes non-idempotent, it will break.\n  - Fix: Move the membership check inside the lock, or eliminate it entirely by using `defaultdict(int)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6780
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [LOGIC] Race condition in hit method leading to lost increments (at HitCounter.hit)\n    - Issue: The check `if key not in self.counts:` is performed outside the lock, allowing multiple threads to pass the condition before any inserts the key. After acquiring the lock, each thread may reset the count to 0, overwriting prior increments, and the subsequent `self.counts[key] += 1` is also unprotected, causing interleaved reads/writes that lose updates.\n    - Fix: Perform the lookup, default, and increment atomically under the lock:  \n      ```python\n      def hit(self, key):\n          with self.lock:\n              self.counts[key] = self.counts.get(key, 0) + 1\n          return self.counts[key]\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 30012
+    },
+    {
+      "model": "openrouter/apodex/apodex-1.1-mini:free",
+      "served_model": "apodex/apodex-1.1-mini:free",
+      "served_provider": "Novita",
+      "content": "\n\n* [CRITICAL] [CONCURRENCY] Lost update race on concurrent `hit` calls for new keys (at `hit`)\n  - Issue: The key existence check (`if key not in self.counts`) and the increment (`self.counts[key] += 1`) are separated by a lock release, creating a TOCTOU window. Two threads can both observe a missing key, both acquire the lock sequentially to initialize the entry to 0, and then both increment outside the lock. The final count will be lower than the actual number of hits (e.g., two concurrent hits on a fresh key may both return 1), silently corrupting the counter invariant.\n  - Fix: Acquire `self.lock` around the entire read-modify-write sequence and remove the outer existence check:\n    ```python\n    with self.lock:\n        if key not in self.counts:\n            self.counts[key] = 0\n        self.counts[key] += 1\n        return self.counts[key]\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 23090
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "served_model": "google/gemma-4-26b-a4b-it:free",
+      "served_provider": "Google AI Studio",
+      "content": "[CRITICAL] [CONCURRENCY] Race condition in `hit` method\n    - Issue: The `hit` method performs a check-then-act sequence (`if key not in self.counts`) outside of the lock. In a multi-threaded environment, two threads can simultaneously see that a key is missing, both enter the `if` block, and both attempt to initialize the key. More critically, the increment `self.counts[key] += 1` is performed outside the lock. This is not an atomic operation in Python; it involves a read, an add, and a write. Multiple threads can read the same value, increment it, and write back the same result, leading to lost updates and incorrect counts.\n    - Fix: \n      ```python\n      def hit(self, key):\n          with self.lock:\n              self.counts[key] = self.counts.get(key, 0) + 1\n              return self.counts[key]\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5227
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] CONCURRENCY <Race condition on hit> (hit method)\n  - Issue: Two threads can call hit(key) simultaneously; both see key missing, acquire lock, set counts[key]=0, then both increment, resulting in a count of 2 instead of 1, violating the invariant that each hit increments the counter exactly once.\n  - Fix: Acquire the lock before checking and updating the dictionary, e.g., move the `if key not in self.counts` check inside the `with self.lock:` block or protect the increment with the lock.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary lock scope and redundant check> (hit method)\n  - Issue: The lock is only held while setting the initial value, leaving the increment unprotected and adding complexity; the `if key not in self.counts` check outside the lock is unnecessary and error‑prone.\n  - Fix: Acquire the lock for the entire read‑modify‑write operation, e.g., `with self.lock: self.counts[key] = self.counts.get(key, 0) + 1`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 28492
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 44052
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 37985
+    }
+  ],
+  "_eval": {
+    "snippet": "race_counter_increment.py",
+    "exit_code": 0,
+    "wall_s": 72.1
+  }
+}

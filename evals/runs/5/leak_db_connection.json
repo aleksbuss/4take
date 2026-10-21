@@ -1,0 +1,117 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:03:28.713911Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "bb9a736a368a",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 42346,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "RESOURCE_LEAK",
+      "symbol": "run_migration",
+      "title": "Open transaction and held locks on failure",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 3
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "run_migration",
+      "title": "Manual resource management couples lifetime to control flow",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "INJECTION",
+      "symbol": "run_migration",
+      "title": "Raw SQL execution accepts untrusted input",
+      "models": [
+        "apodex/apodex-1.1-mini:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK Connection and cursor not released on error (in run_migration)\n    - Issue: If any statement in `statements` raises an exception, the function exits before `pool.release(conn)` and `cur.close()`, leaving the connection checked out and the cursor open, causing a resource leak that can exhaust the pool under repeated calls.\n    - Fix: Wrap the operation in a try/finally block (or use context managers) to ensure the cursor is closed and the connection is released, and roll back the transaction on error:\n      ```python\n      def run_migration(pool, statements):\n          conn = pool.acquire()\n          try:\n              cur = conn.cursor()\n              try:\n                  for stmt in statements:\n                      cur.execute(stmt)\n              finally:\n                  cur.close()\n              conn.commit()\n          except Exception:\n              conn.rollback()\n              raise\n          finally:\n              pool.release(conn)\n          return len(statements)\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 14448
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CORRECTNESS] [RESOURCE_LEAK] Connection and cursor leak on exception (at pool.acquire / cur = conn.cursor)\n  - Issue: If `cur.execute(stmt)` raises at any point, control flow bypasses `pool.release(conn)` and `cur.close()`. The connection is permanently removed from the pool until the process restarts, causing pool exhaustion and cascading failures under load. The unclosed cursor may also hold server-side locks or memory.\n  - Fix: Enclose the operation in `try/finally`, calling `cur.close()` and `pool.release(conn)` in the finally block, or use a context manager if the pool supports one.\n\n* [CORRECTNESS] [ERROR_HANDLING] Missing rollback on failure (at conn.commit())\n  - Issue: When `cur.execute(stmt)` fails mid-migration, the transaction remains open and is never rolled back. Releasing the connection without rollback can leave partial changes committed (if the driver auto-commits on close) or retain exclusive locks, breaking the atomicity guarantee expected of migrations and potentially corrupting database state.\n  - Fix: Catch the exception, invoke `conn.rollback()`, then re-raise after ensuring the connection is released.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 17478
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "apodex/apodex-1.1-mini:free",
+      "served_provider": "Novita",
+      "content": "\n\n* [CRITICAL] [RESOURCE_LEAK] Connection pool leak on exception (at run_migration)\n    - Issue: `pool.release(conn)` is unconditional and sits outside exception handling. If `cur.execute(stmt)` or `conn.commit()` raises (malformed SQL, constraint violation, network drop), control flow bypasses release. The connection remains checked out indefinitely; under load the pool exhausts, causing subsequent migrations or application requests to hang waiting for a free connection.\n    - Fix: Wrap the body in `try/finally` and move `pool.release(conn)` into the `finally` block. Guard with `if conn is not None` to avoid masking `acquire` failures.\n\n* [CRITICAL] [LOGIC] Open transaction and held locks on failure (at run_migration)\n    - Issue: On an execute failure, `conn.commit()` is skipped, leaving the transaction open on the checked-out connection. Statements executed before the failure are uncommitted, but row/table locks remain held until the connection is returned or times out. This leaves the database in a partial migration state and can block concurrent access to tables modified before the failure.\n    - Fix: Call `conn.rollback()` in the `finally` block before `pool.release(conn)` to ensure transaction cleanup and lock release regardless of success or failure.\n\n* [WARNING] [INJECTION] Raw SQL execution accepts untrusted input (at run_migration)\n    - Issue: `cur.execute(stmt)` executes raw string SQL without validation or parameterization. If `statements` is derived from external input (e.g., uploaded migration scripts or user parameters), attackers can inject arbitrary SQL. The function assumes `statements` are trusted static scripts but exposes a raw execution boundary across a trust boundary.\n    - Fix: Validate statements against a whitelist of allowed SQL operations or require parameterized query objects. Reject dynamic string concatenation in migration inputs.\n\n* [WARNING] [STRUCTURE] Manual resource management couples lifetime to control flow (at run_migration)\n    - Issue: Manual `acquire`/`release` requires every caller to replicate exception-safe cleanup, which is exactly why the leak above occurred. Any future change to release semantics requires editing every call site. This manual pattern is error-prone compared to scope-bound resource management and forces callers to repeat the same try/finally handling.\n    - Fix: Prefer `pool.acquire()` as a context manager (`with pool.acquire() as conn:`) if supported, binding connection lifetime to the block scope automatically.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 22820
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] RESOURCE_LEAK Connection not released on exception (at run_migration function body)\n  - Issue: If any `cur.execute(stmt)` raises an exception, the connection acquired from the pool is never released. This will exhaust the connection pool under error conditions. Additionally, if execution partially succeeds before failure, the transaction is neither committed nor rolled back, leaving the database in an inconsistent state.\n  - Fix: Wrap the cursor operations in try/finally to ensure release, and add rollback on error:\n```python\ndef run_migration(pool, statements):\n    conn = pool.acquire()\n    try:\n        cur = conn.cursor()\n        try:\n            for stmt in statements:\n                cur.execute(stmt)\n            conn.commit()\n        except Exception:\n            conn.rollback()\n            raise\n        finally:\n            cur.close()\n    finally:\n        pool.release(conn)\n    return len(statements)\n```\n\n* [WARNING] ERROR_HANDLING Missing rollback on failure (at run_migration function body)\n  - Issue: When a statement fails, the transaction remains open and uncommitted. The database connection holds locks and consumes resources until the connection is closed or times out. Migration functions should provide all-or-nothing semantics.\n  - Fix: Add explicit `conn.rollback()` in an except block before re-raising the exception.\n\n* [WARNING] STRUCTURE Resource management without context managers (at run_migration function body)\n  - Issue: Manual acquire/release pattern is error-prone and duplicates the cleanup logic that context managers handle automatically. This pattern will drift if similar code is written elsewhere with different error handling.\n  - Fix: Use context managers if the pool supports them:\n```python\nwith pool.connection() as conn:\n    with conn.cursor() as cur:\n        for stmt in statements:\n            cur.execute(stmt)\n        conn.commit()\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 42340
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "leak_db_connection.py",
+    "exit_code": 0,
+    "wall_s": 42.7
+  }
+}

@@ -1,0 +1,135 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:12:19.244997Z",
+  "config": {
+    "models_requested": 8,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "1cad309642b5",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 46659,
+    "context": null
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "push",
+      "title": "Off-by-one in full-buffer check allows silent overflow",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "BOUNDS",
+      "symbol": "__init__",
+      "title": "Negative or zero capacity accepted, crashes later",
+      "models": [
+        "apodex/apodex-1.1-mini:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "_head",
+      "title": "No read/pop mechanism exposed",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] LOGIC Off-by-one in buffer-full check (in `push`)\n  - The condition `self._count > len(self._buf)` allows one extra write past capacity. When `_count == len(self._buf)` the buffer is full but the check passes, so the next `push` overwrites the oldest element and increments `_count` beyond the allocated size. The buffer silently corrupts its own invariant and will eventually raise `IndexError` or lose data.\n  - Fix: Change `>` to `>=` so the exception fires exactly when the buffer is at capacity.\n\n* [WARNING] STRUCTURE No read/pop mechanism exposed\n  - `_head` advances on every push but there is no `_tail` or `pop` method shown. Once the buffer wraps, previously written items are overwritten with no way to retrieve them. If this is meant to be a general-purpose ring buffer, a `pop`/`read` method and a `_tail` pointer are needed; if it's intentionally write-only, the class name and `BufferFull` exception are misleading.\n  - Fix: Add a `pop` method that reads from `_tail`, advances it, and decrements `_count`, or rename the class to reflect write-only semantics.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5779
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] [LOGIC] RingBuffer.push allows overflow and misdetects full condition (at push)\n    - Issue: The condition `if self._count > len(self._buf):` never triggers when the buffer is full, allowing `push` to overwrite existing items and increment `_count` beyond capacity, breaking the buffer invariant. Additionally, `BufferFull` is undefined, causing a `NameError` when the condition would finally trigger.\n    - Fix: Define `BufferFull` (e.g., `class BufferFull(Exception): pass`) and change the condition to `if self._count == len(self._buf): raise BufferFull()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9889
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC RingBuffer push allows overflow when buffer full (at push)\n    - Issue: The condition `if self._count > len(self._buf):` only raises when count exceeds capacity, allowing a push when count == capacity to overwrite the oldest element and increment count beyond capacity, breaking the buffer invariant.\n    - Fix: Change the condition to `if self._count >= len(self._buf): raise BufferFull()`.\n\n* [ERROR_HANDLING] Missing BufferFull exception definition (at push)\n    - Issue: The code raises `BufferFull()` but this exception is not defined in the snippet, causing a NameError at runtime when the buffer is full.\n    - Fix: Define the exception, e.g., `class BufferFull(Exception): pass`, before the class or import it from an appropriate module.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 10518
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Fullness check (RingBuffer.push)\n  - Issue: The fullness check uses `self._count > len(self._buf)`, which permits the buffer to be filled one item beyond capacity, breaking the invariant that `_count <= capacity`. After `capacity` pushes, the next push incorrectly succeeds, overwriting the oldest element without raising `BufferFull`.\n  - Fix: Change the condition to `if self._count >= len(self._buf):` (or `self._count == len(self._buf)`) to raise when the buffer is full.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 44273
+    },
+    {
+      "model": "openrouter/apodex/apodex-1.1-mini:free",
+      "served_model": "apodex/apodex-1.1-mini:free",
+      "served_provider": "Novita",
+      "content": "\n\n* [CRITICAL] [LOGIC] Off-by-one in full-buffer check allows silent overflow (at `push`)\n  - Issue: The condition `self._count > len(self._buf)` permits insertion when `_count == capacity`. For a buffer of capacity 3, the 4th item passes the check: `_count` increments to 4, `_head` wraps, and `_buf[0]` is overwritten. The invariant `_count <= capacity` is violated, `_count` grows unbounded, and `BufferFull` is never raised despite the buffer being full. Any consumer relying on `_count` (e.g., `len()` or `pop`) will see corrupted state.\n  - Fix: Change the condition to `if self._count >= len(self._buf): raise BufferFull()`.\n* [WARNING] [BOUNDS] Negative or zero capacity accepted, crashes later (at `__init__`)\n  - Issue: `[None] * capacity` is valid Python for negative `capacity`, producing an empty list. `_head` stays 0. A subsequent `push` attempts `self._buf[0]`, raising `IndexError` instead of failing fast at construction. This hides invalid configuration until first use and produces a confusing traceback deep in the call stack rather than a clear construction-time error.\n  - Fix: Validate `if capacity < 0: raise ValueError(\"capacity must be non-negative\")` in `__init__`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18352
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC RingBuffer push overflow (in push method)\n  - Issue: The guard `if self._count > len(self._buf):` never triggers when the buffer is full because `self._count` can reach `len(self._buf)` without exceeding it, allowing `push` to write past the logical capacity, corrupt `self._count`, and overwrite existing items, producing wrong results that callers will trust.\n  - Fix: Replace the condition with `if self._count >= len(self._buf): raise BufferFull()` to reject pushes when the buffer is already full.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 28300
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "offbyone_ring_buffer.py",
+    "exit_code": 0,
+    "wall_s": 47.1
+  }
+}

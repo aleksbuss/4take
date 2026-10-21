@@ -1,0 +1,130 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:17:31.611066Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "5c184b8d731e",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 17419,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "term",
+      "title": "Unsafe query construction",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "term",
+      "title": "Missing input validation",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "execute",
+      "title": "Cursor never closed",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "LOGIC",
+      "symbol": null,
+      "title": "Unescaped LIKE wildcards",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION SQL injection via term concatenation (at symbol/search_users)\n    - Issue: The function builds the SQL query by directly concatenating user‑supplied `term` (and `limit`) into the query string. An attacker can supply a term like `\"'; DROP TABLE users; --\"` to alter the query structure, leading to arbitrary SQL execution, data leakage, or destruction.\n    - Fix: Use parameterized queries. Rewrite the query with placeholders and pass the search pattern and limit as parameters: `query = \"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\"` and execute with `cur.execute((f\"%{term}%\", limit))`. Validate that `limit` is a non‑negative integer before execution.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5396
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] INJECTION Free-text SQL injection in search_users (at query construction)\n  - Issue: The `term` parameter is directly concatenated into the SQL query string without any sanitization or parameterization. An attacker can supply a malicious term like `' OR 1=1 --` to bypass the WHERE clause and dump all users, or use `'; DROP TABLE users; --` to destroy data. The `limit` parameter also lacks validation, allowing potential resource exhaustion.\n  - Fix: Use parameterized queries:\n```python\ncur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", (f'%{term}%', limit))\n```\n\n* [WARNING] LOGIC Missing input validation for limit parameter (at function parameter)\n  - Issue: The `limit` parameter is converted to string via `str(limit)` without validation. Negative values, extremely large values, or non-integer types could cause unexpected behavior. A limit of 0 returns empty results, while extremely large values could cause memory issues.\n  - Fix: Validate and clamp the limit:\n```python\nlimit = max(1, min(int(limit), 1000))\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7239
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] SQL injection via string concatenation (line 4)\n  - Issue: `term` is directly interpolated into the query string. An attacker can inject arbitrary SQL (e.g., `' OR 1=1 --`), bypassing the WHERE clause and extracting all rows.\n  - Fix: Use parameterized queries: `cur.execute(\"SELECT ... WHERE display_name LIKE %s ORDER BY ... LIMIT %s\", (f\"%{term}%\", limit))`.\n\n* [WARNING] [RESOURCE_LEAK] Cursor never closed (line 6)\n  - Issue: If `execute()` or `fetchall()` raises an exception, the cursor is leaked. Repeated calls exhaust server cursors or memory.\n  - Fix: Use a context manager: `with conn.cursor() as cur:` or wrap in try/finally with `cur.close()`.\n\n* [WARNING] [ERROR_HANDLING] Missing input validation (lines 4-5)\n  - Issue: `term` can be `None` (TypeError on concatenation) and `limit` is cast to string without type/range checks, allowing negative or non-integer values that may crash or return unexpected results.\n  - Fix: Validate `isinstance(limit, int) and limit > 0` and handle `term` being `None` (e.g., treat as empty string or raise ValueError).\n\n* [SUGGESTION] [LOGIC] Unescaped LIKE wildcards (line 4)\n  - Issue: `%` and `_` in `term` are interpreted as wildcards, so a search for \"100%\" matches \"100 percent\". This may be surprising if literal matching is expected.\n  - Fix: Escape wildcards with `term.replace(\"%\", r\"\\%\").replace(\"_\", r\"\\_\")` and add `ESCAPE '\\'` to the query, or document that wildcards are supported.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 9476
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Unsafe query construction (search_users)\n  - Issue: The function builds the SQL statement by directly concatenating the user‑supplied `term` and `limit` into the query string. An attacker can supply `term = \"' OR 1=1 --\"` to return all rows or `limit = \"10; DROP TABLE users;\"` to execute arbitrary DDL, leading to data leakage, corruption, or loss.\n  - Fix: Use a parameterized query: `cur.execute(\"SELECT id, email, display_name FROM users WHERE display_name LIKE ? ORDER BY created_at DESC LIMIT ?\", (f\"%{term}%\", limit))`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 17412
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "sqli_user_search.py",
+    "exit_code": 0,
+    "wall_s": 17.8
+  }
+}

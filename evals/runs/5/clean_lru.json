@@ -1,0 +1,108 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T07:55:08.435619Z",
+  "config": {
+    "models_requested": 7,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "9627ee82c7f3",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 106792,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "CONCURRENCY",
+      "symbol": "put",
+      "title": "Non-atomic read-modify-write in put",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "put",
+      "title": "Capacity check is redundant after insertion",
+      "models": [
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12849
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "NO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 20834
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 39843
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [CONCURRENCY] Non-atomic read-modify-write in `put` (at `LRUCache.put`)\n  - Issue: `put` performs `key in self._data`, `move_to_end`, `__setitem__`, and `popitem` as separate operations. Under concurrent access (e.g., two threads calling `put` simultaneously), the `len(self._data) > self._capacity` check and the subsequent `popitem` are not atomic. One thread may observe a size exceeding capacity and evict an entry, while another thread concurrently inserts, leading to a race where the cache can temporarily exceed its capacity or evict the wrong entry. This violates the bounded-cache invariant under concurrent use.\n  - Fix: Guard all public methods (`get`, `put`) with a `threading.Lock` so each operation is atomic, or document that the class is not thread-safe and require callers to synchronize externally.\n\n* [SUGGESTION] [STRUCTURE] Capacity check is redundant after insertion (at `LRUCache.put`)\n  - Issue: The `if len(self._data) > self._capacity` check runs unconditionally after every `put`, even when the key already existed (in which case the size does not change). While not a correctness bug, it is a minor inefficiency: the eviction logic is evaluated on every update, not just on net-new insertions. This couples the update path with eviction logic unnecessarily.\n  - Fix: Only perform the eviction check when the key was not already present, i.e., move the `if len(self._data) > self._capacity` block inside an `else` clause of `if key in self._data`, or check `if key not in self._data and len(self._data) >= self._capacity` before insertion.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 51230
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] CONCURRENCY <Race on size check and eviction> (put)\n  - Issue: put checks len(self._data) > self._capacity after inserting, but concurrent get may modify _data between the check and the popitem, causing missed eviction or double-eviction. This can break the LRU invariant under multi‑threaded access.\n  - Fix:\n```python\ndef put(self, key, value) -> None:\n    if key in self._data:\n        self._data.move_to_end(key)\n    self._data[key] = value\n    if len(self._data) > self._capacity:\n        # atomic check and eviction\n        self._data.popitem(last=False)\n```\n\n* [SUGGESTION] SIMPLICITY <Unnecessary OrderedDict import> (put)\n  - Issue: collections.OrderedDict is only used for O(1) move_to_end and popitem; the standard dict in Python 3.7+ preserves insertion order, so OrderedDict adds indirection with a single implementation and no benefit.\n  - Fix:\n```python\nfrom collections import dict\n# replace OrderedDict with dict\nself._data: dict = dict()\n# move_to_end becomes pop and reinsert or use dict.move_to_end if available; for Python <3.7 use OrderedDict or manual reordering.\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 55549
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "clean_lru.py",
+    "exit_code": 0,
+    "wall_s": 107.3
+  }
+}

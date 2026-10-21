@@ -1,0 +1,184 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:01:45.234122Z",
+  "config": {
+    "models_requested": 9,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "aac9e77b0bd3",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 84128,
+    "context": null
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "archive_directory",
+      "title": "Command injection via src and dest_name",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 2,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "archive_directory",
+      "title": "Path traversal via dest_name",
+      "models": [
+        "cohere/north-mini-code:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "system",
+      "title": "Exit code semantics",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "archive_directory",
+      "title": "Archive command fails on paths containing spaces or special characters",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "archive_directory",
+      "title": "No validation of src parameter",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "archive_directory",
+      "title": "Use subprocess instead of os.system",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION Command injection via src and dest_name (at archive_directory)\n    - Issue: The src and dest_name parameters are directly interpolated into a shell command without sanitization, allowing an attacker to execute arbitrary commands if they control either input (e.g., src=\"; rm -rf /\").\n    - Fix: Use subprocess.run with a list of arguments and avoid shell=True; quote or validate inputs, or use shlex.quote if shell is necessary.\n\n* [WARNING] LOGIC Archive command fails on paths containing spaces or special characters (at archive_directory)\n    - Issue: The command string is built without quoting src or dest_name, so values containing spaces, semicolons, or glob characters cause the shell to misinterpret arguments, leading to tar failure.\n    - Fix: Pass arguments as a list to subprocess.run (e.g., [\"tar\", \"czf\", f\"/var/backups/{dest_name}.tar.gz\", src]) after validating dest_name does not contain path separators, or use shlex.quote on each variable if a shell is unavoidable.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18867
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [INJECTION] Command injection via unsanitized parameters (line 4)\n- Issue: `src` and `dest_name` are interpolated directly into a shell command string passed to `os.system`. An attacker controlling either argument can inject arbitrary shell commands via metacharacters (e.g., `src=\"/tmp/x; rm -rf /\"` or `dest_name=\"backup; cat /etc/shadow\"`).\n- Fix: Replace `os.system` with `subprocess.run([\"tar\", \"czf\", f\"/var/backups/{dest_name}.tar.gz\", src])` and validate `dest_name` against a safe character set to prevent path traversal.\n\n[WARNING] [ERROR_HANDLING] Exit code semantics (line 5)\n- Issue: `os.system` returns the raw wait status (exit code shifted left by 8 bits on Unix), not the exit code itself. Callers checking `== 0` will misread success/failure.\n- Fix: Use `subprocess.run(..., check=True)` or mask the status with `os.WEXITSTATUS(ret)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 28057
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] SECURITY Command Injection via os.system (at archive_directory function)\n  - Issue: The function uses `os.system()` with unsanitized user input directly interpolated into a shell command. Both `src` and `dest_name` parameters are vulnerable to shell metacharacter injection. An attacker passing `src = \"somepath; rm -rf /\"` or `dest_name = \"backup; cat /etc/passwd #\"` would execute arbitrary commands. This is a classic OS command injection vulnerability.\n  - Fix: Use `subprocess.run()` with a list of arguments instead of shell interpolation:\n    ```python\n    import subprocess\n    def archive_directory(src, dest_name):\n        dest_path = f\"/var/backups/{dest_name}.tar.gz\"\n        result = subprocess.run([\"tar\", \"czf\", dest_path, src], capture_output=True)\n        return result.returncode\n    ```\n\n* [CRITICAL] SECURITY Path Traversal in dest_name (at archive_directory function)\n  - Issue: The `dest_name` parameter is used in a file path without validation. An attacker can use path traversal sequences (e.g., `../../tmp/malicious`) to write archive files outside `/var/backups/`, potentially overwriting critical system files or writing to world-writable directories.\n  - Fix: Validate and sanitize the destination name:\n    ```python\n    import os\n    def archive_directory(src, dest_name):\n        # Prevent path traversal\n        if \"..\" in dest_name or \"/\" in dest_name or \"\\\\\" in dest_name:\n            raise ValueError(\"Invalid destination name\")\n        dest_path = os.path.join(\"/var/backups\", f\"{dest_name}.tar.gz\")\n        subprocess.run([\"tar\", \"czf\", dest_path, src], check=True)\n    ```\n\n* [WARNING] ERROR_HANDLING No validation of src parameter (at archive_directory function)\n  - Issue: The function does not validate that `src` exists, is a directory, or is within expected boundaries. Passing a non-existent path, file, or special device could cause unexpected tar behavior or security issues.\n  - Fix: Add path validation before archiving:\n    ```python\n    import os\n    def archive_directory(src, dest_name):\n        src_path = os.path.abspath(src)\n        if not os.path.isdir(src_path):\n            raise ValueError(f\"Source must be a directory: {src}\")\n        # ... rest of implementation\n    ```\n\n* [SUGGESTION] SIMPLICITY Use subprocess instead of os.system (at archive_directory function)\n  - Issue: `os.system()` spawns a shell, adding overhead and security risk. Using `subprocess` with argument lists avoids shell interpretation entirely and provides better control over the process execution environment.\n  - Fix: Replace `os.system(cmd)` with `subprocess.run([\"tar\", \"czf\", dest_path, src])` as shown in the first fix.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 43851
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Command injection via src and dest_name (archive_directory)\n  - Issue: The function directly interpolates user‑controlled src and dest_name into a shell command executed with os.system. An attacker can supply values like `; rm -rf /` or `../../etc/passwd` to execute arbitrary commands or write outside the intended backup directory.\n  - Fix: Use subprocess.run with a list of arguments and avoid shell interpolation:\n\n```\nimport subprocess\ndef archive_directory(src, dest_name):\n    dest_path = os.path.join('/var/backups', f\"{dest_name}.tar.gz\")\n    subprocess.run(['tar', 'czf', dest_path, src], check=True)\n```\n\n* [CRITICAL] INJECTION Path traversal via dest_name (archive_directory)\n  - Issue: dest_name is concatenated into a file path without validation. A dest_name containing '/' (e.g., `../evil`) allows writing the archive outside /var/backups, breaking the intended directory boundary.\n  - Fix: Sanitize dest_name to a safe basename before constructing the path:\n\n```\nimport os, subprocess\ndef archive_directory(src, dest_name):\n    safe_name = os.path.basename(dest_name)\n    dest_path = os.path.join('/var/backups', f\"{safe_name}.tar.gz\")\n    subprocess.run(['tar', 'czf', dest_path, src], check=True)\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 84118
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION <Path traversal in destination filename> (archive_directory)\n  - Issue: dest_name is interpolated directly into the tar command, allowing an attacker to supply sequences like \"../../etc/passwd\", causing the archive to be written outside /var/backups and potentially overwrite system files. This is a concrete exploit scenario.\n  - Fix: Validate or sanitize dest_name, e.g., restrict to a safe filename pattern or construct the full path with os.path.join and ensure it stays under /var/backups.\n\n* [WARNING] LOGIC <Improper quoting of src argument> (archive_directory)\n  - Issue: src is interpolated without quoting, so paths containing spaces or shell metacharacters break the tar command or enable command injection. For example, src = \"my; rm -rf /\" results in malicious shell execution via os.system.\n  - Fix: Use a list-based subprocess call (e.g., subprocess.run([\"tar\", \"czf\", f\"/var/backups/{dest_name}.tar.gz\", src])) or quote the argument properly.\n\n* [SUGGESTION] SIMPLICITY <Heavyweight external process for archiving> (archive_directory)\n  - Issue: The function relies on os.system and the external tar binary, introducing unnecessary complexity and security risk. A pure‑Python solution using the tarfile module would be simpler, safer, and avoid shell injection.\n  - Fix: Replace the os.system call with Python's tarfile module, e.g., `with tarfile.open(fileobj=io.BytesIO(), mode='w:gz') as tar: tar.add(src)`.\n\nNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 25714
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "served_model": "nvidia/nemotron-3.5-lightning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] [INJECTION] Command injection via unsanitized command construction (at line 3)\n  - Issue: `src` and `dest_name` are interpolated directly into a shell command string passed to `os.system`. An attacker controlling either argument can execute arbitrary commands (e.g., `dest_name=\"foo.tar.gz; rm -rf /var/backups\"` or `src=\"$(malicious)\"`). The function crosses a trust boundary without validation or escaping.\n  - Fix: Replace `os.system` with `subprocess.run` using an argument list, or better yet, use Python's `tarfile` module to avoid shell invocation entirely. If shell execution is unavoidable, validate and sanitize inputs, and never interpolate user data into command strings.\n\n* [WARNING] [LOGIC] Unquoted path arguments may cause command failure or injection (at line 3)\n  - Issue: The constructed command `tar czf /var/backups/{dest_name}.tar.gz {src}` does not quote `{src}`. If `src` contains spaces or shell metacharacters, the tar command will interpret them as multiple arguments or operators, leading to silent failure or unexpected behavior. Combined with the injection vector, this amplifies the risk.\n  - Fix: If shell execution is retained, quote `{src}` with `shlex.quote()` or switch to `subprocess.run` with a list of arguments where `{src}` is a separate element.\n\n* [SUGGESTION] [SIMPLICITY] Redesign to use `tarfile` or `shutil` instead of shell invocation (at line 3)\n  - Issue: Building and executing a shell command via `os.system` is unnecessarily heavy for archiving. Python's `tarfile` module provides a pure-Portable, cross-platform alternative without shell exposure, eliminating the injection and quoting concerns entirely.\n  - Fix: Replace the function body with `tarfile.open(dest_path, \"w:gz\")` iterating over `os.walk(src)`, or `shutil.archive`/`shutil.make_archive` which handle directory archiving safely and portably.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 68888
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 4119
+    }
+  ],
+  "_eval": {
+    "snippet": "cmdinjection_backup.py",
+    "exit_code": 0,
+    "wall_s": 85.6
+  }
+}

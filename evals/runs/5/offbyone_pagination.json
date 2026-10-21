@@ -1,0 +1,132 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:10:36.140732Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "38bdaad282ae",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 33337,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "page_slice",
+      "title": "Off‑by‑one in page_slice",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "total_pages",
+      "title": "total_pages discards remainder",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "per_page",
+      "title": "Unhandled zero or negative per_page leads to crash or nonsense",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": null,
+      "title": "Missing input validation",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] page_slice off-by-one error (at page_slice)\n  - Issue: Docstring claims `page` is 1-indexed, but `start = page * per_page` treats it as 0-indexed. Page 1 returns `items[per_page:2*per_page]`, silently skipping the first `per_page` items and returning the second page instead.\n  - Fix: Change `start = page * per_page` to `start = (page - 1) * per_page`.\n\n* [CRITICAL] [LOGIC] total_pages truncates remainder (at total_pages)\n  - Issue: `len(items) // per_page` rounds down, so a partial final page is dropped. With 5 items and `per_page=2`, it returns 2 pages, but items 4–5 are inaccessible—callers iterating pages 1–2 will miss data, or page 3 will return an empty list unexpectedly.\n  - Fix: Use ceiling division: `(len(items) + per_page - 1) // per_page`.\n\n* [WARNING] [ERROR_HANDLING] Missing input validation (at page_slice/total_pages)\n  - Issue: No guard against `per_page <= 0` (ZeroDivisionError in `total_pages`, negative/zero slice step) or negative `page` (Python negative indexing returns items from the end of the list, leaking unintended data).\n  - Fix: Add `if per_page <= 0: raise ValueError(\"per_page must be positive\")` and `if page < 1: raise ValueError(\"page must be >= 1\")` (or return empty list).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 24335
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Off-by-one in page_slice> (at page_slice)\n    - Issue: The function treats `page` as 1-indexed but computes `start = page * per_page`. For page=1 this skips the first page, returning items[per_page:2*per_page] instead of items[0:per_page]. Example: items=[0..19], page=1, per_page=10 yields [] instead of [0..9].\n    - Fix: Change start calculation to `start = (page - 1) * per_page`.\n\n* [CRITICAL] LOGIC <Incorrect total_pages calculation> (at total_pages)\n    - Issue: Uses floor division, which undercounts when the collection size is not an exact multiple of `per_page`. Example: 5 items with per_page=2 returns 2 pages, but a third page is needed for the remaining item.\n    - Fix: Return `(len(items) + per_page - 1) // per_page` (or `math.ceil(len(items) / per_page)`).\n\n* [CRITICAL] LOGIC <Unhandled zero or negative per_page leads to crash or nonsense> (at page_slice and total_pages)\n    - Issue: If `per_page` is zero, both functions raise ZeroDivisionError (total_pages) or produce meaningless slices (page_slice). Negative `per_page` produces reversed or empty slices, violating pagination semantics.\n    - Fix: Validate `per_page > 0` at the start of each function and raise ValueError otherwise; also ensure `page >= 1` for page_slice. Example:\n        if per_page <= 0: raise ValueError(\"per_page must be positive\")\n        if page < 1: raise ValueError(\"page must be >= 1\") (in page_slice).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 24825
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] LOGIC Off‑by‑one in page_slice (page_slice)\n  - Issue: The docstring states that `page` is 1‑indexed, but the implementation computes `start = page * per_page`. This causes the first page to be skipped and shifts all subsequent pages forward by one page size. For example, with `items=[1,2,3,4,5,6]`, `page=1`, `per_page=2`, the function returns `[3,4]` instead of `[1,2]`. This mis‑indexes data, leading to incorrect results that a caller relying on pagination would trust, and can cause silent data loss or UI display errors.\n  - Fix: Adjust the start index to `(page - 1) * per_page` to align with 1‑based page numbering:\n    ```python\n    start = (page - 1) * per_page\n    ```\n\n* [CRITICAL] LOGIC total_pages discards remainder (total_pages)\n  - Issue: `total_pages` uses integer division `len(items) // per_page`, which truncates any partial final page. With `items` of length 10 and `per_page=3`, the function returns 3 pages, while the actual pagination requires 4 pages (3,3,3,1). This undercount misleads UI components that rely on the total page count, causing them to omit the last page or incorrectly disable navigation controls. It also makes `page_slice` return an empty slice for the last page, breaking the pagination contract.\n  - Fix: Compute the ceiling of the division to include the partial page:\n    ```python\n    total_pages = (len(items) + per_page - 1) // per_page\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 33035
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] LOGIC page_slice uses 0-indexed calculation for 1-indexed page parameter (at page_slice function)\n  - Issue: The docstring states page is 1-indexed, but `start = page * per_page` treats it as 0-indexed. For `page_slice([1,2,3,4,5], 1, 2)`, it returns `[3, 4]` instead of `[1, 2]`. The correct formula should be `start = (page - 1) * per_page`.\n  - Fix: Change `start = page * per_page` to `start = (page - 1) * per_page`\n\n* [CRITICAL] LOGIC total_pages loses remainder items (at total_pages function)\n  - Issue: Integer division `len(items) // per_page` discards remainder. For 11 items with 10 per page, it returns 1 instead of 2. The last page with 1 item is never counted.\n  - Fix: Change `return len(items) // per_page` to `return (len(items) + per_page - 1) // per_page` or `return math.ceil(len(items) / per_page)`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 33330
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "offbyone_pagination.py",
+    "exit_code": 0,
+    "wall_s": 33.8
+  }
+}
