@@ -10,6 +10,8 @@ When generating complex algorithms, database migrations, security-critical logic
 
 `4take` provides you (the agent) with an independent **Council of 4 LLMs** to audit your code in parallel before you present it to the user.
 
+Whether the council improves what a given agent ships has not been measured yet. Treat its output as leads to verify, not verdicts; step 2 of the synthesis framework below gives the measured hit rates.
+
 The council is told its input was written by a capable model, so it is not looking for syntax
 or typos. It reviews four axes: **correctness**, **security**, **structure** (responsibility in
 the wrong layer, coupling that spreads one change across several files, logic duplicated where
@@ -101,7 +103,7 @@ A large diff can take up to `--timeout` (600 s) and often ends with exit code `2
 four reviewers: few free models reason through one to an answer. A partial council is still a
 usable review; read `agreement` against `summary.distinct_models`.
 
-> **Zero-Token-Cost Guarantee**: `4take` operates exclusively with 100% free OpenRouter models (`:free` tier). It consumes ZERO paid tokens or account balance. Do not pass `--models` with paid models (they will be rejected by the validation guard).
+> **Free models only**: `4take` sends requests only to OpenRouter's free models (`:free` tier) and rejects a paid model before any request goes out. Do not pass `--models` with paid models. Free models are rate-limited: roughly 4 to 8 reviews a day on an OpenRouter account that has never been topped up, roughly 80 to 160 once it has. Do not call `4take` in a loop.
 
 ---
 
@@ -109,7 +111,7 @@ usable review; read `agreement` against `summary.distinct_models`.
 
 ```json
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "timestamp": "2026-08-16T14:20:00Z",
   "summary": {
     "task_hash": "25d297f773c3",

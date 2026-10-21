@@ -15,7 +15,7 @@ It reviews code. A design question or a plan piped in is refused before any requ
 because the reviewers would all answer `NO_ISSUES_FOUND`. Pass `--force-review` to override.
 
 ## Usage for Claude Code
-Runs on 100% free models (`:free` tier) with zero token expenditure. Never pass `--models` with paid models.
+Runs only on OpenRouter's free models (`:free` tier); a paid model is rejected before any request goes out, so never pass `--models` with one. Free-tier limits apply: roughly 4 to 8 reviews a day on an OpenRouter account that has never been topped up, roughly 80 to 160 once it has.
 
 ```bash
 cat src/module.py | 4take --format json --accept-risk --quiet

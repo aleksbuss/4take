@@ -14,7 +14,7 @@ Reviews four axes: correctness, security, structure and simplicity. Takes code, 
 config — a design question is refused unless you pass `--force-review`.
 
 ## How to use
-Runs exclusively on 100% free OpenRouter models (`:free` tier) with zero token expenditure.
+Runs only on OpenRouter's free models (`:free` tier); a paid model is rejected before any request goes out. Free-tier limits apply: roughly 4 to 8 reviews a day on an OpenRouter account that has never been topped up, roughly 80 to 160 once it has, so do not call it in a loop.
 
 ```bash
 cat path/to/file.py | 4take --format json --accept-risk --quiet
