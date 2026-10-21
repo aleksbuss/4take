@@ -35,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its own hint then misreported as a missing extra. `uv.lock` pinned 1.28.1, which is why CI and
   `uv sync` never saw it. The extra is now `mcp>=1.28.1,<2`.
 
+### Changed
+- **The source distribution leaves out the recorded council runs.** Without an `sdist` section
+  hatch ships everything git does not ignore, which put 400+ recorded model outputs and any
+  untracked draft in a 845 KB archive. It is now 260 KB. The eval corpora stay, because
+  `tests/test_input_kind.py` and `tests/test_autocontext.py` read them at collection time, and
+  the test suite passes from the unpacked archive (692 tests; the 11 that score recordings skip).
+
 ## [0.2.0] - not yet published
 
 ### Added
