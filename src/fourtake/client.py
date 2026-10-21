@@ -428,12 +428,17 @@ async def query_model(
             latency = int((time.monotonic() - start_time) * 1000)
             timeout_val = getattr(client.timeout, "read", "unknown")
             return ModelResponse(
-                model=display_model_name, content=None, error=f"Timeout after {timeout_val}s", latency_ms=latency
+                model=display_model_name,
+                content=None,
+                error=f"Timeout after {timeout_val}s",
+                latency_ms=latency,
             )
 
         except httpx.ConnectError:
             latency = int((time.monotonic() - start_time) * 1000)
-            return ModelResponse(model=display_model_name, content=None, error="Connection failed", latency_ms=latency)
+            return ModelResponse(
+                model=display_model_name, content=None, error="Connection failed", latency_ms=latency
+            )
 
         except (httpx.ReadError, httpx.WriteError, httpx.RemoteProtocolError) as e:
             # A connection dropped mid-exchange is the network, not the model, and it passes: retry
@@ -447,13 +452,17 @@ async def query_model(
                 continue
             latency = int((time.monotonic() - start_time) * 1000)
             return ModelResponse(
-                model=display_model_name, content=None,
-                error=f"Connection dropped after {attempt} retries: {_describe(e)}", latency_ms=latency,
+                model=display_model_name,
+                content=None,
+                error=f"Connection dropped after {attempt} retries: {_describe(e)}",
+                latency_ms=latency,
             )
 
         except Exception as e:
             latency = int((time.monotonic() - start_time) * 1000)
-            return ModelResponse(model=display_model_name, content=None, error=_describe(e), latency_ms=latency)
+            return ModelResponse(
+                model=display_model_name, content=None, error=_describe(e), latency_ms=latency
+            )
 
 
 def _describe(error: Exception) -> str:
@@ -463,6 +472,3 @@ def _describe(error: Exception) -> str:
         return type(error).__name__
     # An httpx message ("Server disconnected") reads as nothing without the error it belongs to.
     return f"{type(error).__name__}: {text}" if isinstance(error, httpx.HTTPError) else text
-
-
-

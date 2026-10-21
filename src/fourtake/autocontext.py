@@ -67,12 +67,16 @@ _COMMENT_LINE = re.compile(r"""^\s*(?:#(?!\s*(?:include|define)\b)|//|/\*|\*(?:\
 _TRAILING_COMMENT = re.compile(r"(?:^|\s)(?:#|//).*$")
 _CALL = re.compile(r"(?<![\w$])([A-Za-z_$][\w$]*)\s*\(")
 _MODULE_ATTR = re.compile(r"(?<![\w$.])([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)")
-_ASSIGN_TARGET = re.compile(r"^\s*(?:(?:const|let|var|val|final|auto)\s+)?([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=(?!=)")
+_ASSIGN_TARGET = re.compile(
+    r"^\s*(?:(?:const|let|var|val|final|auto)\s+)?([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=(?!=)"
+)
 _RECEIVER = re.compile(r"[A-Za-z_$][\w$]*$")
 # Imports, by what they bind. Only the bound names count: `from app.users import find_user` makes
 # `find_user` a name the file can use, not `app` or `users`.
 _PY_FROM = re.compile(r"^\s*from\s+\S+\s+import\s+\(?\s*(?P<names>[^)#]+)")
-_PY_IMPORT = re.compile(r"^\s*import\s+(?P<names>[\w.]+(?:\s+as\s+\w+)?(?:\s*,\s*[\w.]+(?:\s+as\s+\w+)?)*)\s*$")
+_PY_IMPORT = re.compile(
+    r"^\s*import\s+(?P<names>[\w.]+(?:\s+as\s+\w+)?(?:\s*,\s*[\w.]+(?:\s+as\s+\w+)?)*)\s*$"
+)
 _IMPORTS = (
     _PY_FROM,
     _PY_IMPORT,
@@ -88,23 +92,26 @@ _IMPORT_LINE = re.compile(
 
 # The first group of the first pattern that matches is the name a line defines. Ordered from the
 # keyword forms most languages share to the signature shapes only C-family languages have.
-_DEFINITIONS = tuple(re.compile(p) for p in (
-    r"^\s*(?:export\s+)?(?:default\s+)?(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?"
-    r"(?:def|class|function\*?|fn|struct|interface|enum|trait|type|module|object|record)\s+(?:self\.)?([A-Za-z_$][\w$]*)",
-    r"^\s*func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)",
-    r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?"
-    r"(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)",
-    # Java, C#, Kotlin and C members: modifiers, a return type, the name, a parameter list.
-    r"^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:public|private|protected|internal|static|final|abstract"
-    r"|override|virtual|synchronized|suspend|open)\s+)+(?:[\w<>\[\],.?]+\s+)?([A-Za-z_]\w*)\s*\(",
-    # A method in a JS/TS class body or object literal: `name(args) {`.
-    r"^\s*(?:(?:async|static|get|set|public|private|protected)\s+)*"
-    r"(?!(?:if|for|while|switch|catch|return|function|with|elif)\b)([A-Za-z_$][\w$]*)\s*\([^)]*\)"
-    r"\s*(?::\s*[\w<>\[\],.| ]+)?\s*\{\s*$",
-    # A C-family signature without modifiers: `User findUser(String id) {`.
-    r"^\s*(?!(?:return|new|throw|else|await|yield|case|if|for|while|switch|catch|import|package)\b)"
-    r"[\w<>\[\],.?*&]+\s+\*?([A-Za-z_]\w*)\s*\([^;]*\)\s*(?:throws\s+[\w.,\s]+)?\{\s*$",
-))
+_DEFINITIONS = tuple(
+    re.compile(p)
+    for p in (
+        r"^\s*(?:export\s+)?(?:default\s+)?(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?"
+        r"(?:def|class|function\*?|fn|struct|interface|enum|trait|type|module|object|record)\s+(?:self\.)?([A-Za-z_$][\w$]*)",
+        r"^\s*func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)",
+        r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?"
+        r"(?:function\b|\([^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)",
+        # Java, C#, Kotlin and C members: modifiers, a return type, the name, a parameter list.
+        r"^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:public|private|protected|internal|static|final|abstract"
+        r"|override|virtual|synchronized|suspend|open)\s+)+(?:[\w<>\[\],.?]+\s+)?([A-Za-z_]\w*)\s*\(",
+        # A method in a JS/TS class body or object literal: `name(args) {`.
+        r"^\s*(?:(?:async|static|get|set|public|private|protected)\s+)*"
+        r"(?!(?:if|for|while|switch|catch|return|function|with|elif)\b)([A-Za-z_$][\w$]*)\s*\([^)]*\)"
+        r"\s*(?::\s*[\w<>\[\],.| ]+)?\s*\{\s*$",
+        # A C-family signature without modifiers: `User findUser(String id) {`.
+        r"^\s*(?!(?:return|new|throw|else|await|yield|case|if|for|while|switch|catch|import|package)\b)"
+        r"[\w<>\[\],.?*&]+\s+\*?([A-Za-z_]\w*)\s*\([^;]*\)\s*(?:throws\s+[\w.,\s]+)?\{\s*$",
+    )
+)
 _CLASS_LIKE = re.compile(r"^\s*(?:[\w@]+\s+)*(?:class|struct|impl|interface|object|trait|enum|record)\b")
 # What else defines a name: a module-level constant or assignment in code, a key in config, a
 # field in a C-family class body.
@@ -130,18 +137,59 @@ _GO_IMPORT = re.compile(r'^\s*(?:import\s+)?(?:[\w.]+\s+)?"[\w./-]+"\s*$')
 _CONFIG_SUFFIXES = frozenset({".yaml", ".yml", ".toml", ".json", ".ini", ".cfg", ".conf", ".properties"})
 # Text that mentions names without being code: documentation, lock files, build output, saved
 # diffs and recorded model output.
-_SKIPPED_SUFFIXES = frozenset({
-    ".md", ".rst", ".txt", ".adoc", ".lock", ".map", ".svg", ".csv", ".tsv", ".log", ".snap",
-    ".sum", ".min.js", ".min.css", ".diff", ".patch", ".rej", ".orig", ".jsonl", ".ipynb",
-})
-_SKIPPED_NAMES = frozenset({
-    "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "cargo.lock", "go.sum",
-    "composer.lock", "gemfile.lock", "changelog", "license",
-})
-_SKIPPED_DIRS = frozenset({
-    "node_modules", "vendor", "third_party", "dist", ".venv", "venv", "__pycache__",
-    "site-packages", ".tox", ".next", "coverage",
-})
+_SKIPPED_SUFFIXES = frozenset(
+    {
+        ".md",
+        ".rst",
+        ".txt",
+        ".adoc",
+        ".lock",
+        ".map",
+        ".svg",
+        ".csv",
+        ".tsv",
+        ".log",
+        ".snap",
+        ".sum",
+        ".min.js",
+        ".min.css",
+        ".diff",
+        ".patch",
+        ".rej",
+        ".orig",
+        ".jsonl",
+        ".ipynb",
+    }
+)
+_SKIPPED_NAMES = frozenset(
+    {
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "poetry.lock",
+        "cargo.lock",
+        "go.sum",
+        "composer.lock",
+        "gemfile.lock",
+        "changelog",
+        "license",
+    }
+)
+_SKIPPED_DIRS = frozenset(
+    {
+        "node_modules",
+        "vendor",
+        "third_party",
+        "dist",
+        ".venv",
+        "venv",
+        "__pycache__",
+        "site-packages",
+        ".tox",
+        ".next",
+        "coverage",
+    }
+)
 
 # Keywords and builtins across the languages 4take sees, compared case-folded. They name nothing
 # a reviewer could look up.
@@ -220,7 +268,7 @@ def _diff_path(raw: str, prefix: str) -> str | None:
     path = raw.split("\t", 1)[0].strip().strip('"')
     if path == "/dev/null":
         return None
-    return path[len(prefix):] if path.startswith(prefix) else path
+    return path[len(prefix) :] if path.startswith(prefix) else path
 
 
 def _read_hunk(lines: list[str], i: int, match: re.Match, change: FileChange) -> int:
@@ -268,8 +316,12 @@ def _defines(text: str, name: str, config: bool) -> bool:
     # A definition names its subject before any call, assignment or keyword that uses a value: the
     # cheap test that spares the patterns below the call sites, which outnumber definitions a
     # hundred to one for a helper used everywhere.
-    prefix = text[:text.find(name)]
-    if "(" in prefix or "=" in prefix or prefix.split()[:1] in (["return"], ["await"], ["yield"], ["throw"], ["raise"]):
+    prefix = text[: text.find(name)]
+    if (
+        "(" in prefix
+        or "=" in prefix
+        or prefix.split()[:1] in (["return"], ["await"], ["yield"], ["throw"], ["raise"])
+    ):
         return False
     if defined_name(text) == name:
         return True
@@ -323,7 +375,11 @@ def _code_of(text: str) -> str:
 
 def _is_symbol(name: str) -> bool:
     # Dunders are called through their class or an operator, never by their own name.
-    return len(name) >= 3 and name.lower() not in _STOPWORDS and not (name.startswith("__") and name.endswith("__"))
+    return (
+        len(name) >= 3
+        and name.lower() not in _STOPWORDS
+        and not (name.startswith("__") and name.endswith("__"))
+    )
 
 
 def _literals(text: str) -> dict[str, None]:
@@ -492,7 +548,7 @@ def _read_added_line(text: str, imported: set[str], added: _Added) -> None:
         if ident in imported or ident[:1].isupper():
             added.named[ident] = None
     for match in _CALL.finditer(code):
-        before = code[:match.start()].rstrip()
+        before = code[: match.start()].rstrip()
         if not before.endswith("."):
             added.named[match[1]] = None
         elif (receiver := _RECEIVER.search(before[:-1])) and receiver[0] in ("self", "this", "cls"):
@@ -643,7 +699,7 @@ def _align(change: FileChange, lines: list[str]) -> bool:
     """
     bounds = [*change.starts, len(change.body)]
     for h in range(len(change.starts)):
-        entries = change.body[bounds[h]:bounds[h + 1]]
+        entries = change.body[bounds[h] : bounds[h + 1]]
         after = [text.rstrip() for tag, _, text in entries if tag != "-"]
         while after and not after[-1]:
             after.pop()  # blank context past the end of the file: a trailing newline, not a line
@@ -655,17 +711,21 @@ def _align(change: FileChange, lines: list[str]) -> bool:
             return False
         shift = found - stated
         if shift:
-            change.body[bounds[h]:bounds[h + 1]] = [(tag, n + shift, t) for tag, n, t in entries]
+            change.body[bounds[h] : bounds[h + 1]] = [(tag, n + shift, t) for tag, n, t in entries]
             change.hunks[h] = (change.hunks[h][0] + shift, change.hunks[h][1] + shift)
     return True
 
 
 def _find_run(lines: list[str], run: list[str], stated: int) -> int | None:
     """The 1-based line nearest `stated` where `run` begins, or None."""
+
     def at(start: int) -> bool:
-        return start >= 1 and start - 1 + len(run) <= len(lines) and all(
-            lines[start - 1 + i].rstrip() == text for i, text in enumerate(run)
+        return (
+            start >= 1
+            and start - 1 + len(run) <= len(lines)
+            and all(lines[start - 1 + i].rstrip() == text for i, text in enumerate(run))
         )
+
     if at(stated):
         return stated
     starts = [n for n in range(1, len(lines) - len(run) + 2) if lines[n - 1].rstrip() == run[0] and at(n)]
@@ -676,7 +736,9 @@ def _git(root: Path, args: list[str]) -> str | None:
     try:
         run = subprocess.run(
             ["git", "-C", str(root), "-c", "core.quotepath=off", *args],
-            capture_output=True, timeout=GIT_TIMEOUT_SECONDS, check=False,
+            capture_output=True,
+            timeout=GIT_TIMEOUT_SECONDS,
+            check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -846,8 +908,12 @@ def _usable_hits(changes: list[FileChange], hits: list[_Hit]) -> list[_Hit]:
 
 def _rank(scope: _Scope, names: _Names, index: _Index) -> list[_Found]:
     """What still uses the removed names first; then callers and callees in turn; tests last."""
-    removed = _uses(scope, index, names.removed, "uses {}, which the change removes", imports=True, related=True)
-    removed += _uses(scope, index, names.literals, "uses {}, which the change removes", imports=True, quoted=True)
+    removed = _uses(
+        scope, index, names.removed, "uses {}, which the change removes", imports=True, related=True
+    )
+    removed += _uses(
+        scope, index, names.literals, "uses {}, which the change removes", imports=True, quoted=True
+    )
     callers = _class_rests(scope)
     callers += _uses(scope, index, names.edited, "uses {}", related=True)
     callers += _uses(scope, index, names.new, "uses {}", duplicates=True)
@@ -856,7 +922,9 @@ def _rank(scope: _Scope, names: _Names, index: _Index) -> list[_Found]:
     callees += _modules(scope, names)
     ordered = removed + _interleave(callers, callees)
     # Tests are the likeliest place for a name to recur and the least likely to be what broke.
-    return [f for f in ordered if not _TEST_PATH.search(f.path)] + [f for f in ordered if _TEST_PATH.search(f.path)]
+    return [f for f in ordered if not _TEST_PATH.search(f.path)] + [
+        f for f in ordered if _TEST_PATH.search(f.path)
+    ]
 
 
 class _Index:
@@ -877,8 +945,14 @@ class _Index:
 
 
 def _uses(
-    scope: _Scope, index: _Index, names: list[str], why: str, imports: bool = False,
-    related: bool = False, quoted: bool = False, duplicates: bool = False,
+    scope: _Scope,
+    index: _Index,
+    names: list[str],
+    why: str,
+    imports: bool = False,
+    related: bool = False,
+    quoted: bool = False,
+    duplicates: bool = False,
 ) -> list[_Found]:
     """
     Where the names are used, files that use more of them first.
@@ -918,8 +992,10 @@ def _definitions(
     found: list[_Found] = []
     for name in names:
         defining = [
-            h for h in index.of(name)
-            if (within is None or h.path in within) and _defines(h.text, name, _is_config(h.path))
+            h
+            for h in index.of(name)
+            if (within is None or h.path in within)
+            and _defines(h.text, name, _is_config(h.path))
             and not scope.in_prose(h)
         ]
         by_path = _group(defining)
@@ -943,11 +1019,15 @@ def _modules(scope: _Scope, names: _Names) -> list[_Found]:
         for path in _nearest(scope, candidates):
             lines = scope.repo.lines(path) or []
             config = _is_config(path)
-            defs = [n for n, text in enumerate(lines, 1) if any(_defines(text, a, config) for a in attributes)]
+            defs = [
+                n for n, text in enumerate(lines, 1) if any(_defines(text, a, config) for a in attributes)
+            ]
             if not defs and module in names.imported and 0 < len(lines) <= SMALL_FILE_LINES:
                 defs = [1]  # imported and short: sent whole, and what it lacks is the finding
             if defs:
-                found.extend(_Found(path, n, f"module {module}", "definition") for n in defs[:MAX_HITS_PER_FILE])
+                found.extend(
+                    _Found(path, n, f"module {module}", "definition") for n in defs[:MAX_HITS_PER_FILE]
+                )
                 break
     return found
 

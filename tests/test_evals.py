@@ -152,8 +152,7 @@ def test_same_model_pairs_count_one_models_findings_sharing_an_entry():
         return Finding(severity="WARNING", title="t", symbol=None, issue="", fix="", model=model, raw="")
 
     def entry(*models):
-        return Consensus(severity="WARNING", symbol=None, title="t",
-                         findings=[finding(m) for m in models])
+        return Consensus(severity="WARNING", symbol=None, title="t", findings=[finding(m) for m in models])
 
     # a: three findings, three pairs, one of them in one entry. b: one pair, kept apart.
     clusters = [entry("a", "a", "b"), entry("a"), entry("b", "c")]
@@ -237,7 +236,9 @@ def _run_recorder(recorder, monkeypatch, out, outcomes, *extra):
         return outcome
 
     monkeypatch.setattr(recorder, "record_one", fake_record_one)
-    monkeypatch.setattr("sys.argv", ["record.py", "--corpus", "ctx", "--out", str(out), "--delay", "0", *extra])
+    monkeypatch.setattr(
+        "sys.argv", ["record.py", "--corpus", "ctx", "--out", str(out), "--delay", "0", *extra]
+    )
     return recorder.main()
 
 
@@ -264,7 +265,9 @@ def test_recording_one_mode_keeps_what_it_recorded_when_it_stops(tmp_path, monke
     """Recording only `with`, no case has a sibling in `without`, and none is a half to discard."""
     recorder = _load_recorder()
     ok, gone = recorder.Outcome("ok", written=True), recorder.Outcome("FAILED", impaired=True)
-    code = _run_recorder(recorder, monkeypatch, tmp_path, [ok, gone, gone], "--mode", "with", "--stop-after", "2")
+    code = _run_recorder(
+        recorder, monkeypatch, tmp_path, [ok, gone, gone], "--mode", "with", "--stop-after", "2"
+    )
     assert code == recorder.EXIT_STOPPED
     assert [p.parent.name for p in tmp_path.rglob("*.json")] == ["with"]
 
@@ -280,20 +283,32 @@ def test_a_spent_daily_quota_stops_the_batch_at_once(tmp_path, monkeypatch):
 
 def test_provider_errors_and_a_spent_quota_are_read_from_the_councils_errors():
     recorder = _load_recorder()
-    quota = {"errors": [{"error": "Provider error 429 after 3 retries: Rate limit exceeded: "
-                                  "free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"}]}
+    quota = {
+        "errors": [
+            {
+                "error": "Provider error 429 after 3 retries: Rate limit exceeded: "
+                "free-models-per-day. Add 10 credits to unlock 1000 free model requests per day"
+            }
+        ]
+    }
     assert recorder._judge(quota, "") == (True, True)
-    assert recorder._judge({"errors": [{"error": "Rate limited (429); retry-after 40s exceeds the "
-                                                 "remaining budget"}]}, "") == (True, False)
-    assert recorder._judge({"errors": [{"error": "Timed out after 150s (latency 500ms)"}]}, "") == (False, False)
+    assert recorder._judge(
+        {"errors": [{"error": "Rate limited (429); retry-after 40s exceeds the remaining budget"}]}, ""
+    ) == (True, False)
+    assert recorder._judge({"errors": [{"error": "Timed out after 150s (latency 500ms)"}]}, "") == (
+        False,
+        False,
+    )
 
 
 def _fixture(directory, name, contents):
     directory.mkdir(parents=True, exist_ok=True)
-    payload = {"responses": [
-        {"model": f"m{i}", "served_model": f"vendor{i}/m", "content": text, "duplicate_of": None}
-        for i, text in enumerate(contents)
-    ]}
+    payload = {
+        "responses": [
+            {"model": f"m{i}", "served_model": f"vendor{i}/m", "content": text, "duplicate_of": None}
+            for i, text in enumerate(contents)
+        ]
+    }
     (directory / f"{name}.json").write_text(__import__("json").dumps(payload))
 
 
@@ -301,8 +316,8 @@ def test_the_context_report_counts_by_kind_and_separates_misfiled_findings_from_
     scorer = _load_scorer()
     local_only = (
         "* [CRITICAL] [LOGIC] Role check is always true (at on_login)\n"
-        "  - Issue: `or \"owner\"` is a non-empty string, so every user gets can_manage.\n"
-        "  - Fix: `if user.role in (\"admin\", \"owner\"):`\n"
+        '  - Issue: `or "owner"` is a non-empty string, so every user gets can_manage.\n'
+        '  - Fix: `if user.role in ("admin", "owner"):`\n'
     )
     both = local_only + (
         "* [CRITICAL] [CONCURRENCY] refresh_session is never awaited (at on_login)\n"
@@ -414,7 +429,9 @@ def test_a_guess_in_the_suggested_fix_is_not_a_finding_about_the_context(tmp_pat
 
 def test_scoring_takes_the_labels_it_is_given(tmp_path):
     scorer = _load_scorer()
-    _fixture(tmp_path, "tiny", ["* [CRITICAL] [INJECTION] SQL injection (at find)\n  - Issue: concatenated\n"])
+    _fixture(
+        tmp_path, "tiny", ["* [CRITICAL] [INJECTION] SQL injection (at find)\n  - Issue: concatenated\n"]
+    )
     labels = {"tiny": [{"id": "x", "symbol": "find", "severity": "CRITICAL", "keywords": ["concaten"]}]}
     report = scorer.score(tmp_path, labels=labels)
     assert report["council_recall"] == 1.0
@@ -428,8 +445,10 @@ def test_auto_mode_runs_every_case_from_one_repository_of_all_their_files():
     files = {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file() and ".git" not in p.parts}
     every_case = {
         p.relative_to(case / "context").as_posix()
-        for case in CORPUS_CTX.iterdir() if case.is_dir()
-        for p in (case / "context").rglob("*") if p.is_file()
+        for case in CORPUS_CTX.iterdir()
+        if case.is_dir()
+        for p in (case / "context").rglob("*")
+        if p.is_file()
     }
     assert files == every_case
     assert (root / ".git").is_dir()

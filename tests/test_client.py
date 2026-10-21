@@ -71,7 +71,9 @@ async def test_query_model_reasoning_field_without_content_is_not_a_review():
 def _completion(content, finish_reason):
     response = MagicMock()
     response.status_code = 200
-    response.json.return_value = {"choices": [{"message": {"content": content}, "finish_reason": finish_reason}]}
+    response.json.return_value = {
+        "choices": [{"message": {"content": content}, "finish_reason": finish_reason}]
+    }
     response.raise_for_status = lambda: None
     return response
 
@@ -87,8 +89,15 @@ async def test_a_reasoning_model_gets_room_to_think_on_top_of_the_answer():
     client.post.side_effect = [_completion("1. [CRITICAL] bug", "stop")]
 
     response = await query_model(
-        client, "http://dummy", "key", "m", "m", "code",
-        max_tokens=2048, max_output_cap=65536, supports_reasoning=True,
+        client,
+        "http://dummy",
+        "key",
+        "m",
+        "m",
+        "code",
+        max_tokens=2048,
+        max_output_cap=65536,
+        supports_reasoning=True,
     )
 
     assert response.content == "1. [CRITICAL] bug"
@@ -105,8 +114,15 @@ async def test_the_room_to_think_never_exceeds_what_the_model_can_emit():
     client.post.side_effect = [_completion("1. [CRITICAL] bug", "stop")]
 
     await query_model(
-        client, "http://dummy", "key", "m", "m", "code",
-        max_tokens=2048, max_output_cap=8192, supports_reasoning=True,
+        client,
+        "http://dummy",
+        "key",
+        "m",
+        "m",
+        "code",
+        max_tokens=2048,
+        max_output_cap=8192,
+        supports_reasoning=True,
     )
 
     assert client.post.call_args_list[0].kwargs["json"]["max_tokens"] == 8192
@@ -123,8 +139,15 @@ async def test_a_reasoning_model_that_thinks_through_the_whole_budget_gives_up_i
     client.post.side_effect = [_completion("", "length")]
 
     response = await query_model(
-        client, "http://dummy", "key", "m", "m", "code",
-        max_tokens=2048, max_output_cap=65536, supports_reasoning=True,
+        client,
+        "http://dummy",
+        "key",
+        "m",
+        "m",
+        "code",
+        max_tokens=2048,
+        max_output_cap=65536,
+        supports_reasoning=True,
     )
 
     assert response.content is None
@@ -138,7 +161,14 @@ async def test_a_model_without_the_reasoning_parameter_only_gets_the_bigger_budg
     client.post.side_effect = [_completion("", "length"), _completion("", "length")]
 
     response = await query_model(
-        client, "http://dummy", "key", "m", "m", "code", max_tokens=2048, max_output_cap=32768,
+        client,
+        "http://dummy",
+        "key",
+        "m",
+        "m",
+        "code",
+        max_tokens=2048,
+        max_output_cap=32768,
     )
 
     assert response.error == "Empty response from model"
@@ -333,10 +363,7 @@ async def test_query_model_200_with_error():
         mock_response.status_code = 200
         mock_response.raise_for_status = lambda: None
         mock_response.json.return_value = {
-            "error": {
-                "code": 502,
-                "message": "Upstream error from Nvidia: Service temporarily overloaded"
-            }
+            "error": {"code": 502, "message": "Upstream error from Nvidia: Service temporarily overloaded"}
         }
         client.post.return_value = mock_response
 
@@ -344,7 +371,6 @@ async def test_query_model_200_with_error():
         assert "Upstream provider error" in response.error
         assert "Service temporarily overloaded" in response.error
         assert response.content is None
-
 
 
 def _ok_client():
@@ -360,8 +386,9 @@ def _ok_client():
 @pytest.mark.asyncio
 async def test_reference_context_is_sent_before_the_code_under_review():
     client = _ok_client()
-    await query_model(client, "http://dummy", "key", "m", "m", "x = 1", nonce="n1",
-                      context_block="--- svc.py ---\ny = 2\n")
+    await query_model(
+        client, "http://dummy", "key", "m", "m", "x = 1", nonce="n1", context_block="--- svc.py ---\ny = 2\n"
+    )
     user = client.post.call_args.kwargs["json"]["messages"][1]["content"]
     assert user.index("<reference_context_n1>") < user.index("<code_to_review_n1>")
     assert "--- svc.py ---" in user
@@ -378,8 +405,11 @@ async def test_without_context_the_request_body_is_unchanged():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("error", [httpx.ReadError(""), httpx.RemoteProtocolError(""), httpx.WriteError("")],
-                         ids=["read", "remote-protocol", "write"])
+@pytest.mark.parametrize(
+    "error",
+    [httpx.ReadError(""), httpx.RemoteProtocolError(""), httpx.WriteError("")],
+    ids=["read", "remote-protocol", "write"],
+)
 async def test_a_dropped_connection_is_retried(error):
     """
     A connection dropped mid-exchange is the network, not the model. It was reported at once, and
@@ -388,7 +418,9 @@ async def test_a_dropped_connection_is_retried(error):
     ok = MagicMock()
     ok.status_code = 200
     ok.raise_for_status = lambda: None
-    ok.json.return_value = {"choices": [{"message": {"content": "NO_ISSUES_FOUND: ok"}, "finish_reason": "stop"}]}
+    ok.json.return_value = {
+        "choices": [{"message": {"content": "NO_ISSUES_FOUND: ok"}, "finish_reason": "stop"}]
+    }
     client = AsyncMock()
     client.post.side_effect = [error, ok]
     with patch("asyncio.sleep", new_callable=AsyncMock):

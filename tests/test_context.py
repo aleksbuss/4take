@@ -91,10 +91,26 @@ def test_a_symlink_that_leads_out_of_the_root_is_refused(tmp_path):
 
 @pytest.mark.parametrize(
     "rel",
-    [".env", ".env.local", ".env-local", ".envrc", "deploy/prod.env", "config/id_rsa",
-     "certs/server.pem", "tls.key", ".git/config", ".GIT/config", ".ssh/known_hosts", ".npmrc",
-     ".pgpass", ".git-credentials", "infra/terraform.tfstate", "infra/terraform.tfstate.backup",
-     ".kube/config", ".docker/config.json"],
+    [
+        ".env",
+        ".env.local",
+        ".env-local",
+        ".envrc",
+        "deploy/prod.env",
+        "config/id_rsa",
+        "certs/server.pem",
+        "tls.key",
+        ".git/config",
+        ".GIT/config",
+        ".ssh/known_hosts",
+        ".npmrc",
+        ".pgpass",
+        ".git-credentials",
+        "infra/terraform.tfstate",
+        "infra/terraform.tfstate.backup",
+        ".kube/config",
+        ".docker/config.json",
+    ],
 )
 def test_credential_files_and_repository_internals_are_never_read(tmp_path, rel):
     _write(tmp_path, rel, "SECRET=1\n")

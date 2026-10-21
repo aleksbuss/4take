@@ -41,26 +41,31 @@ def test_is_model_free_pricing():
     assert is_model_free({"id": "custom/model:free", "pricing": {"prompt": "1", "completion": "1"}}) is True
 
     # Paid model
-    assert is_model_free({"id": "openai/gpt-4o", "pricing": {"prompt": "0.000005", "completion": "0.000015"}}) is False
+    assert (
+        is_model_free({"id": "openai/gpt-4o", "pricing": {"prompt": "0.000005", "completion": "0.000015"}})
+        is False
+    )
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_validate_configured_models_blocks_paid_models():
-    respx.get("https://openrouter.ai/api/v1/models").respond(json={
-        "data": [
-            {
-                "id": "openai/gpt-4o",
-                "pricing": {"prompt": "0.000005", "completion": "0.000015"},
-                "context_length": 128000
-            },
-            {
-                "id": "meta-llama/llama-3.3-70b-instruct:free",
-                "pricing": {"prompt": "0", "completion": "0"},
-                "context_length": 65536
-            }
-        ]
-    })
+    respx.get("https://openrouter.ai/api/v1/models").respond(
+        json={
+            "data": [
+                {
+                    "id": "openai/gpt-4o",
+                    "pricing": {"prompt": "0.000005", "completion": "0.000015"},
+                    "context_length": 128000,
+                },
+                {
+                    "id": "meta-llama/llama-3.3-70b-instruct:free",
+                    "pricing": {"prompt": "0", "completion": "0"},
+                    "context_length": 65536,
+                },
+            ]
+        }
+    )
 
     # Only paid models configured
     paid_only = ["openrouter/openai/gpt-4o"]
@@ -77,12 +82,16 @@ async def test_validate_configured_models_blocks_paid_models():
 async def test_run_council_pre_flight_blocks_paid_network_calls():
     """Ensure that if a paid model slips through to run_council, query_model is NEVER called."""
     config = FourtakeConfig(
-        providers={"openrouter": ProviderConfig(url="https://openrouter.ai/api/v1/chat/completions", api_key="test-key")},
+        providers={
+            "openrouter": ProviderConfig(
+                url="https://openrouter.ai/api/v1/chat/completions", api_key="test-key"
+            )
+        },
         default_models=["openrouter/openai/gpt-4o"],
         rpm_limit=10,
         min_responses=1,
         timeout=25,
-        provider_concurrency={"openrouter": 1}
+        provider_concurrency={"openrouter": 1},
     )
 
     with patch("fourtake.engine.query_model") as mock_query:

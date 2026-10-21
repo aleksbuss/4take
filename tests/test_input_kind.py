@@ -61,7 +61,7 @@ def test_prose_is_refused(name):
 
 ACCEPTED = {
     # A shebang, a hunk header or a language-tagged fence is enough on its own.
-    "shell_script": "#!/bin/sh\nset -eu\npg_dump \"$DATABASE_URL\" > dump.sql\n",
+    "shell_script": '#!/bin/sh\nset -eu\npg_dump "$DATABASE_URL" > dump.sql\n',
     "diff_hunk_alone": "@@ -12,6 +12,9 @@ export default {\n   async fetch(request, env) {\n",
     # A diff whose content is prose — this project's own system-prompt edits score 0.06 on
     # density and pass on the header alone. Reviewing a prompt change is a real use.
@@ -85,10 +85,10 @@ ACCEPTED = {
     "toml_wrangler": 'name = "mystic"\nmain = "src/index.js"\ncompatibility_date = "2025-01-01"\n',
     # Markup carries no keyword, bracket or semicolon at a line's end; its tags are the signal.
     "html_page": (
-        "<!doctype html>\n<html lang=\"en\">\n<head>\n  <title>Login</title>\n</head>\n<body>\n"
-        "  <form action=\"/login\" method=\"post\">\n"
-        "    <input name=\"password\" type=\"password\" required>\n"
-        "    <button type=\"submit\">Go</button>\n  </form>\n</body>\n</html>\n"
+        '<!doctype html>\n<html lang="en">\n<head>\n  <title>Login</title>\n</head>\n<body>\n'
+        '  <form action="/login" method="post">\n'
+        '    <input name="password" type="password" required>\n'
+        '    <button type="submit">Go</button>\n  </form>\n</body>\n</html>\n'
     ),
     "xml_config": (
         "<project>\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>org.example</groupId>\n"

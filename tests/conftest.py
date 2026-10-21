@@ -7,10 +7,11 @@ from fourtake.rate_limiter import PersistentTokenBucket
 def isolate_test_cache(tmp_path, monkeypatch):
     """Isolate review cache and rate limiter state file to a temporary directory during tests."""
     import fourtake.cache
+
     fourtake.cache._orig_get_cache_dir = fourtake.cache.get_cache_dir
     monkeypatch.setattr("fourtake.cache.get_cache_dir", lambda: tmp_path / "reviews")
     (tmp_path / "reviews").mkdir(parents=True, exist_ok=True)
-    
+
     # Telemetry is written on every real run, so without this the suite would append to the
     # developer's own ~/.cache/4take/stats.json and then rank models from it.
     monkeypatch.setattr("fourtake.telemetry.stats_path", lambda: tmp_path / "stats.json")
@@ -24,8 +25,9 @@ def isolate_test_cache(tmp_path, monkeypatch):
     monkeypatch.delenv("FOURTAKE_API_KEY", raising=False)
 
     orig_init = PersistentTokenBucket.__init__
+
     def patched_init(self, rpm=10):
         orig_init(self, rpm=rpm)
         self.state_file = tmp_path / "bucket.json"
-    monkeypatch.setattr(PersistentTokenBucket, "__init__", patched_init)
 
+    monkeypatch.setattr(PersistentTokenBucket, "__init__", patched_init)

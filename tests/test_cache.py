@@ -26,6 +26,7 @@ def test_get_cache_dir_creation(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     # Call the original get_cache_dir
     import fourtake.cache
+
     real_fn = fourtake.cache.__dict__.get("_orig_get_cache_dir", get_cache_dir)
     # If monkeypatched in conftest, invoke directly with temporary home
     cache_dir = real_fn()
@@ -117,7 +118,7 @@ def test_cache_expiration_unlink_oserror(tmp_path, monkeypatch):
 def test_cache_save_write_error(tmp_path, monkeypatch):
     monkeypatch.setattr("fourtake.cache.get_cache_dir", lambda: tmp_path)
     resp = ModelResponse(model="m", content="content", error=None, latency_ms=100)
-    
+
     with patch("os.replace", side_effect=OSError("Disk full")):
         save_cached_response("code", "m", resp)
         # Verify it handled exception gracefully

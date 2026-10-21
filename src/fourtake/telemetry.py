@@ -196,7 +196,9 @@ def aggregate(path: Path | None = None, now: float | None = None) -> dict[str, M
         # the model answers; only successful calls go into the median.
         latencies = sorted(int(r.get("latency_ms") or 0) for r in successes)
         p50 = latencies[len(latencies) // 2] if latencies else 0
-        recent = [r for r in rows if isinstance(r.get("ts"), (int, float)) and now - r["ts"] <= REFUSAL_WINDOW_S]
+        recent = [
+            r for r in rows if isinstance(r.get("ts"), (int, float)) and now - r["ts"] <= REFUSAL_WINDOW_S
+        ]
         # Every recent request, not most: a model that was served at all, even an empty answer,
         # has a provider that still serves it.
         refused = len(recent) >= MIN_SAMPLES_FOR_RANKING and all(

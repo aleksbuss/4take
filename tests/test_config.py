@@ -12,12 +12,14 @@ def test_load_config_missing_api_key():
         config = load_config({})
         assert config.providers["openrouter"].api_key is None
 
+
 def test_load_config_with_api_key():
     with patch.dict(os.environ, {"FOURTAKE_API_KEY": "sk-test"}, clear=True):
         with patch("pathlib.Path.exists", return_value=False):
             config = load_config({"models": "test-model"})
             assert config.providers["openrouter"].api_key == "sk-test"
             assert config.default_models == ["test-model"]
+
 
 def test_load_config_with_valid_file():
     mock_json = '{"min_responses": 2, "providers": {"openrouter": {"api_key": "file_key"}, "new_prov": {"url": "http://new"}}}'
@@ -37,11 +39,14 @@ def test_the_environment_key_wins_over_the_file(file_key):
     OPENROUTER_API_KEY, exactly as the error message told them to, still got the error.
     """
     mock_json = json.dumps({"providers": {"openrouter": {"api_key": file_key}}})
-    with patch.dict(os.environ, {"OPENROUTER_API_KEY": "sk-or-v1-from-the-env"}, clear=True), \
-         patch("pathlib.Path.exists", return_value=True), \
-         patch("builtins.open", mock_open(read_data=mock_json)):
+    with (
+        patch.dict(os.environ, {"OPENROUTER_API_KEY": "sk-or-v1-from-the-env"}, clear=True),
+        patch("pathlib.Path.exists", return_value=True),
+        patch("builtins.open", mock_open(read_data=mock_json)),
+    ):
         config = load_config({})
     assert config.providers["openrouter"].api_key == "sk-or-v1-from-the-env"
+
 
 def test_load_config_rejects_invalid_json():
     """
@@ -61,6 +66,7 @@ def test_load_config_rejects_invalid_json():
 # --------------------------------------------------------------------------------------
 # S4.4 — config validation: unknown keys warn, bad values fail with the key and file named
 # --------------------------------------------------------------------------------------
+
 
 def _load_with(tmp_path, monkeypatch, payload):
     import json as _json
@@ -137,6 +143,8 @@ def test_the_context_budget_in_the_file_is_checked_like_the_other_counts():
     with patch.dict(os.environ, {}, clear=True), patch("pathlib.Path.exists", return_value=True):
         with patch("builtins.open", mock_open(read_data='{"context_budget_tokens": 8000}')):
             assert load_config({}).context_budget_tokens == 8000
-        with patch("builtins.open", mock_open(read_data='{"context_budget_tokens": 0}')), \
-             pytest.raises(ConfigError, match="context_budget_tokens"):
+        with (
+            patch("builtins.open", mock_open(read_data='{"context_budget_tokens": 0}')),
+            pytest.raises(ConfigError, match="context_budget_tokens"),
+        ):
             load_config({})

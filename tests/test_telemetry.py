@@ -26,8 +26,9 @@ from fourtake.telemetry import (
 
 
 def _ok(model, latency_ms=1000, served=None):
-    return ModelResponse(model=model, content="review", error=None,
-                         latency_ms=latency_ms, served_model=served or model)
+    return ModelResponse(
+        model=model, content="review", error=None, latency_ms=latency_ms, served_model=served or model
+    )
 
 
 def _failed(model, error, latency_ms=90000):
@@ -37,6 +38,7 @@ def _failed(model, error, latency_ms=90000):
 # --------------------------------------------------------------------------------------
 # What is stored, and what must never be
 # --------------------------------------------------------------------------------------
+
 
 def test_the_review_and_the_code_never_reach_the_file(tmp_path):
     path = tmp_path / "stats.json"
@@ -48,8 +50,7 @@ def test_the_review_and_the_code_never_reach_the_file(tmp_path):
     assert "password" not in text
 
     (event, _) = json.loads(text)["events"]
-    assert set(event) == {"model", "served_model", "ok", "latency_ms", "error_code",
-                          "finish_reason", "ts"}
+    assert set(event) == {"model", "served_model", "ok", "latency_ms", "error_code", "finish_reason", "ts"}
 
 
 def test_the_file_is_not_readable_by_other_users(tmp_path):
@@ -58,17 +59,20 @@ def test_the_file_is_not_readable_by_other_users(tmp_path):
     assert oct(path.stat().st_mode & 0o777) == "0o600"
 
 
-@pytest.mark.parametrize("error,expected", [
-    ("Reasoned through the whole 32768-token budget without answering", "reasoning_loop"),
-    ("Per-model timeout after 90s", "per_model_timeout"),
-    ("Request timed out", "timeout"),
-    ("HTTP 429: rate limit exceeded", "rate_limited"),
-    ("HTTP 503 Service Unavailable", "http_5xx"),
-    ("Provider returned malformed JSON", "malformed_response"),
-    ("connection reset by peer", "connection"),
-    ("something nobody anticipated", "other"),
-    (None, None),
-])
+@pytest.mark.parametrize(
+    "error,expected",
+    [
+        ("Reasoned through the whole 32768-token budget without answering", "reasoning_loop"),
+        ("Per-model timeout after 90s", "per_model_timeout"),
+        ("Request timed out", "timeout"),
+        ("HTTP 429: rate limit exceeded", "rate_limited"),
+        ("HTTP 503 Service Unavailable", "http_5xx"),
+        ("Provider returned malformed JSON", "malformed_response"),
+        ("connection reset by peer", "connection"),
+        ("something nobody anticipated", "other"),
+        (None, None),
+    ],
+)
 def test_error_text_is_reduced_to_a_low_cardinality_code(error, expected):
     """Storing provider prose verbatim would turn a metrics file into someone else's log."""
     assert telemetry._error_code(error) == expected
@@ -113,6 +117,7 @@ def test_the_temporary_file_is_not_left_behind(tmp_path):
 # --------------------------------------------------------------------------------------
 # Aggregation
 # --------------------------------------------------------------------------------------
+
 
 def test_aggregate_separates_success_rate_from_latency(tmp_path):
     path = tmp_path / "stats.json"
@@ -175,6 +180,7 @@ def test_refusals_older_than_the_window_are_forgiven(tmp_path):
 # Ranking: the heuristic is a prior, the measurements are the evidence
 # --------------------------------------------------------------------------------------
 
+
 def test_an_unobserved_model_keeps_its_prior():
     assert blend_with_observed("nvidia/nemotron-3-ultra-550b:free", 65, {}) == 65.0
 
@@ -219,7 +225,6 @@ def test_telemetry_records_models_with_the_prefix_discovery_omits():
     assert blend_with_observed("vendor/m:free", 65, stats) < 30
 
 
-
 def test_a_cache_hit_is_not_an_observation(tmp_path):
     """
     A cached review made no request. Counting it would credit the model with a 0 ms success
@@ -228,8 +233,14 @@ def test_a_cache_hit_is_not_an_observation(tmp_path):
     """
     path = tmp_path / "stats.json"
     live = _ok("live:free", 1500)
-    cached = ModelResponse(model="cached:free", content="review", error=None, latency_ms=0,
-                           served_model="cached:free", from_cache=True)
+    cached = ModelResponse(
+        model="cached:free",
+        content="review",
+        error=None,
+        latency_ms=0,
+        served_model="cached:free",
+        from_cache=True,
+    )
 
     assert record([live, cached], [], path=path) == 1
     assert set(aggregate(path)) == {"live:free"}

@@ -19,17 +19,17 @@ async def test_get_4take_opinion_basic():
     # min_responses here also removes this test's dependency on the developer's own config,
     # which decided its outcome before.
     mock_result = CouncilResult(
-        responses=[
-            ModelResponse(model="test-model", content="test-content", error=None, latency_ms=100)
-        ],
+        responses=[ModelResponse(model="test-model", content="test-content", error=None, latency_ms=100)],
         errors=[],
         warning=None,
         error=None,
         total_latency_ms=100,
     )
 
-    with patch("fourtake.mcp_server.run_council", new_callable=AsyncMock) as mock_run_council, \
-         patch("fourtake.mcp_server.load_config", new=lambda *a, **k: _config(min_responses=1)):
+    with (
+        patch("fourtake.mcp_server.run_council", new_callable=AsyncMock) as mock_run_council,
+        patch("fourtake.mcp_server.load_config", new=lambda *a, **k: _config(min_responses=1)),
+    ):
         mock_run_council.return_value = mock_result
 
         result_str = await get_4take_opinion("test code", ctx=ctx)
@@ -60,9 +60,7 @@ async def test_get_4take_opinion_redacts_secrets():
     ctx.request_context = None
 
     mock_result = CouncilResult(
-        responses=[
-            ModelResponse(model="model1", content="Audited", error=None, latency_ms=50)
-        ],
+        responses=[ModelResponse(model="model1", content="Audited", error=None, latency_ms=50)],
         errors=[],
         warning=None,
         error=None,
@@ -99,17 +97,17 @@ async def test_mcp_tool_schema_and_listing():
 async def test_mcp_call_tool_interface():
     """Test calling the tool via FastMCP's internal tool caller."""
     mock_result = CouncilResult(
-        responses=[
-            ModelResponse(model="openrouter/m1", content="Clean code", error=None, latency_ms=20)
-        ],
+        responses=[ModelResponse(model="openrouter/m1", content="Clean code", error=None, latency_ms=20)],
         errors=[],
         warning=None,
         error=None,
         total_latency_ms=20,
     )
 
-    with patch("fourtake.mcp_server.run_council", new_callable=AsyncMock) as mock_run_council, \
-         patch("fourtake.mcp_server.load_config", new=lambda *a, **k: _config(min_responses=1)):
+    with (
+        patch("fourtake.mcp_server.run_council", new_callable=AsyncMock) as mock_run_council,
+        patch("fourtake.mcp_server.load_config", new=lambda *a, **k: _config(min_responses=1)),
+    ):
         mock_run_council.return_value = mock_result
 
         result = await mcp.call_tool("get_4take_opinion", {"code": "def hello(): pass"})
@@ -155,11 +153,10 @@ def test_main():
 
 def test_mcp_dunder_main():
     import runpy
+
     with patch("mcp.server.fastmcp.FastMCP.run") as mock_run:
         runpy.run_module("fourtake.mcp_server", run_name="__main__")
         mock_run.assert_called_once()
-
-
 
 
 @pytest.mark.asyncio
@@ -175,7 +172,7 @@ async def test_get_4take_opinion_configured_models_and_token_limits():
         timeout=10,
         provider_concurrency={},
         # Generous overrides: both models can hold the snippet, so the council runs.
-        model_token_limits={"openrouter/m1:free": 200_000, "openrouter/m2:free": 200_000}
+        model_token_limits={"openrouter/m1:free": 200_000, "openrouter/m2:free": 200_000},
     )
 
     ctx = MagicMock()
@@ -237,10 +234,10 @@ async def test_mcp_refuses_input_that_exceeds_every_model():
     mock_run.assert_not_called()
 
 
-
 # --------------------------------------------------------------------------------------
 # S5 — `mcp` is an optional extra; the entry point must say so, not raise ImportError
 # --------------------------------------------------------------------------------------
+
 
 def test_mcp_entry_point_gives_install_instructions_when_the_extra_is_missing(capsys):
     """
@@ -289,22 +286,26 @@ from fourtake.mcp_server import serialise_result
 def _config(**overrides) -> FourtakeConfig:
     base = dict(
         providers={"openrouter": ProviderConfig(url="https://x/api", api_key="k")},
-        default_models=["auto"], rpm_limit=600, min_responses=1, timeout=30,
+        default_models=["auto"],
+        rpm_limit=600,
+        min_responses=1,
+        timeout=30,
         provider_concurrency={"openrouter": 4},
     )
     base.update(overrides)
     return FourtakeConfig(**base)
 
 
-@pytest.mark.parametrize("seats,min_responses,warning,expected", [
-    (4, 4, "1 response(s) came from an already-seated model", "ok"),
-    (4, 4, None, "ok"),
-    (2, 4, "only 2 distinct of 6 models responded", "degraded"),
-    (1, 2, None, "degraded"),
-])
-def test_status_tracks_the_threshold_not_the_presence_of_a_warning(
-    seats, min_responses, warning, expected
-):
+@pytest.mark.parametrize(
+    "seats,min_responses,warning,expected",
+    [
+        (4, 4, "1 response(s) came from an already-seated model", "ok"),
+        (4, 4, None, "ok"),
+        (2, 4, "only 2 distinct of 6 models responded", "degraded"),
+        (1, 2, None, "degraded"),
+    ],
+)
+def test_status_tracks_the_threshold_not_the_presence_of_a_warning(seats, min_responses, warning, expected):
     """
     Keying `degraded` on `result.warning` marked a healthy council degraded whenever a
     duplicate seat was rotated out — the machinery working — and disagreed with the exit
@@ -315,12 +316,12 @@ def test_status_tracks_the_threshold_not_the_presence_of_a_warning(
     from fourtake.output import exit_code_for
 
     responses = [
-        ModelResponse(model=f"m{i}:free", content="* [WARNING] x\n", error=None,
-                      latency_ms=1, served_model=f"m{i}:free")
+        ModelResponse(
+            model=f"m{i}:free", content="* [WARNING] x\n", error=None, latency_ms=1, served_model=f"m{i}:free"
+        )
         for i in range(seats)
     ]
-    result = CouncilResult(responses=responses, errors=[], warning=warning, error=None,
-                           total_latency_ms=1)
+    result = CouncilResult(responses=responses, errors=[], warning=warning, error=None, total_latency_ms=1)
     config = SimpleNamespace(min_responses=min_responses)
 
     payload = json.loads(serialise_result(result, config))
@@ -333,18 +334,22 @@ def test_the_mcp_tool_carries_the_consensus_block():
     from fourtake.client import ModelResponse
     from fourtake.engine import CouncilResult
 
-    body = ("* [CRITICAL] [INJECTION] SQL injection (at search_users)\n"
-            "  - Issue: term is concatenated into the query.\n")
-    undeclared = ("* [WARNING] Unbounded limit (at page_size)\n"
-                  "  - Issue: limit is never capped.\n")
+    body = (
+        "* [CRITICAL] [INJECTION] SQL injection (at search_users)\n"
+        "  - Issue: term is concatenated into the query.\n"
+    )
+    undeclared = "* [WARNING] Unbounded limit (at page_size)\n  - Issue: limit is never capped.\n"
     result = CouncilResult(
         responses=[
-            ModelResponse(model="a:free", content=body + undeclared, error=None, latency_ms=1,
-                          served_model="a:free"),
-            ModelResponse(model="b:free", content=body, error=None, latency_ms=1,
-                          served_model="b:free"),
+            ModelResponse(
+                model="a:free", content=body + undeclared, error=None, latency_ms=1, served_model="a:free"
+            ),
+            ModelResponse(model="b:free", content=body, error=None, latency_ms=1, served_model="b:free"),
         ],
-        errors=[], warning=None, error=None, total_latency_ms=1,
+        errors=[],
+        warning=None,
+        error=None,
+        total_latency_ms=1,
     )
     payload = json.loads(serialise_result(result, SimpleNamespace(min_responses=2)))
 
@@ -382,17 +387,19 @@ async def test_force_sends_prose_anyway():
     ctx = MagicMock()
     ctx.request_context.meta.progressToken = None
     mock_result = CouncilResult(
-        responses=[
-            ModelResponse(model="test-model", content="test-content", error=None, latency_ms=100)
-        ],
-        errors=[], warning=None, error=None, total_latency_ms=100,
+        responses=[ModelResponse(model="test-model", content="test-content", error=None, latency_ms=100)],
+        errors=[],
+        warning=None,
+        error=None,
+        total_latency_ms=100,
     )
     # Discovery is imported inside the tool, so it is patched at its source module or the
     # test reaches OpenRouter for a model list it never uses.
-    with patch("fourtake.mcp_server.run_council", new_callable=AsyncMock) as mock_run_council, \
-         patch("fourtake.mcp_server.load_config", new=lambda *a, **k: _config(min_responses=1)), \
-         patch("fourtake.discovery.get_best_free_models",
-               new=AsyncMock(return_value=["a:free", "b:free"])):
+    with (
+        patch("fourtake.mcp_server.run_council", new_callable=AsyncMock) as mock_run_council,
+        patch("fourtake.mcp_server.load_config", new=lambda *a, **k: _config(min_responses=1)),
+        patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["a:free", "b:free"])),
+    ):
         mock_run_council.return_value = mock_result
         payload = json.loads(await get_4take_opinion(_PROSE, ctx=ctx, force=True))
 
@@ -412,15 +419,22 @@ async def _call_with(context_files=None, context=None, code=_CHANGED, auto_conte
     ctx.request_context = None
     ok = CouncilResult(
         responses=[ModelResponse(model="m", content="NO_ISSUES_FOUND: ok", error=None, latency_ms=1)],
-        errors=[], warning=None, error=None, total_latency_ms=1,
+        errors=[],
+        warning=None,
+        error=None,
+        total_latency_ms=1,
     )
-    with patch("fourtake.mcp_server.run_council", new_callable=AsyncMock) as mock_run, \
-         patch("fourtake.mcp_server.load_config", new=lambda *a, **k: _config(min_responses=1)), \
-         patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["a:free"])):
+    with (
+        patch("fourtake.mcp_server.run_council", new_callable=AsyncMock) as mock_run,
+        patch("fourtake.mcp_server.load_config", new=lambda *a, **k: _config(min_responses=1)),
+        patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["a:free"])),
+    ):
         mock_run.return_value = ok
-        payload = json.loads(await get_4take_opinion(
-            code, ctx=ctx, context_files=context_files, context=context, auto_context=auto_context
-        ))
+        payload = json.loads(
+            await get_4take_opinion(
+                code, ctx=ctx, context_files=context_files, context=context, auto_context=auto_context
+            )
+        )
     return payload, mock_run
 
 
@@ -497,9 +511,12 @@ def test_the_payload_reports_the_context_and_what_was_left_out():
     from fourtake.context import ContextPiece, fit_to_budget
     from fourtake.mcp_server import serialise_result
 
-    fitted = fit_to_budget([ContextPiece("users.py", "def f():\n    pass\n"),
-                            ContextPiece("big.py", "x = 1\n" * 3000)], budget_tokens=200)
-    result = CouncilResult(responses=[], errors=[], warning=None, error="all models failed",
-                           total_latency_ms=1, context=fitted)
+    fitted = fit_to_budget(
+        [ContextPiece("users.py", "def f():\n    pass\n"), ContextPiece("big.py", "x = 1\n" * 3000)],
+        budget_tokens=200,
+    )
+    result = CouncilResult(
+        responses=[], errors=[], warning=None, error="all models failed", total_latency_ms=1, context=fitted
+    )
     payload = json.loads(serialise_result(result, _config()))
     assert payload["context"] == {"files": ["users.py"], "tokens": fitted.tokens, "dropped": ["big.py"]}
