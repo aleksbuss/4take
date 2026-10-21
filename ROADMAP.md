@@ -3,6 +3,7 @@
 This document outlines the architectural milestones and feature roadmap for the `4take` project. The plan is divided into logical milestones to allow incremental development.
 
 ## Sprint 0: Foundations
+**Status: done.** CI in `.github/workflows/ci.yml` runs `ruff`, a Conventional Commits check on pull requests, the test suite on Python 3.10-3.13 and a packaging job. Logs go to stderr, stdout carries only the result, and every failed model is reported in `errors`.
 **Goal:** Establish basic project infrastructure, testing strategy, and observability before adding new features.
 - **Tasks:**
   - Set up CI/CD pipeline (e.g., GitHub Actions) for linting and testing.
@@ -13,6 +14,7 @@ This document outlines the architectural milestones and feature roadmap for the 
   - Error logs provide clear debugging info without crashing silently.
 
 ## Sprint 1: Safety & Privacy
+**Status: done.** The warning banner is bypassed by `--accept-risk` or `FOURTAKE_ACCEPT_RISK`. Secret redaction is on by default (`--no-strip-secrets` turns it off; `--strip-secrets` is kept as a deprecated no-op) and `--show-redactions` lists what was removed.
 **Goal:** Prevent sensitive data leaks and ensure users are aware of the risks when sending local code to external LLMs.
 - **Tasks:**
   - Add a privacy warning banner that appears unless explicitly bypassed.
@@ -26,6 +28,7 @@ This document outlines the architectural milestones and feature roadmap for the 
   - `--strip-secrets` redacts common API keys and passwords from the payload before sending.
 
 ## Sprint 2: Context Window & Token Limits
+**Status: done.** `tokenizer.py` uses `tiktoken` with a character-count fallback; `preflight.py` refuses an input no available model can hold before any request goes out; per-model limits come from the catalog, with `model_token_limits` as an override.
 **Goal:** Prevent unhandled `400 Bad Request` errors caused by sending files that are too large.
 - **Tasks:**
   - Implement `tiktoken` for accurate token estimation (with a naive `len(text)//4` fallback if unavailable).
@@ -36,6 +39,7 @@ This document outlines the architectural milestones and feature roadmap for the 
   - Token counts are reasonably accurate using a tokenizer rather than just character length.
 
 ## Sprint 3: UX & Output Readability
+**Status: done.** `--format text` (default) and `--format json`; the text report is rendered with `rich`; `output.py` forces UTF-8 on a Windows stdout.
 **Goal:** Make the tool's output easy to read in the terminal instead of raw JSON.
 - **Tasks:**
   - Add CLI arguments for output formatting: `--format text` (default) and `--format json`.
@@ -46,6 +50,7 @@ This document outlines the architectural milestones and feature roadmap for the 
   - Windows users do not experience Unicode encoding crashes when printing emojis or special characters.
 
 ## Sprint 4: Robustness & Distribution
+**Status: done, except that the package is not on PyPI yet.** The install commands in the README (`uv tool`, `pipx`) work from the first release; `publish.yml` is ready. 429s back off with jitter and honour `Retry-After` ([ADR-0002](docs/adr/0002-cap-retries-at-four-and-honour-retry-after.md)).
 **Goal:** Global accessibility and model fallback logic.
 - **Tasks:**
   - Document installation methods (`uv tool`, `pipx`, etc.) in the README.
@@ -56,7 +61,8 @@ This document outlines the architectural milestones and feature roadmap for the 
   - Users have clear instructions on how to install the CLI globally.
 
 ## Sprint 5: Engineering Culture & Documentation
-**Goal:** Implement professional, open-source-ready documentation practices expected by senior engineering teams.
+**Status: done.** `docs/adr/` (0001 is superseded by 0002), `CHANGELOG.md`, `CONTRIBUTING.md`, and Conventional Commits enforced on pull requests.
+**Goal:** Implement the documentation practices expected by senior engineering teams.
 - **Tasks:**
   - Establish `docs/adr/` directory and log our first ADR (`0001-use-exponential-backoff-with-10-retries.md`) using Michael Nygard's template.
   - Create a structured `CHANGELOG.md` following the "Keep a Changelog" standard.
@@ -64,5 +70,20 @@ This document outlines the architectural milestones and feature roadmap for the 
   - Define and enforce "Conventional Commits" v1.0.0 (e.g., via `commitlint`).
 - **Acceptance Criteria:**
   - Commits failing the Conventional Commits format are rejected or warned against.
-  - All standard OSS documentation files are present and properly formatted.
+  - All standard project documentation files are present and properly formatted.
 
+## Next (after Sprint 5)
+**Goal:** put numbers on the shipped release, then publish it.
+- **Greptile benchmark, run 3 on 0.2.0.** Runs 1 and 2 predate the one-seat-per-vendor rule and do
+  not describe the shipped tool. Run 3 is pre-registered, with the protocol hashed before any council
+  was recorded. Grading is blind and starts only after all 50 cases are recorded. No comparison with
+  Greptile is published before it is graded.
+- **Does the council help a weaker primary model?** The only frontier test (Opus 5.5, 20 bugs) found
+  no gain for Opus, and a weaker model has not been tested at all. Needs a pre-registered run with
+  more than 20 bugs, since 20 can only show a large effect.
+- **Formatter gate.** `ruff format` would change 40 files in `src` and `tests`; land it in one commit
+  and enable the CI step in the same commit.
+- **Auto context on by default?** The pre-registered gate is met (named 12 of 12 in three recordings);
+  it sends more code to providers, so it stays opt-in until that is decided.
+- **First public release:** `SECURITY.md` and a contributor agreement in place, then the first
+  publish to PyPI.
