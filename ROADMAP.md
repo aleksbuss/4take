@@ -74,15 +74,14 @@ This document outlines the architectural milestones and feature roadmap for the 
 
 ## Next (after Sprint 5)
 **Goal:** put numbers on the shipped release, then publish it.
-- **Greptile benchmark, run 3 on 0.2.0.** Runs 1 and 2 predate the one-seat-per-vendor rule and do
-  not describe the shipped tool. Run 3 is pre-registered, with the protocol hashed before any council
-  was recorded. Grading is blind and starts only after all 50 cases are recorded. No comparison with
-  Greptile is published before it is graded.
-- **Does the council help a weaker primary model?** The only frontier test (Opus 5.5, 20 bugs) found
-  no gain for Opus, and a weaker model has not been tested at all. Needs a pre-registered run with
-  more than 20 bugs, since 20 can only show a large effect.
-- **Formatter gate.** `ruff format` would change 40 files in `src` and `tests`; land it in one commit
-  and enable the CI step in the same commit.
+- **Greptile benchmark: publish the write-up.** Runs 1 and 2 predate the one-seat-per-vendor rule and
+  do not describe the shipped tool. Runs 3 and 4 were pre-registered, with the protocol hashed before
+  any council was recorded, then recorded on 0.2.0 and graded blind. The write-up is not in the README
+  yet; it goes in together with its pre-registration, so the figures can be checked.
+- **Does the council help a weaker primary model?** The frontier test (Opus 5.5, 20 bugs) found no
+  gain for Opus. A weaker model (Gemini Flash, 20 bugs) was tried once, but its councils seated only
+  one or two reviewers because of the empty-response defect fixed in this release, so that run says
+  nothing. Needs a pre-registered run with more than 20 bugs, since 20 can only show a large effect.
 - **Auto context on by default?** The pre-registered gate is met (named 12 of 12 in three recordings);
   it sends more code to providers, so it stays opt-in until that is decided.
 - **First public release:** `SECURITY.md` and a contributor agreement in place, then the first
