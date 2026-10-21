@@ -17,7 +17,7 @@
 - `cat file.py | 4take`: Run council with default auto-discovered free OpenRouter models (free models only; free-tier limits apply: roughly 4 to 8 reviews a day on an account never topped up, roughly 80 to 160 once it has).
 - `git diff | 4take`: Review git changes.
 - `cat file.py | 4take --format json --accept-risk --quiet`: Machine-readable JSON output for automated agents.
-- `4take --models="meta-llama/llama-3.3-70b-instruct:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-ultra-550b-a55b:free"`: Use explicit free OpenRouter models (or default 'auto').
+- `4take --models="nvidia/nemotron-3-super-120b-a12b:free,poolside/laguna-xs-2.1:free,cohere/north-mini-code:free"`: Use explicit free OpenRouter models (or default 'auto').
 - `4take --init-config`: Create config file at `~/.config/4take/config.json`.
 - `cat file.py | 4take --no-telemetry`: Skip the local record of model latency and success rate (`~/.cache/4take/stats.json`, model ids and timings only — never code).
 - Exit codes: `0` met `--min-responses`, `2` partial (see `warning`), `1` total failure (see `error`).

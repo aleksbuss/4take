@@ -3,7 +3,7 @@
 <div align="center">
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-yellow.svg)](LICENSE)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-yellow.svg)](https://github.com/aleksbuss/4take/blob/main/LICENSE)
 [![FastMCP](https://img.shields.io/badge/FastMCP-Ready-6366f1?style=flat&logo=fastapi&logoColor=white)](https://modelcontextprotocol.io/)
 [![Powered by OpenRouter](https://img.shields.io/badge/API-OpenRouter-000000?style=flat&logo=openai&logoColor=white)](https://openrouter.ai/)
 [![CI Status](https://github.com/aleksbuss/4take/actions/workflows/ci.yml/badge.svg)](https://github.com/aleksbuss/4take/actions)
@@ -23,7 +23,7 @@
 </div>
 
 > **What is free, what is paid.** 4take is source-available under the
-> [Business Source License 1.1](LICENSE); the license text decides.
+> [Business Source License 1.1](https://github.com/aleksbuss/4take/blob/main/LICENSE); the license text decides.
 >
 > | | |
 > | :--- | :--- |
@@ -76,7 +76,7 @@ git diff --cached | 4take
 
 `4take` is built for **AI Coding Agents** (Claude Code, Cursor, Antigravity IDE, Windsurf, Cline, Roo Code, Codex). It provides agents with a native "Council of LLMs" to audit their code in parallel before presenting it to the user.
 
-Whether the council improves what a given coding agent ships has not been measured. The eval below scores the council against single reviewers on a fixed corpus, and the one test with a frontier model as the primary (20 bugs) found no gain. The [ROADMAP](ROADMAP.md) lists what is planned.
+Whether the council improves what a given coding agent ships has not been measured. The eval below scores the council against single reviewers on a fixed corpus, and the one test with a frontier model as the primary (20 bugs) found no gain. The [ROADMAP](https://github.com/aleksbuss/4take/blob/main/ROADMAP.md) lists what is planned.
 
 ```text
                        ┌─────────────────────────┐
@@ -92,7 +92,7 @@ Whether the council improves what a given coding agent ships has not been measur
                                     │
        ┌────────────────────────────┼────────────────────────────┐
        ▼                            ▼                            ▼
-  Model 1 (Nemotron)           Model 2 (Gemma)             Model 3 (Llama)
+  Model 1 (Nemotron)           Model 2 (Laguna)            Model 3 (Cohere)
   (Flags Race Condition)      (Flags Race Condition)       (Suggests Type Hint)
        └────────────────────────────┬────────────────────────────┘
                                     │ 2. Synthesizes consensus
@@ -215,7 +215,7 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
       "latency_ms": 1150
     },
     {
-      "model": "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+      "model": "openrouter/poolside/laguna-s-2.1:free",
       "content": "### Security & Performance\n1. Use parameterized query for user_id...",
       "latency_ms": 1420
     }
@@ -259,10 +259,10 @@ council took about 8½ minutes, and 6 ran to the 600 s limit. On the 28 short sn
 corpus the median was about 50 s, and 27 of 28 councils seated four.
 
 ### Ready-to-Use Agent Configuration Files:
-- **Universal Agent Instructions**: [`AGENTS.md`](AGENTS.md)
-- **Claude Code**: [`CLAUDE.md`](CLAUDE.md)
-- **Antigravity Skill**: [`SKILL.md`](SKILL.md)
-- **Machine Summary**: [`llms.txt`](llms.txt)
+- **Universal Agent Instructions**: [`AGENTS.md`](https://github.com/aleksbuss/4take/blob/main/AGENTS.md)
+- **Claude Code**: [`CLAUDE.md`](https://github.com/aleksbuss/4take/blob/main/CLAUDE.md)
+- **Antigravity Skill**: [`SKILL.md`](https://github.com/aleksbuss/4take/blob/main/SKILL.md)
+- **Machine Summary**: [`llms.txt`](https://github.com/aleksbuss/4take/blob/main/llms.txt)
 
 ---
 
@@ -403,8 +403,8 @@ below still describe it.
                                      │
            ┌─────────────────────────┼─────────────────────────┐
            ▼                         ▼                         ▼
-   NVIDIA Nemotron              Google Gemma              Meta Llama 3
-   (120B / 550B:free)           (26B / 31B:free)          (70B:free)
+   NVIDIA Nemotron              Poolside Laguna           Cohere North
+   (120B / 550B:free)           (S / XS:free)             (mini-code:free)
                                      │
                                      ▼
                    ┌───────────────────────────────────┐
@@ -431,7 +431,7 @@ gh pr diff 42 | 4take
 ### 3. Use Custom Free Models from OpenRouter
 
 ```bash
-4take --models="meta-llama/llama-3.3-70b-instruct:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-ultra-550b-a55b:free,poolside/laguna-s-2.1:free"
+4take --models="nvidia/nemotron-3-super-120b-a12b:free,poolside/laguna-xs-2.1:free,cohere/north-mini-code:free,dots-studio/dots-3-note-preview:free"
 ```
 
 ### 4. Output as JSON for Automation
@@ -755,7 +755,7 @@ Read it with its limits:
 
 ## 📄 License
 
-4take is source-available under the [Business Source License 1.1](LICENSE). The license text
+4take is source-available under the [Business Source License 1.1](https://github.com/aleksbuss/4take/blob/main/LICENSE). The license text
 decides; this is what it says in plain words:
 
 - **Free for you.** A person using 4take for their own work, paid or unpaid, may use it in full,
