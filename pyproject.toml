@@ -62,8 +62,12 @@ packages = ["src/fourtake"]
 [project.optional-dependencies]
 # The MCP server is opt-in: it drags starlette, uvicorn, sse-starlette, python-multipart,
 # pyjwt and ~12MB of cryptography into an install that otherwise only pipes stdin to an API.
-mcp = ["mcp>=1.28.1"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21", "mcp>=1.28.1"]
+#
+# Capped below 2: mcp 2.x removed `mcp.server.fastmcp` (renamed to MCPServer), which
+# `fourtake.mcp_server` imports. `uv.lock` pins 1.28.1, so CI and `uv sync` never see it, but
+# `pip install '4take[mcp]'` resolves fresh and would install 2.x and fail on import.
+mcp = ["mcp>=1.28.1,<2"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21", "mcp>=1.28.1,<2"]
 
 [tool.ruff]
 line-length = 110

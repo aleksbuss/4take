@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A rate-limited provider is retried eight times instead of four.** A retry after Poolside's
   429 got through in 21-50% of cases, so four retries still cost laguna about one seat in four.
   A 5xx keeps the shorter limit.
+- **`pip install '4take[mcp]'` no longer installs an `mcp` the server cannot import.** The extra
+  said `mcp>=1.28.1` with no upper bound. `mcp` 2.0 removed `mcp.server.fastmcp` (renamed
+  `MCPServer`), so a fresh install resolved 2.x and `4take-mcp` stopped at an import error that
+  its own hint then misreported as a missing extra. `uv.lock` pinned 1.28.1, which is why CI and
+  `uv sync` never saw it. The extra is now `mcp>=1.28.1,<2`.
 
 ## [0.2.0] - not yet published
 
