@@ -412,6 +412,10 @@ def main() -> None:
                 "[bold yellow]WARNING: You are sending local content to external LLM providers.[/bold yellow]"
             )
             console.print(
+                "[yellow]Free models are served by third parties, and some may keep prompts or train on them. "
+                "`--dry-run` shows exactly what would be sent.[/yellow]"
+            )
+            console.print(
                 "[yellow]Pass `--accept-risk` or set `FOURTAKE_ACCEPT_RISK=1` to silence this warning.[/yellow]\n"
             )
 

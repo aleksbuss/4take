@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   untracked draft in a 845 KB archive. It is now 260 KB. The eval corpora stay, because
   `tests/test_input_kind.py` and `tests/test_autocontext.py` read them at collection time, and
   the test suite passes from the unpacked archive (692 tests; the 11 that score recordings skip).
+- **The privacy warning says who receives the code.** Besides "external LLM providers", it now
+  says that free models are served by third parties, some of which may keep prompts or train on
+  them, and points to `--dry-run`. The README said so; the warning a user actually sees did not.
 
 ## [0.2.0] - not yet published
 
