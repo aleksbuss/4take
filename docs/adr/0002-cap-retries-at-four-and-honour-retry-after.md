@@ -4,7 +4,9 @@ Date: 2026-09-08
 
 ## Status
 
-Accepted. Supersedes [ADR-0001](0001-use-exponential-backoff-with-10-retries.md).
+Accepted. Supersedes [ADR-0001](0001-use-exponential-backoff-with-10-retries.md). Amended by
+[ADR-0003](0003-retry-a-rate-limited-provider-eight-times.md): a 429 is now retried eight
+times; the limit of four still applies to every other transient error.
 
 ## Context
 
