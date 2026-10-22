@@ -44,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The privacy warning says who receives the code.** Besides "external LLM providers", it now
   says that free models are served by third parties, some of which may keep prompts or train on
   them, and points to `--dry-run`. The README said so; the warning a user actually sees did not.
+- **A missing key reads "the OpenRouter API key is not set"**, in the CLI and in the MCP
+  payload, instead of "no OpenRouter API key (is not set)".
 
 ## [0.2.0] - not yet published
 

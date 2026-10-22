@@ -39,7 +39,7 @@ def missing_api_key(config: FourtakeConfig) -> str | None:
         return None
     what = "is still the placeholder" if key == CONFIG_KEY_PLACEHOLDER else "is not set"
     return (
-        f"no OpenRouter API key ({what}). Set OPENROUTER_API_KEY in the environment, "
+        f"the OpenRouter API key {what}. Set OPENROUTER_API_KEY in the environment, "
         f"or put it in ~/.config/4take/config.json — run `4take --init-config` to create one. "
         f"Keys are free at https://openrouter.ai/keys"
     )
