@@ -75,8 +75,11 @@ _SEVERITY_RE = re.compile(
 _CATEGORY_TAG_RE = re.compile(r"\[\s*(" + "|".join(CATEGORY_NAMES) + r")\s*\]", re.IGNORECASE)
 # ... and as most recorded models actually wrote it: the bare word after the tag,
 # `[CRITICAL] LOGIC <title>`. Upper case only, so a title that opens with the ordinary word —
-# "Logic error in the retry loop" — keeps it.
-_BARE_CATEGORY_RE = re.compile(r"^[\s*`]*(" + "|".join(CATEGORY_NAMES) + r")\b[*`]*\s*[:\-\u2013\u2014]?\s*")
+# "Logic error in the retry loop" — keeps it. One `]` goes with the word: `[CRITICAL] LOGIC]`
+# closes a bracket it never opened, and left behind it began 7 of 444 titles in Greptile run 4.
+_BARE_CATEGORY_RE = re.compile(
+    r"^[\s*`]*(" + "|".join(CATEGORY_NAMES) + r")\b[*`]*\]?\s*[:\-\u2013\u2014]?\s*"
+)
 
 
 def _category(raw: str | None) -> DefectCategory:
