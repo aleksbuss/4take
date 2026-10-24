@@ -46,6 +46,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   them, and points to `--dry-run`. The README said so; the warning a user actually sees did not.
 - **A missing key reads "the OpenRouter API key is not set"**, in the CLI and in the MCP
   payload, instead of "no OpenRouter API key (is not set)".
+- **The MCP payload opens with `report_for_user`**, lines for the agent to show the user: one per
+  finding, most-agreed first, with its agreement (`3/4`), severity, symbol and title, under a
+  header with the measured calibration. The tool description tells the agent to show them, to act
+  on agreement 3 or more, and to check agreement 1 or 2 against the code rather than drop it.
+  Over MCP the user sees only what the agent relays: on the Greptile benchmark a primary model
+  given the council's notes took up 3 of the 4 council-only bugs that three or four reviewers
+  shared and 0 of the 11 that one or two raised, though a single reviewer's finding held a
+  labelled defect 41% of the time on the eval corpus. Every other field is unchanged.
 
 ## [0.2.0] - not yet published
 
