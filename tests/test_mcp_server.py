@@ -399,6 +399,38 @@ def test_the_report_lists_every_finding_most_agreed_first():
     assert "act on 3 or more, and check 1 or 2 against the code" in header
 
 
+def test_a_paragraph_or_a_cut_off_title_still_fits_a_line_that_can_be_relayed():
+    """
+    Two shapes from Greptile run 4: a model wrote a 2,000-character paragraph as its title, and a
+    finding without one took its title from the issue's first 80 characters, cut inside a code
+    span. The open backtick turned the rest of a relayed line into code. `consensus` keeps both.
+    """
+    paragraph = "* [WARNING] In ClientPermissionsV2.java the method " + "evaluates a permission, " * 40
+    untitled = (
+        "* [WARNING] ERROR_HANDLING (at app/models/embeddable_host.rb:13-15)\n"
+        "  - Issue: The `before_validation` callback calls `self.host.sub!` without checking if `host`"
+        " is present.\n"
+    )
+    payload = json.loads(
+        serialise_result(_council(paragraph + "\n" + untitled), SimpleNamespace(min_responses=1))
+    )
+
+    # The two tie on agreement and severity, so each is paired with its whole title in `consensus`.
+    relayed = {
+        c["title"]: line.split(" — ", 1)[1]
+        for c, line in zip(payload["consensus"], payload["report_for_user"][1:], strict=True)
+    }
+    long = next(t for t in relayed if t.startswith("In ClientPermissionsV2"))
+    cut = next(t for t in relayed if t.startswith("The `before_validation`"))
+    assert len(long) > 900
+    assert relayed[long] == (
+        "In ClientPermissionsV2.java the method evaluates a permission, evaluates a permission, evaluates"
+        " a permission, evaluates a permission, evaluates a…"
+    )
+    assert cut.endswith("without checking if `hos")
+    assert relayed[cut] == "The `before_validation` callback calls `self.host.sub!` without checking if…"
+
+
 def test_the_report_comes_first_and_every_other_field_is_unchanged():
     """The CLI's JSON and anything that parses this payload read these keys; one is added, first."""
     payload = json.loads(serialise_result(_council(_SQLI), SimpleNamespace(min_responses=1)))

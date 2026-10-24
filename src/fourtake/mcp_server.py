@@ -36,6 +36,21 @@ _CALIBRATION = (
     "before accepting or rejecting it."
 )
 
+# A title is whatever the model wrote on its finding's line, and one in Greptile run 4 ran to
+# 2,000 characters. 150 cuts 4 of that run's 444 titles; `consensus[].title` keeps them whole.
+_TITLE_CHARS = 150
+
+
+def _relayable(title: str) -> str:
+    """The title short enough to relay, with no backtick left open to turn the rest into code."""
+    if len(title) > _TITLE_CHARS:
+        title = title[:_TITLE_CHARS].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
+    if title.count("`") % 2:
+        # The unpaired backtick is the last one: a code span cut off, here or where the title
+        # was taken from the start of its issue.
+        title = title[: title.rfind("`")].rstrip(" ,;:") + "…"
+    return title
+
 
 def _report_for_user(
     status: str, clusters: list[Consensus], seats: int, min_responses: int, error: str | None
@@ -62,7 +77,7 @@ def _report_for_user(
     lines = [header]
     for c in clusters:
         where = f" `{c.symbol}`" if c.symbol else ""
-        lines.append(f"- {c.agreement}/{seats} {c.severity}{where} — {c.title}")
+        lines.append(f"- {c.agreement}/{seats} {c.severity}{where} — {_relayable(c.title)}")
     return lines
 
 
