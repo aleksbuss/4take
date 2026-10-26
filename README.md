@@ -189,9 +189,11 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
 {
   "version": "0.2.1",
   "timestamp": "2026-08-16T14:20:00Z",
+  "config": {"models_requested": 12, "min_responses": 4, "timeout_seconds": 600, "strict": false},
   "summary": {
     "task_hash": "25d297f773c3",
     "responses_received": 4,
+    "distinct_models": 4,
     "responses_failed": 0,
     "total_latency_ms": 3200,
     "context": {"files": ["src/mailer.py", "src/users.py (lines 40-90)"], "tokens": 812, "dropped": []}
@@ -214,12 +216,22 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
   "responses": [
     {
       "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "NVIDIA",
       "content": "### Code Review\n1. Found SQL Injection on line 8...",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
       "latency_ms": 1150
     },
     {
       "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
       "content": "### Security & Performance\n1. Use parameterized query for user_id...",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
       "latency_ms": 1420
     }
   ],

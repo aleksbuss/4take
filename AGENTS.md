@@ -120,9 +120,11 @@ usable review; read `agreement` against `summary.distinct_models`.
 {
   "version": "0.2.1",
   "timestamp": "2026-08-16T14:20:00Z",
+  "config": {"models_requested": 12, "min_responses": 4, "timeout_seconds": 600, "strict": false},
   "summary": {
     "task_hash": "25d297f773c3",
     "responses_received": 4,
+    "distinct_models": 4,
     "responses_failed": 0,
     "total_latency_ms": 3200,
     "context": {"files": ["src/mailer.py", "src/users.py (lines 40-90)"], "tokens": 812, "dropped": []}
