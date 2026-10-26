@@ -120,6 +120,10 @@ def format_markdown(
         lines.append(f"> **Warning:** {result.warning}")
         lines.append("")
 
+    if result.error and not result.responses:
+        lines.append(f"> **Error:** {result.error}")
+        lines.append("")
+
     # With no responses there is nothing to agree on; a consensus line there would read as a
     # clean result over a run in which every model failed. The errors section says what happened.
     if result.responses:

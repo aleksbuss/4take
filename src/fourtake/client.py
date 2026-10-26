@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import httpx
 
 from .prompts import REVIEWER_SYSTEM_PROMPT, wrap_input
+from .quota import QuotaGuard
 
 
 @dataclass
@@ -161,6 +162,7 @@ async def query_model(
     acquire_token: Callable[[], Awaitable[None]] | None = None,
     nonce: str | None = None,
     context_block: str | None = None,
+    quota_guard: QuotaGuard | None = None,
 ) -> ModelResponse:
     start_time = time.monotonic()
 
@@ -268,6 +270,15 @@ async def query_model(
 
             # 2. Transient errors: 429 (Rate limit) or 5xx (Server error)
             if response.status_code == 429 or response.status_code >= 500:
+                # A 429 from OpenRouter itself, once the day's free allowance is gone, answers every
+                # request the same way for hours. Waiting and rotating through the pool cannot help.
+                if response.status_code == 429 and quota_guard is not None and await quota_guard.exhausted():
+                    return ModelResponse(
+                        model=display_model_name,
+                        content=None,
+                        error=quota_guard.message,
+                        latency_ms=latency,
+                    )
                 if attempt >= (rate_limit_retries if response.status_code == 429 else max_retries):
                     err_msg = _extract_error_message(response)
                     detail = f": {err_msg}" if err_msg else ""

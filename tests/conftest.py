@@ -24,6 +24,15 @@ def isolate_test_cache(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-test-suite-not-a-real-key")
     monkeypatch.delenv("FOURTAKE_API_KEY", raising=False)
 
+    # The free-model allowance is read from OpenRouter, and a suite that asked would make a real
+    # request with a fake key on every run that gets as far as a council. "Unknown" is what the
+    # production code does with doubt, so it is the default; tests of the check bring their own HTTP.
+    async def no_quota(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("fourtake.preflight.fetch_free_quota", no_quota)
+    monkeypatch.setattr("fourtake.quota.fetch_free_quota", no_quota)
+
     orig_init = PersistentTokenBucket.__init__
 
     def patched_init(self, rpm=10):
