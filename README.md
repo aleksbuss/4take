@@ -79,7 +79,7 @@ git diff --cached | 4take
 
 `4take` works with AI coding agents (Claude Code, Cursor, Antigravity IDE, Windsurf, Cline, Roo Code, Codex) as an MCP server or a CLI: the agent sends its code to the council and gets the findings back ranked by agreement, to show the user.
 
-Whether the council improves what a given coding agent ships has not been measured. The eval below scores the council against single reviewers on a fixed corpus, and the one test with a frontier model as the primary (20 bugs) found no gain. The [ROADMAP](https://github.com/aleksbuss/4take/blob/main/ROADMAP.md) lists what is planned.
+An agent tends to keep the findings most reviewers agree on and drop the rest, which loses much of what the council catches ([measured](#-read-the-council-yourself)). So the MCP payload opens with every finding and its agreement, for the agent to show you.
 
 ```text
                     ┌──────────────────────┐
@@ -332,36 +332,41 @@ diffs are other projects' code, so the recordings and the graded packets are not
 
 ---
 
-## 🧪 When the Council Helps, and When It Doesn't
+## 🧪 Read the Council Yourself
 
-**Agreement is the signal.** On the eval corpus, over three recordings with four reviewers seated,
-a finding all four raised held a real, labelled defect 96% of the time; one raised by two or three
-held one 60% of the time; one raised by a single reviewer 41%. A single reviewer's finding is a
-pointer to check, not a verdict, and four in ten of them are real.
-
-**Read the council's output; don't only hand it to another model.** A
+**Four free models found more than a commercial model alone.** A
 [pre-registered test](https://github.com/aleksbuss/4take/blob/main/docs/benchmark/README.md#does-the-council-help-a-weaker-model)
-on the same 50 PRs gave Gemini 3.8 Flash each diff alone, and again with the council's output as
-notes (three runs each, graded blind):
+on the same 50 PRs, in October 2026, gave Gemini 3.8 Flash (thinking high) each diff alone, and
+again with the council's findings as notes; three runs each, graded blind:
 
-| | benchmark standard, 50 PRs |
+| | bugs found, of 50 |
 | :--- | ---: |
+| **the council's findings, read directly** | **37** |
 | Gemini 3.8 Flash alone | 24 |
-| Gemini 3.8 Flash with the council's notes | 26 (no difference shown, p = 0.69) |
-| the council's output, read directly | 37 |
+| Gemini 3.8 Flash given the council's findings | 26 |
 
-In an exploratory breakdown, the model took up 3 of the 4 bugs only the council caught that three or
-four reviewers shared, and none of the 11 that one or two raised: it kept the consensus and dropped
-the long tail with the noise. (The council's row credits its best reviewer per PR against the
-model's majority of three runs, which favours the council.) An earlier test with Claude Opus as the
-primary model showed no gain either (15 of 20 real bugs from 4take's own history alone, 14 with the
-council). 4take does not make a model a better reviewer by being pasted into its context.
+The council caught 15 bugs the model missed, and the model 2 that the council missed (exact McNemar
+p ≈ 0.002). This comparison was not pre-registered, and it credits the council's best reviewer per
+PR against the model's majority of three runs. Both sides were recorded in the same month on the
+same diffs, so the time gap of the commercial comparison does not arise here, and any exposure of
+the PRs in training data applies to both.
+
+**An agent that reads the findings keeps only part of them.** Given the council's findings as
+notes, the model caught 26, not 37; against the model alone that is no difference shown (p = 0.69).
+In an exploratory breakdown it took up 3 of the 4 bugs only the council caught that three or four
+reviewers shared, and none of the 11 that one or two raised: it kept the consensus and dropped the
+long tail.
 
 **So 4take puts every finding in front of you.** Over MCP the user sees only what the agent
 relays, so the payload opens with `report_for_user`: one line per finding with its agreement
 (`3/4`), severity, symbol and title. The tool description asks the agent to show those lines, to
 act on agreement 3 or more, and to check agreement 1 or 2 against the code instead of dropping it.
 The CLI prints the same ranking to your terminal.
+
+**Agreement tells you where to look first.** On the eval corpus, over three recordings with four
+reviewers seated, a finding all four raised held a real, labelled defect 96% of the time; one
+raised by two or three held one 60% of the time; one raised by a single reviewer 41%. A single
+reviewer's finding is a pointer to check, not a verdict, and four in ten of them are real.
 
 ---
 

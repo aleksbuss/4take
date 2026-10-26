@@ -69,6 +69,9 @@ blind by isolated Claude sessions.
 - The council read directly scored above Flash with notes: 37 against 26 (p = 0.007). The
   comparison favours the council, since it credits the council's best reviewer per PR against the
   model's majority of three runs.
+- Against Flash alone the council scored 37 against 24: 15 bugs only the council caught, 2 only the
+  model (exact McNemar p ≈ 0.002; strict 30 against 20, 12 and 2, p ≈ 0.013). This comparison was
+  not pre-registered; it follows from S1 in the results, with the same asymmetry.
 - Flash took up 3 of the 15 bugs only the council had caught and lost 2 of the 24 it caught alone.
   The notes did not add false findings: 0.15 per review alone, 0.13 with notes.
 - Departures, in short: two senders ran at once and the duplicates were discarded; a duration of
