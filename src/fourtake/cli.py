@@ -1,11 +1,14 @@
 import argparse
 import asyncio
+import getpass
 import json
 import logging
 import os
 import sys
+import tempfile
 from pathlib import Path
 
+import httpx
 from rich.console import Console
 from rich.logging import RichHandler
 
@@ -120,6 +123,12 @@ def parse_args():
         help="Initialize a template config file at ~/.config/4take/config.json",
     )
     parser.add_argument(
+        "--set-key",
+        action="store_true",
+        help="Ask for your OpenRouter API key, check it with OpenRouter and save it to "
+        "~/.config/4take/config.json, where the CLI and the MCP server both read it",
+    )
+    parser.add_argument(
         "--no-cache", action="store_true", help="Bypass reading/writing to the local SHA-256 review cache"
     )
     parser.add_argument(
@@ -198,23 +207,21 @@ def _tighten_config_permissions(config_dir: Path, config_path: Path) -> None:
             pass
 
 
-def init_config():
-    config_dir = Path.home() / ".config" / "4take"
+def _config_dir() -> Path:
     # This file is where the tool tells users to put their API key, so it is created with the
     # same permissions as the cache and the rate-limiter state beside it. The default umask
     # left it 0644 in a 0755 directory: a credential readable by every account on the box.
+    config_dir = Path.home() / ".config" / "4take"
     config_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-    config_path = config_dir / "config.json"
+    return config_dir
 
-    if config_path.exists():
-        logger.error(f"Error: Config file already exists at {config_path}")
-        sys.exit(1)
 
-    template = {
+def _config_template(api_key: str = CONFIG_KEY_PLACEHOLDER) -> dict:
+    return {
         "//": "4take Zero-Cost Configuration File. Documentation: https://github.com/aleksbuss/4take",
         "//notice": "4take operates strictly in 100% free mode (zero token cost). Only models ending in ':free' or 'auto' are permitted.",
         "default_models": ["auto"],
-        "providers": {"openrouter": {"api_key": CONFIG_KEY_PLACEHOLDER}},
+        "providers": {"openrouter": {"api_key": api_key}},
         "rpm_limit": 10,
         "min_responses": 4,
         "timeout": 600,
@@ -222,13 +229,104 @@ def init_config():
         "telemetry": True,
     }
 
+
+def init_config():
+    config_dir = _config_dir()
+    config_path = config_dir / "config.json"
+
+    if config_path.exists():
+        logger.error(f"Error: Config file already exists at {config_path}")
+        sys.exit(1)
+
     fd = os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
-        json.dump(template, f, indent=4)
+        json.dump(_config_template(), f, indent=4)
     _tighten_config_permissions(config_dir, config_path)
 
     logger.info(f"Created template config file at {config_path}")
-    logger.info("Edit this file to add your API keys and custom models!")
+    logger.info("Edit this file to add custom models; `4take --set-key` puts your API key in it.")
+    sys.exit(0)
+
+
+KEY_CHECK_URL = "https://openrouter.ai/api/v1/key"
+
+
+def _read_key() -> str:
+    # Typed at a prompt the key is not echoed and stays out of the shell history, which an
+    # argument (`--set-key sk-or-...`) would not. Piped in, it is read as it comes.
+    if sys.stdin.isatty():
+        return getpass.getpass("OpenRouter API key (free at https://openrouter.ai/keys): ")
+    return sys.stdin.readline()
+
+
+def _check_key(key: str) -> str:
+    """ "ok", "rejected" or "unreachable". Asks OpenRouter about the key itself, not a model, so it costs no quota."""
+    try:
+        response = httpx.get(KEY_CHECK_URL, headers={"Authorization": f"Bearer {key}"}, timeout=10)
+    except httpx.HTTPError:
+        return "unreachable"
+    if response.status_code in (401, 403):
+        return "rejected"
+    return "ok" if response.is_success else "unreachable"
+
+
+def _save_key(key: str) -> Path:
+    """Put the key into the config file, keeping everything else in it, and return the path."""
+    config_dir = _config_dir()
+    config_path = config_dir / "config.json"
+    if config_path.exists():
+        try:
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            raise ConfigError(
+                f"{config_path} cannot be read ({e}); fix or remove it, then run --set-key again"
+            ) from e
+        if not isinstance(data, dict) or not isinstance(data.get("providers", {}), dict):
+            raise ConfigError(
+                f"{config_path} is not a 4take config; fix or remove it, then run --set-key again"
+            )
+        openrouter = data.setdefault("providers", {}).setdefault("openrouter", {})
+        if not isinstance(openrouter, dict):
+            raise ConfigError(f"{config_path}: providers.openrouter is not an object")
+        openrouter["api_key"] = key
+    else:
+        data = _config_template(key)
+    # Written beside the file and moved over it, so an interrupted write never leaves half a
+    # config; mkstemp creates the temporary file 0600 from the start.
+    fd, tmp = tempfile.mkstemp(dir=config_dir, prefix=".config.", suffix=".json")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+        os.replace(tmp, config_path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+    _tighten_config_permissions(config_dir, config_path)
+    return config_path
+
+
+def set_key() -> None:
+    """`--set-key`: the one first-run step, without editing JSON or a shell profile by hand."""
+    key = _read_key().strip()
+    if not key:
+        logger.error("Error: no key entered. Keys are free at https://openrouter.ai/keys")
+        sys.exit(1)
+    verdict = _check_key(key)
+    if verdict == "rejected":
+        logger.error("Error: OpenRouter rejected this key. Copy it again from https://openrouter.ai/keys")
+        sys.exit(1)
+    if verdict == "unreachable":
+        logger.warning("Could not reach OpenRouter to check the key; saving it anyway.")
+    try:
+        path = _save_key(key)
+    except ConfigError as e:
+        logger.error(f"Error: {e}")
+        sys.exit(1)
+    shown = f"{key[:9]}…{key[-4:]}" if len(key) > 16 else "the key"
+    logger.info(f"Saved {shown} to {path}, readable only by you. The CLI and the MCP server both use it.")
+    if os.environ.get("OPENROUTER_API_KEY") or os.environ.get("FOURTAKE_API_KEY"):
+        logger.warning("OPENROUTER_API_KEY is set in this shell and takes precedence over the saved key.")
+    logger.info("Try it: printf 'def add(a, b):\\n    return a - b\\n' | 4take")
     sys.exit(0)
 
 
@@ -300,6 +398,9 @@ def main() -> None:
 
     if getattr(args, "init_config", False):
         init_config()
+
+    if getattr(args, "set_key", False):
+        set_key()
 
     if getattr(args, "clear_cache", False):
         from .cache import clear_cache

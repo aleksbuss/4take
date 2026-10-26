@@ -87,6 +87,7 @@ async def test_the_mcp_tool_refuses_without_a_key_before_dispatching():
     run.assert_not_called()
     assert payload["status"] == "error"
     assert "the OpenRouter API key is not set" in payload["error"]
+    assert "4take --set-key" in payload["error"]
 
 
 @pytest.mark.asyncio

@@ -56,14 +56,23 @@ Python by itself, whatever the system has; to get uv, run
 
 ### 2. Set Your OpenRouter API Key
 
-Get an API key at [OpenRouter](https://openrouter.ai/keys):
+Get a free key at [OpenRouter](https://openrouter.ai/keys), then save it once:
+
+```bash
+4take --set-key
+```
+
+It asks for the key without echoing it, checks it with OpenRouter and saves it to
+`~/.config/4take/config.json`, readable only by you. The CLI and the MCP server both read it
+from there, so an MCP client needs no `env` block.
+
+Or set it for the current shell instead:
 
 ```bash
 export OPENROUTER_API_KEY="sk-or-v1-..."
 ```
 
-The environment variable wins over a key in `~/.config/4take/config.json`, so it works even
-after `--init-config` has written its placeholder there.
+The environment variable wins over a key in the config file.
 
 ### 3. Run Review
 
@@ -595,6 +604,7 @@ git diff -W | 4take --dry-run --context-file src/mailer.py
 | `--no-strip-secrets`| — | — | `False` | Disable automatic redaction of API keys/passwords. |
 | `--show-redactions` | — | — | `False` | List which secret patterns were redacted before sending. |
 | `--init-config` | — | — | — | Create template config at `~/.config/4take/config.json`. |
+| `--set-key` | — | — | — | Ask for the OpenRouter API key, check it and save it to the config file. |
 | `--per-model-timeout` | — | — | half of `--timeout`, min 60 | Abandon one model after N seconds and rotate in a replacement. |
 | `--no-cache` | — | — | `False` | Bypass the local 24h SHA-256 review cache. |
 | `--clear-cache` | — | — | — | Purge `~/.cache/4take/reviews/` and exit. |

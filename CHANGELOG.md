@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`4take --set-key`: the first-run step in one command.** It asks for the OpenRouter key
+  without echoing it (or reads it from a pipe), checks it against OpenRouter's key endpoint, which
+  costs no quota, and saves it to `~/.config/4take/config.json` with the file 0600 and its folder
+  0700, keeping whatever else the file holds. A key OpenRouter rejects is not saved; one that cannot be checked,
+  say offline, is saved with a warning. Until now the key went in through an environment
+  variable that lasts one shell, or by hand-editing the JSON that `--init-config` writes, which
+  is where a first install on a new machine stopped. The missing-key error, in the CLI and over
+  MCP, now names `--set-key`.
+
 ### Changed
 - The README's install step says 4take needs Python 3.10 or newer, that macOS's own `python3` is
   3.9 (where pip only reports `No matching distribution found for 4take`), and that

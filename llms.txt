@@ -18,6 +18,7 @@
 - `git diff | 4take`: Review git changes.
 - `cat file.py | 4take --format json --accept-risk --quiet`: Machine-readable JSON output for automated agents.
 - `4take --models="nvidia/nemotron-3-super-120b-a12b:free,poolside/laguna-xs-2.1:free,cohere/north-mini-code:free"`: Use explicit free OpenRouter models (or default 'auto').
+- `4take --set-key`: Ask for the OpenRouter API key, check it with OpenRouter and save it to `~/.config/4take/config.json` (used by the CLI and the MCP server).
 - `4take --init-config`: Create config file at `~/.config/4take/config.json`.
 - `cat file.py | 4take --no-telemetry`: Skip the local record of model latency and success rate (`~/.cache/4take/stats.json`, model ids and timings only — never code).
 - Exit codes: `0` met `--min-responses`, `2` partial (see `warning`), `1` total failure (see `error`).
