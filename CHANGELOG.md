@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The README leads with what the council found, not with what an agent did with it.** On the
+  weak-primary test's 50 PRs the council's findings caught 37 bugs and Gemini 3.8 Flash alone 24
+  (15 against 2 discordant, exact McNemar p ≈ 0.002, not pre-registered; `docs/benchmark` gives the
+  strict figures). The model given those findings caught 26, which is now the reason for
+  `report_for_user` rather than the section's headline. The MCP section no longer opens with the
+  20-bug Opus test, which stays in the ROADMAP.
+
 ## [0.2.1] - 2026-10-26
 
 Documentation and packaging only; the review behaves exactly as in 0.2.0.
