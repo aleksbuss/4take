@@ -33,6 +33,12 @@ packet came from.
   first graders were subagents whose context held the totals of earlier runs, which is why run 4
   graded both runs again. In run 4, two councils overlapped the laptop going to sleep and were
   recorded again.
+- Fifteen months apart, on public data. The benchmark's pull requests were opened, and the
+  commercial reviewers left their comments, on 26 to 29 July 2025 (the creation dates of the PRs in
+  Greptile's forks). 4take's runs are from October 2026. Models improved in between, so the
+  commercial tools would probably score higher today. The PRs and the benchmark's bug descriptions
+  have been public since 2025, so a model trained later may have seen them, and nothing here rules
+  that out. Both effects favour 4take; neither was part of the pre-registration.
 
 | file | what it is | sha256, first 16 | hashed |
 | :--- | :--- | :--- | :--- |

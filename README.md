@@ -13,7 +13,7 @@
 *Get 4 independent AI opinions on your code via OpenRouter in one command.*
 
 On Greptile's own 50-PR bug benchmark, a council of free models found 37 of 50 bugs:  
-level with Greptile (41), ahead of Copilot and CodeRabbit. [How it was measured](#-against-the-paid-reviewers-greptiles-benchmark)
+level with Greptile (41), ahead of Copilot and CodeRabbit, whose reviews date from July 2025. [How it was measured](#-against-the-paid-reviewers-greptiles-benchmark)
 
 [⚡ 30-Second Quickstart](#-30-second-quickstart) •
 [🤖 AI Agent & MCP Integration](#-ai-coding-agents--mcp-integration) •
@@ -288,9 +288,9 @@ corpus the median was about 50 s, and 27 of 28 councils seated four.
 
 Greptile published a benchmark of 50 pull requests from five open-source projects (Cal.com,
 Discourse, Grafana, Keycloak, Sentry), each with one labelled bug, together with the comments five
-commercial AI reviewers left on them. 4take reviewed the same 50 diffs using only OpenRouter's free
-models (commit 2f07956, 8 October 2026). Its reviews were graded blind, against a rubric and an
-analysis written down before the run.
+commercial AI reviewers left on them in late July 2025. Fifteen months later 4take reviewed the
+same 50 diffs using only OpenRouter's free models (commit 2f07956, 8 October 2026). Its reviews were
+graded blind, against a rubric and an analysis written down before the run.
 
 | reviewer | benchmark standard, 50 PRs | strict, 42 verified labels |
 | :--- | ---: | ---: |
@@ -318,6 +318,10 @@ analysis written down before the run.
 - **What it is not.** One recording of a stochastic free pool, built and graded by the author of
   4take. A strong signal, not proof. The pool has moved on since: two of the four most-seated
   models of that run (apodex-1.1-mini, ling-3.0-flash-sante) have left the free tier, so the same
+- **Fifteen months apart, on public data.** The commercial reviews were written in July 2025 and
+  4take's in October 2026, and models improved in between: those tools would probably score higher
+  today. The PRs and the benchmark's bug descriptions have been public since 2025, so a model trained
+  later may have seen them, and nothing here rules that out. Both effects favour 4take.
   councils cannot be seated again.
 - **Where it is weakest.** Large Java diffs: Keycloak 5 of 10. On two of them, and on one Sentry
   diff, only one free vendor reasoned through to an answer. A council took a median of six
