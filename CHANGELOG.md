@@ -7,55 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- **Reasoning models get room to think.** The output budget was sized for the answer (2048
-  tokens for a short input) with 40% of it for reasoning, and most free providers ignore that
-  cap: Novita (ling, apodex), Cohere and Poolside think until `max_tokens` runs out and return no
-  content (`finish_reason: length`). Councils of 6-7 October seated 1-2 vendors instead of 4. A
-  reasoning model now gets up to 32768 tokens, or its own maximum if lower, while the reasoning
-  cap stays sized on the answer, so a provider that honours it (Nvidia) thinks as briefly as
-  before. Free models are metered per request, not per token, so the room costs only a model
-  that uses it. Measured on the inputs that had come back empty at 2048: ling answered 12/12 of
-  corpus snippets and 6/8 diffs, apodex 13/14 and 5/8, after 2-7k tokens of thought on a snippet
-  and 15-26k on a diff. A model that thinks through the whole 32768 without answering, or past
-  the per-model timeout (cohere and laguna-s on every diff, which ran 5-14 minutes unbounded),
-  gives up its seat to another model rather than being asked again with reasoning off. Every
-  evaluation figure for 0.2.0 was recorded before this fix.
-- **A model its provider keeps refusing is left out of the pool.** Ranking only demoted it, and
-  with a dozen free models a demoted model still filled the rotation tail: gemma-4-31b was
-  refused 27 of 27 times in a week, and every council that reached it spent its time on 429
-  retries. A model whose provider refused every request in the last 72 hours, at least 8 of
-  them, is now skipped until the refusals age out. A model that was served at all stays in.
-- **A rate-limited provider is retried eight times instead of four.** A retry after Poolside's
-  429 got through in 21-50% of cases, so four retries still cost laguna about one seat in four.
-  A 5xx keeps the shorter limit.
-- **`pip install '4take[mcp]'` no longer installs an `mcp` the server cannot import.** The extra
-  said `mcp>=1.28.1` with no upper bound. `mcp` 2.0 removed `mcp.server.fastmcp` (renamed
-  `MCPServer`), so a fresh install resolved 2.x and `4take-mcp` stopped at an import error that
-  its own hint then misreported as a missing extra. `uv.lock` pinned 1.28.1, which is why CI and
-  `uv sync` never saw it. The extra is now `mcp>=1.28.1,<2`.
-
-### Changed
-- **The source distribution leaves out the recorded council runs.** Without an `sdist` section
-  hatch ships everything git does not ignore, which put 400+ recorded model outputs and any
-  untracked draft in a 845 KB archive. It is now 260 KB. The eval corpora stay, because
-  `tests/test_input_kind.py` and `tests/test_autocontext.py` read them at collection time, and
-  the test suite passes from the unpacked archive (692 tests; the 11 that score recordings skip).
-- **The privacy warning says who receives the code.** Besides "external LLM providers", it now
-  says that free models are served by third parties, some of which may keep prompts or train on
-  them, and points to `--dry-run`. The README said so; the warning a user actually sees did not.
-- **A missing key reads "the OpenRouter API key is not set"**, in the CLI and in the MCP
-  payload, instead of "no OpenRouter API key (is not set)".
-- **The MCP payload opens with `report_for_user`**, lines for the agent to show the user: one per
-  finding, most-agreed first, with its agreement (`3/4`), severity, symbol and title, under a
-  header with the measured calibration. The tool description tells the agent to show them, to act
-  on agreement 3 or more, and to check agreement 1 or 2 against the code rather than drop it.
-  Over MCP the user sees only what the agent relays: on the Greptile benchmark a primary model
-  given the council's notes took up 3 of the 4 council-only bugs that three or four reviewers
-  shared and 0 of the 11 that one or two raised, though a single reviewer's finding held a
-  labelled defect 41% of the time on the eval corpus. Every other field is unchanged.
-
-## [0.2.0] - not yet published
+## [0.2.0] - 2026-10-26
 
 ### Added
 - **Reference context.** `--context-file PATH[:START-END]` (CLI) and `context_files` / `context`
@@ -145,8 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and a packaging job that installs the built wheel and asserts the CLI runs without the
   MCP extra.
 - **`publish.yml`**: PyPI Trusted Publishing on a `v*` tag, gated on the tag matching the
-  built artifact. Every documented install command 404s today because the package has
-  never been published.
+  built artifact.
 - **Consensus grouping**: both output formats now lead with the findings more than one
   reviewer raised, ranked by how many did. Four reviews printed side by side left the
   cross-referencing — the one job the council exists to do — to the reader.
@@ -164,6 +115,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recall against 85.3% for the best single model that saw the same corpus.
 
 ### Changed
+- **The source distribution leaves out the recorded council runs.** Without an `sdist` section
+  hatch ships everything git does not ignore, which put 400+ recorded model outputs and any
+  untracked draft in a 845 KB archive. It is now 260 KB. The eval corpora stay, because
+  `tests/test_input_kind.py` and `tests/test_autocontext.py` read them at collection time, and
+  the test suite passes from the unpacked archive (692 tests; the 11 that score recordings skip).
+- **The privacy warning says who receives the code.** Besides "external LLM providers", it now
+  says that free models are served by third parties, some of which may keep prompts or train on
+  them, and points to `--dry-run`. The README said so; the warning a user actually sees did not.
+- **A missing key reads "the OpenRouter API key is not set"**, in the CLI and in the MCP
+  payload, instead of "no OpenRouter API key (is not set)".
+- **The MCP payload opens with `report_for_user`**, lines for the agent to show the user: one per
+  finding, most-agreed first, with its agreement (`3/4`), severity, symbol and title, under a
+  header with the measured calibration. The tool description tells the agent to show them, to act
+  on agreement 3 or more, and to check agreement 1 or 2 against the code rather than drop it.
+  Over MCP the user sees only what the agent relays: on the Greptile benchmark a primary model
+  given the council's notes took up 3 of the 4 council-only bugs that three or four reviewers
+  shared and 0 of the 11 that one or two raised, though a single reviewer's finding held a
+  labelled defect 41% of the time on the eval corpus. Every other field is unchanged.
 - **License: Business Source License 1.1 instead of MIT.** 4take is free for a person using it
   for their own work, paid or unpaid, and for a self-employed developer working alone, directly or
   through a one-person company, on their own software and for clients on their own machines. It
@@ -263,6 +232,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   threshold, exit code, JSON `summary.distinct_models`.
 
 ### Fixed
+- **Reasoning models get room to think.** The output budget was sized for the answer (2048
+  tokens for a short input) with 40% of it for reasoning, and most free providers ignore that
+  cap: Novita (ling, apodex), Cohere and Poolside think until `max_tokens` runs out and return no
+  content (`finish_reason: length`). Councils of 6-7 October seated 1-2 vendors instead of 4. A
+  reasoning model now gets up to 32768 tokens, or its own maximum if lower, while the reasoning
+  cap stays sized on the answer, so a provider that honours it (Nvidia) thinks as briefly as
+  before. Free models are metered per request, not per token, so the room costs only a model
+  that uses it. Measured on the inputs that had come back empty at 2048: ling answered 12/12 of
+  corpus snippets and 6/8 diffs, apodex 13/14 and 5/8, after 2-7k tokens of thought on a snippet
+  and 15-26k on a diff. A model that thinks through the whole 32768 without answering, or past
+  the per-model timeout (cohere and laguna-s on every diff, which ran 5-14 minutes unbounded),
+  gives up its seat to another model rather than being asked again with reasoning off. Every
+  evaluation figure elsewhere in these notes was recorded before this fix.
+- **A model its provider keeps refusing is left out of the pool.** Ranking only demoted it, and
+  with a dozen free models a demoted model still filled the rotation tail: gemma-4-31b was
+  refused 27 of 27 times in a week, and every council that reached it spent its time on 429
+  retries. A model whose provider refused every request in the last 72 hours, at least 8 of
+  them, is now skipped until the refusals age out. A model that was served at all stays in.
+- **A rate-limited provider is retried eight times instead of four.** A retry after Poolside's
+  429 got through in 21-50% of cases, so four retries still cost laguna about one seat in four.
+  A 5xx keeps the shorter limit.
+- **`pip install '4take[mcp]'` no longer installs an `mcp` the server cannot import.** The extra
+  said `mcp>=1.28.1` with no upper bound. `mcp` 2.0 removed `mcp.server.fastmcp` (renamed
+  `MCPServer`), so a fresh install resolved 2.x and `4take-mcp` stopped at an import error that
+  its own hint then misreported as a missing extra. `uv.lock` pinned 1.28.1, which is why CI and
+  `uv sync` never saw it. The extra is now `mcp>=1.28.1,<2`.
 - **`record.py`'s backup kept the first recording forever.** It copied a fixture only when the
   backup had none, so after a second re-record it held the oldest version, not the one just
   replaced. A changed fixture is now copied again.
@@ -482,6 +477,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failure and rotates a replacement in, exactly as a duplicate seat does.
 - ADR-0001, `CHANGELOG.md` and `POST_MORTEMS.md` all claimed 10 retries; the code has always
   used 4. Superseded by [ADR-0002](docs/adr/0002-cap-retries-at-four-and-honour-retry-after.md).
+- **The fallback pool no longer names a model that left the free tier.** The pool is used only
+  when the OpenRouter catalogue cannot be read. `inclusionai/ling-3.0-flash-fin:free` is gone
+  from the catalogue; `nvidia/nemotron-3.5-lightning:free`, which answered 25 of 27 requests on
+  the author's machine since 12 October, takes its place.
 
 ## [0.1.0] - 2026-07-23
 

@@ -12,12 +12,16 @@
 **Multi-Model AI Council for Code Review.**  
 *Get 4 independent AI opinions on your code via OpenRouter in one command.*
 
+On Greptile's own 50-PR bug benchmark, a council of free models found 37 of 50 bugs:  
+level with Greptile (41), ahead of Copilot and CodeRabbit. [How it was measured](#-against-the-paid-reviewers-greptiles-benchmark)
+
 [⚡ 30-Second Quickstart](#-30-second-quickstart) •
 [🤖 AI Agent & MCP Integration](#-ai-coding-agents--mcp-integration) •
 [✨ Features](#-features) •
-[🏗️ Architecture](#-how-it-works) •
+[📏 Benchmark](#-against-the-paid-reviewers-greptiles-benchmark) •
+[🏗️ Architecture](#%EF%B8%8F-how-it-works) •
 [💻 CLI Recipes](#-cli-usage--recipes) •
-[⚙️ Configuration](#-configuration) •
+[⚙️ Configuration](#%EF%B8%8F-configuration-file) •
 [📊 OpenRouter Limits Guide](#-openrouter-free-tier--rate-limits)
 
 </div>
@@ -274,9 +278,87 @@ corpus the median was about 50 s, and 27 of 28 councils seated four.
 - 🤝 **Consensus Grouping**: Findings several models raised independently are grouped and ranked by how many raised them, so the cross-referencing is done for you rather than left in four parallel reviews.
 - 🔄 **Fault-Tolerant Dynamic Rotation**: If a model hits a rate limit (HTTP 429) or fails, the engine seamlessly rotates in replacement candidates from a pre-ranked 12-model pool with exponential backoff.
 - 🆓 **Free Models Only**: Requests go only to OpenRouter's free (`:free`) models, and a paid model is rejected before anything is sent. Free has limits: roughly 4 to 8 reviews a day on an account that has never been topped up, roughly 80 to 160 once it has ([details](#-openrouter-free-tier--rate-limits)).
-- 🛡️ **Zero-Config Privacy & Secret Redaction**: Automatically scrubs API keys, passwords, and authorization tokens before sending payloads over the wire.
+- 🛡️ **Secret Redaction**: Automatically scrubs API keys, passwords, and authorization tokens before sending payloads over the wire. The code itself still goes to third-party free endpoints ([privacy](#%EF%B8%8F-privacy--security)).
 - 🚦 **Cross-Process Rate Limiter**: Shared file-locked token bucket ensures concurrent terminal sessions or background agents never trigger rate limit bans.
 - 🎨 **Rich Terminal UI & JSON Output**: Beautiful ANSI Markdown rendering in terminal, plus `--format json` for automated scripts & CI pipelines.
+
+---
+
+## 📏 Against the Paid Reviewers: Greptile's Benchmark
+
+Greptile published a benchmark of 50 pull requests from five open-source projects (Cal.com,
+Discourse, Grafana, Keycloak, Sentry), each with one labelled bug, together with the comments five
+commercial AI reviewers left on them. 4take reviewed the same 50 diffs using only OpenRouter's free
+models (commit 2f07956, 8 October 2026). Its reviews were graded blind, against a rubric and an
+analysis written down before the run.
+
+| reviewer | benchmark standard, 50 PRs | strict, 42 verified labels |
+| :--- | ---: | ---: |
+| **4take, free models** | **37 (74%)** | **30 (71%)** |
+| Greptile | 41 | 32 |
+| Bugbot | 29 | 25 |
+| GitHub Copilot | 26 | 19 |
+| CodeRabbit | 22 | 16 |
+| Graphite | 3 | 2 |
+
+- **Level with Greptile, not ahead of it.** Neither gap is statistically significant (exact
+  McNemar test, paired by PR: p = 0.42 and 0.77). 4take is significantly ahead of Copilot and
+  CodeRabbit (p ≤ 0.02), and ahead of Bugbot without significance.
+- **What counts.** *Benchmark standard* credits a finding at the right place with a related
+  concern, as the benchmark credited the commercial tools; their figures in that column are the
+  ones Greptile published in its table. *Strict* credits only a finding that names the labelled
+  bug, on the 42 labels an audit did not show to be wrong; the commercial tools' strict figures
+  come from a blind re-grade of their published comments.
+- **Who graded.** Two Claude models (Opus and Sonnet), each in an isolated session that held only
+  the review packets and the rubric, without knowing which run a packet came from. They agreed on
+  95 of 100 packets (Cohen's κ 0.88); a third settled the disputed seats.
+- **What it measures, and what it does not.** Recall of one labelled bug per PR. A council also
+  says a lot more: a median of 17 findings and 8 consensus entries per PR, which the benchmark
+  neither credits nor penalises. Read them by agreement (next section).
+- **What it is not.** One recording of a stochastic free pool, built and graded by the author of
+  4take. A strong signal, not proof. The pool has moved on since: two of the four most-seated
+  models of that run (apodex-1.1-mini, ling-3.0-flash-sante) have left the free tier, so the same
+  councils cannot be seated again.
+- **Where it is weakest.** Large Java diffs: Keycloak 5 of 10. On two of them, and on one Sentry
+  diff, only one free vendor reasoned through to an answer. A council took a median of six
+  minutes on these diffs and up to the 600 s timeout.
+
+The pre-registrations, the graders' instructions, every departure from the plan and the results
+are in [docs/benchmark](https://github.com/aleksbuss/4take/blob/main/docs/benchmark/README.md). The
+diffs are other projects' code, so the recordings and the graded packets are not.
+
+---
+
+## 🧪 When the Council Helps, and When It Doesn't
+
+**Agreement is the signal.** On the eval corpus, over three recordings with four reviewers seated,
+a finding all four raised held a real, labelled defect 96% of the time; one raised by two or three
+held one 60% of the time; one raised by a single reviewer 41%. A single reviewer's finding is a
+pointer to check, not a verdict, and four in ten of them are real.
+
+**Read the council's output; don't only hand it to another model.** A
+[pre-registered test](https://github.com/aleksbuss/4take/blob/main/docs/benchmark/README.md#does-the-council-help-a-weaker-model)
+on the same 50 PRs gave Gemini 3.8 Flash each diff alone, and again with the council's output as
+notes (three runs each, graded blind):
+
+| | benchmark standard, 50 PRs |
+| :--- | ---: |
+| Gemini 3.8 Flash alone | 24 |
+| Gemini 3.8 Flash with the council's notes | 26 (no difference shown, p = 0.69) |
+| the council's output, read directly | 37 |
+
+In an exploratory breakdown, the model took up 3 of the 4 bugs only the council caught that three or
+four reviewers shared, and none of the 11 that one or two raised: it kept the consensus and dropped
+the long tail with the noise. (The council's row credits its best reviewer per PR against the
+model's majority of three runs, which favours the council.) An earlier test with Claude Opus as the
+primary model showed no gain either (15 of 20 real bugs from 4take's own history alone, 14 with the
+council). 4take does not make a model a better reviewer by being pasted into its context.
+
+**So 4take puts every finding in front of you.** Over MCP the user sees only what the agent
+relays, so the payload opens with `report_for_user`: one line per finding with its agreement
+(`3/4`), severity, symbol and title. The tool description asks the agent to show those lines, to
+act on agreement 3 or more, and to check agreement 1 or 2 against the code instead of dropping it.
+The CLI prints the same ranking to your terminal.
 
 ---
 

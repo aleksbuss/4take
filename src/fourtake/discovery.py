@@ -13,7 +13,7 @@ logger = logging.getLogger("4take")
 FALLBACK_MODELS = [
     "openrouter/cohere/north-mini-code:free",
     "openrouter/poolside/laguna-s-2.1:free",
-    "openrouter/inclusionai/ling-3.0-flash-fin:free",
+    "openrouter/nvidia/nemotron-3.5-lightning:free",
     "openrouter/openrouter/free",
     "openrouter/dots-studio/dots-3-note-preview:free",
     "openrouter/nvidia/nemotron-3-super-120b-a12b:free",

@@ -1,0 +1,39 @@
+== Recording
+  councils attempted 50, kept 50; cases needing more than one attempt: none
+  seats per council {4: 28, 3: 14, 2: 8}; vendors per council {4: 28, 3: 14, 2: 8}
+  seated models: stealth/space-bunny-alpha 50, inclusionai/ling-3.0-flash-sante:free 31, nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free 25, nvidia/nemotron-3-super-120b-a12b:free 23, poolside/laguna-xs-2.1:free 17, qwen/qwen3.8-27b:free 11, cohere/north-mini-code:free 9, nvidia/nemotron-3.5-lightning:free 2, liquid/lfm-2.5-2.6b:free 1, apodex/apodex-1.1-mini:free 1
+  truncated seated reviews 4; responses shadowed by a seated vendor 47; exit codes {0: 28, 2: 22}
+  recorded on {'706e96c5b25418ef32cdd9650c0ee2ff0b3a5752'}, versions {'0.2.0'}
+
+== Graders
+  case verdicts, A (Opus) vs B (Sonnet): agree 49/50, kappa 0.95
+  lower bound (credited only where both graders credit): benchmark standard 37/50, strict 32/42
+
+== Primary
+  strict, 42 labels not shown wrong:  32/42 = 76% (95% CI 61-87%)
+  benchmark standard, 50 cases:        37/50 = 74% (95% CI 60-84%)
+
+== Secondary
+  benchmark standard, the 42:          32/42 = 76% (95% CI 61-87%)
+  benchmark standard without the stealth seat: 35/50
+  caught by 2+ vendors:                30/50
+    calcom     bench  9/10  strict  8/8
+    discourse  bench  8/10  strict  8/10
+    grafana    bench  7/10  strict  5/7
+    keycloak   bench  7/10  strict  7/10
+    sentry     bench  6/10  strict  4/7
+  missed (benchmark standard): calcom-04, discourse-05, discourse-06, grafana-03, grafana-04, grafana-05, keycloak-02, keycloak-03, keycloak-04, sentry-01, sentry-03, sentry-05, sentry-06
+  caught by 4take, missed by every competitor: none
+
+== Against the competitors (exact two-sided McNemar; only 4take / only them)
+  Greptile   strict on 42 vs blind grade 32: 6/6 p=1.000   | bench on 50 vs published 41: 6/10 p=0.454
+  Bugbot     strict on 42 vs blind grade 25: 10/3 p=0.092   | bench on 50 vs published 29: 11/3 p=0.057
+  Copilot    strict on 42 vs blind grade 19: 15/2 p=0.002   | bench on 50 vs published 26: 15/4 p=0.019
+  CodeRabbit strict on 42 vs blind grade 16: 18/2 p=0.000   | bench on 50 vs published 22: 18/3 p=0.001
+  Graphite   strict on 42 vs blind grade  2: 30/0 p=0.000   | bench on 50 vs published  3: 34/0 p=0.000
+
+== Against runs 1 and 2 (pre-0.2.0 councils; descriptive)
+  run 1: bench 39/50 (only run 3 1, only run 1 3, p=0.625); strict 27/42 (only run 3 5, only run 1 0, p=0.062)
+  run 2: bench 38/50 (only run 3 1, only run 2 2, p=1.000); strict 28/42 (only run 3 5, only run 2 1, p=0.219)
+
+== Noise: median 12.0 findings per PR (range 3-40), median 7.0 consensus entries; slowest seat median 80s

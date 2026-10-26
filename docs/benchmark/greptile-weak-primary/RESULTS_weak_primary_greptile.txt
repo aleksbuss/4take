@@ -1,0 +1,55 @@
+== Run
+  answered 294/300; runs without an answer (graded as no findings): {'A': 6}; cases with such a run: calcom-01, discourse-09, grafana-03, keycloak-03, keycloak-05
+  failed attempts: {'A': {'token limit': 25, 'tool step': 14, 'stream interrupted': 2}, 'B': {'tool step': 1, 'stream interrupted': 1, 'other: reclassified (DEPARTURES_weak_primary_greptile.md §5): the c': 1, "other: refused: the answer is Gemini's filter block notice": 1}}; median thinking tokens {'A': 51219.5, 'B': 32758.5}
+
+== H1 (primary): B (with the run-4 council's notes) against A (alone), Gemini 3.8 Flash High, majority of 3
+  benchmark standard, 50: 26 vs 24; only first / only second 4/2, exact two-sided p=0.688
+  strict, 42:             22 vs 20; only first / only second 3/1, exact two-sided p=0.625
+  A: bench 24/50 = 48% (95% CI 35-61%), strict 20/42 = 48% (95% CI 33-62%)
+  B: bench 26/50 = 52% (95% CI 39-65%), strict 22/42 = 52% (95% CI 38-67%)
+  C (council of 2026-10-08, run 4): bench 37/50 = 74% (95% CI 60-84%), strict 30/42 = 71% (95% CI 56-83%)
+  cases B caught and A missed (bench): calcom-07, discourse-09, keycloak-05, sentry-10
+  cases A caught and B missed (bench): grafana-02, grafana-04
+
+== S9 (sensitivity, amendment 2): H1 on the cases where every run of both arms has an answer
+  benchmark standard, 45: 23 vs 23; only first / only second 2/2, exact two-sided p=1.000
+  strict, 38:             20 vs 19; only first / only second 2/1, exact two-sided p=1.000
+  the excluded cases under H1 (bench): calcom-01 A=True B=True; discourse-09 A=False B=True; grafana-03 A=False B=False; keycloak-03 A=False B=False; keycloak-05 A=False B=True
+
+== S1: A or C against A (headroom; only the union can gain)
+  bench: 39 vs 24; only first / only second 15/0, exact two-sided p=0.000; headroom (C caught, A missed): 15
+  strict: 32 vs 20; only first / only second 12/0, exact two-sided p=0.000; headroom (C caught, A missed): 12
+
+== S2: B against C (the primary with notes against the council read alone)
+  bench: 26 vs 37; only first / only second 2/13, exact two-sided p=0.007
+  strict: 22 vs 30; only first / only second 1/9, exact two-sided p=0.021
+
+== S3: uptake and loss
+  bench: uptake (B caught, of C-caught A-missed) 3/15 = 20% (95% CI 7-45%); loss (B missed, of A-caught) 2/24 = 8% (95% CI 2-26%)
+  strict: uptake (B caught, of C-caught A-missed) 3/12 = 25% (95% CI 9-53%); loss (B missed, of A-caught) 1/20 = 5% (95% CI 1-24%)
+
+== S4: false findings per review (grader GH, Opus; a run without an answer counts 0 findings)
+  A: false per review 0.15, findings per review 2.70, false share 22/405 = 5%
+  B: false per review 0.13, findings per review 2.41, false share 20/362 = 6%
+  B minus A, mean per case -0.013 (bootstrap 95% CI -0.080 to +0.053); sign-flip p=0.859; cases B more / fewer / same: 3/4/43
+  GH against the Sonnet re-grade on 60 seats: equal false counts 46/60, mean absolute difference 0.32; equal finding counts 60/60
+
+== S5: each run on its own, and the mean fraction of runs catching a case
+  run 1: bench 27 vs 26; only first / only second 4/3, exact two-sided p=1.000 | strict 22 vs 20; only first / only second 3/1, exact two-sided p=0.625
+  run 2: bench 23 vs 26; only first / only second 2/5, exact two-sided p=0.453 | strict 20 vs 20; only first / only second 2/2, exact two-sided p=1.000
+  run 3: bench 27 vs 24; only first / only second 5/2, exact two-sided p=0.453 | strict 23 vs 20; only first / only second 4/1, exact two-sided p=0.375
+  mean fraction B minus A (bench) +0.007 (bootstrap 95% CI -0.067 to +0.080)
+
+== S6: per repository (bench / strict)
+  calcom     A  7/10  7/8  B  8/10  8/8  C 10/10  8/8
+  discourse  A  4/10  4/10  B  5/10  5/10  C  8/10  8/10
+  grafana    A  6/10  4/7  B  4/10  3/7  C  7/10  5/7
+  keycloak   A  3/10  3/10  B  4/10  3/10  C  5/10  4/10
+  sentry     A  4/10  2/7  B  5/10  3/7  C  7/10  5/7
+
+== S7: answers that mention reviewers, notes, a consensus or a council: A 0, B 0
+
+== S8: graders
+  seat grades G1 (Opus) vs G2 (Sonnet): agree 287/300, kappa 0.92; disputes ruled by G3: 13
+  arm verdicts (bench, 100): agree 98/100, kappa 0.96
+  lower bound (credited only where G1's and G2's majorities both credit): bench 26 vs 24; only first / only second 4/2, exact two-sided p=0.688 | strict 21 vs 19; only first / only second 3/1, exact two-sided p=0.625

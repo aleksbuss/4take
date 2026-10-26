@@ -2,6 +2,8 @@
 
 import pathlib
 import re
+import unicodedata
+import urllib.parse
 
 import pytest
 
@@ -36,3 +38,30 @@ def test_changelog_has_no_repeated_headings_within_a_release():
         headings = re.findall(r"^### (.+)$", release, re.MULTILINE)
         repeated = {h for h in headings if headings.count(h) > 1}
         assert not repeated, f"{release.splitlines()[0]!r} repeats {sorted(repeated)}"
+
+
+def _github_anchor(heading: str) -> str:
+    # GitHub keeps letters, marks, digits and connector punctuation. An emoji drops out, but the
+    # variation selector after ⚙️ or 🏗️ is a mark and stays, so the anchor starts with an
+    # invisible U+FE0F before the hyphen. Two nav links that left it out went nowhere.
+    text = re.sub(r"`|\*\*|\[|\]\([^)]*\)", "", heading).lower()
+    kept = (
+        c for c in text if c in " -" or unicodedata.category(c)[0] in "LMN" or unicodedata.category(c) == "Pc"
+    )
+    return "".join(kept).replace(" ", "-")
+
+
+def test_readme_links_point_at_headings():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    anchors, seen = set(), {}
+    in_code = False
+    for line in text.splitlines():
+        if line.startswith("```"):
+            in_code = not in_code
+        elif not in_code and (m := re.match(r"#{1,6} (.+?)\s*$", line)):
+            base = _github_anchor(m.group(1))
+            n = seen.get(base, 0)
+            seen[base] = n + 1
+            anchors.add(base if n == 0 else f"{base}-{n}")
+    broken = [f for f in re.findall(r"\]\(#([^)]+)\)", text) if urllib.parse.unquote(f) not in anchors]
+    assert not broken, f"README.md links to anchors no heading produces: {broken}"

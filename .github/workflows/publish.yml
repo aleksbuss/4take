@@ -1,8 +1,7 @@
 name: Publish
 
-# Every documented install command (`pip install 4take`, `uvx 4take`) currently 404s: the
-# package has never been published. This workflow publishes on a version tag using PyPI
-# Trusted Publishing, so no API token is stored in the repository.
+# Publishes to PyPI on a version tag using Trusted Publishing, so no API token is stored in
+# the repository.
 #
 # One-time setup on PyPI (Manage project -> Publishing, or "pending publisher" before the
 # first release): owner `aleksbuss`, repository `4take`, workflow `publish.yml`,
