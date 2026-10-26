@@ -660,3 +660,141 @@ def test_counts_and_timeouts_must_be_positive(argv):
         with pytest.raises(SystemExit) as exc:
             main()
     assert exc.value.code == 2
+
+
+# --------------------------------------------------------------------------------------
+# --set-key: the first run, without editing JSON or a shell profile by hand
+# --------------------------------------------------------------------------------------
+
+KEY = "sk-or-v1-" + "a1b2" * 16
+
+
+@pytest.fixture
+def home(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("FOURTAKE_API_KEY", raising=False)
+    return tmp_path
+
+
+def _set_key(key=KEY, verdict="ok"):
+    with (
+        patch("fourtake.cli._read_key", return_value=key + "\n"),
+        patch("fourtake.cli._check_key", return_value=verdict),
+    ):
+        with pytest.raises(SystemExit) as exc:
+            cli.set_key()
+    return exc.value.code
+
+
+def test_set_key_creates_a_private_config_the_cli_then_reads(home):
+    import json
+
+    from fourtake.config import load_config
+    from fourtake.preflight import missing_api_key
+
+    assert _set_key() == 0
+    config = home / ".config" / "4take" / "config.json"
+    assert json.loads(config.read_text())["providers"]["openrouter"]["api_key"] == KEY
+    assert oct(config.stat().st_mode & 0o777) == "0o600"
+    assert oct(config.parent.stat().st_mode & 0o777) == "0o700"
+    assert missing_api_key(load_config({})) is None
+
+
+def test_set_key_replaces_the_placeholder_and_keeps_the_rest(home):
+    import json
+
+    config = home / ".config" / "4take" / "config.json"
+    config.parent.mkdir(parents=True)
+    config.write_text(
+        json.dumps({"providers": {"openrouter": {"api_key": "YOUR_OPENROUTER_API_KEY_HERE"}}, "timeout": 300})
+    )
+    assert _set_key() == 0
+    data = json.loads(config.read_text())
+    assert data["providers"]["openrouter"]["api_key"] == KEY
+    assert data["timeout"] == 300
+
+
+def test_a_key_openrouter_rejects_is_not_saved(home):
+    assert _set_key(verdict="rejected") == 1
+    assert not (home / ".config" / "4take" / "config.json").exists()
+
+
+def test_a_key_that_cannot_be_checked_is_saved_with_a_warning(home, caplog):
+    assert _set_key(verdict="unreachable") == 0
+    assert "could not reach openrouter" in caplog.text.lower()
+    assert (home / ".config" / "4take" / "config.json").exists()
+
+
+def test_an_empty_key_is_refused(home):
+    assert _set_key(key="   ") == 1
+    assert not (home / ".config" / "4take" / "config.json").exists()
+
+
+def test_a_broken_config_is_left_alone(home):
+    config = home / ".config" / "4take" / "config.json"
+    config.parent.mkdir(parents=True)
+    config.write_text("{not json")
+    assert _set_key() == 1
+    assert config.read_text() == "{not json"
+    assert list(config.parent.iterdir()) == [config], "no temporary file is left behind"
+
+
+def test_the_saved_key_is_never_printed_whole(home, caplog):
+    import logging
+
+    with caplog.at_level(logging.INFO, logger="4take"):
+        assert _set_key() == 0
+    assert KEY not in caplog.text
+    assert KEY[-4:] in caplog.text
+
+
+def test_an_environment_key_that_shadows_the_saved_one_is_named(home, monkeypatch, caplog):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-other")
+    assert _set_key() == 0
+    assert "takes precedence" in caplog.text
+
+
+def test_the_key_is_asked_for_without_echo_at_a_terminal():
+    mock_stdin = MagicMock()
+    mock_stdin.isatty.return_value = True
+    with patch("sys.stdin", mock_stdin), patch("fourtake.cli.getpass.getpass", return_value=KEY) as prompt:
+        assert cli._read_key() == KEY
+    prompt.assert_called_once()
+
+
+def test_a_piped_key_is_read_from_stdin():
+    mock_stdin = MagicMock()
+    mock_stdin.isatty.return_value = False
+    mock_stdin.readline.return_value = KEY + "\n"
+    with patch("sys.stdin", mock_stdin):
+        assert cli._read_key() == KEY + "\n"
+
+
+@pytest.mark.parametrize(
+    ("status", "verdict"), [(200, "ok"), (401, "rejected"), (403, "rejected"), (502, "unreachable")]
+)
+def test_the_key_check_reads_openrouter_status(status, verdict):
+    import httpx
+
+    with patch("fourtake.cli.httpx.get", return_value=httpx.Response(status)):
+        assert cli._check_key(KEY) == verdict
+
+
+def test_the_key_check_survives_no_network():
+    import httpx
+
+    with patch("fourtake.cli.httpx.get", side_effect=httpx.ConnectError("offline")):
+        assert cli._check_key(KEY) == "unreachable"
+
+
+def test_main_set_key_flag(home):
+    with (
+        patch("sys.argv", ["4take", "--set-key"]),
+        patch("fourtake.cli.set_key", side_effect=SystemExit(0)) as run,
+    ):
+        with pytest.raises(SystemExit):
+            main()
+    run.assert_called_once()
