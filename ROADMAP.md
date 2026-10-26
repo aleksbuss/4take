@@ -74,14 +74,16 @@ This document outlines the architectural milestones and feature roadmap for the 
 
 ## Next (after Sprint 5)
 **Goal:** put numbers on the shipped release, then publish it.
-- **Greptile benchmark: publish the write-up.** Runs 1 and 2 predate the one-seat-per-vendor rule and
-  do not describe the shipped tool. Runs 3 and 4 were pre-registered, with the protocol hashed before
-  any council was recorded, then recorded on 0.2.0 and graded blind. The write-up is not in the README
-  yet; it goes in together with its pre-registration, so the figures can be checked.
-- **Does the council help a weaker primary model?** The frontier test (Opus 5.5, 20 bugs) found no
-  gain for Opus. A weaker model (Gemini Flash, 20 bugs) was tried once, but its councils seated only
-  one or two reviewers because of the empty-response defect fixed in this release, so that run says
-  nothing. Needs a pre-registered run with more than 20 bugs, since 20 can only show a large effect.
+- **Greptile benchmark: publish the write-up.** **Status: done.** Runs 1 and 2 predate the
+  one-seat-per-vendor rule and do not describe the shipped tool. Runs 3 and 4 were pre-registered,
+  with the protocol hashed before any council was recorded, and graded blind. The README gives run 4's
+  figures, and [docs/benchmark](docs/benchmark/README.md) holds the pre-registrations, departures and
+  results, so the figures can be checked.
+- **Does the council help a weaker primary model?** **Status: done; no gain shown.** A pre-registered
+  run on the same 50 PRs gave Gemini 3.8 Flash each diff alone and with the council's output as notes:
+  24 and 26 of 50 (p = 0.69). The council read directly scored 37. The earlier Opus test (20 bugs)
+  found no gain either. Hence `report_for_user`, which puts every finding in front of the user instead
+  of leaving the choice to the agent.
 - **Auto context on by default?** The pre-registered gate is met (named 12 of 12 in three recordings);
   it sends more code to providers, so it stays opt-in until that is decided.
 - **First public release:** `SECURITY.md` and a contributor agreement in place, then the first

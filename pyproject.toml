@@ -69,6 +69,7 @@ exclude = [
     "/evals/runs_ctx",
     "/evals/recordings",
     "/evals/recordings_ctx",
+    "/docs/benchmark",
     "/.github",
     "/uv.lock",
     "/docs-draft-*.md",

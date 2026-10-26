@@ -323,8 +323,9 @@ analysis written down before the run.
   diff, only one free vendor reasoned through to an answer. A council took a median of six
   minutes on these diffs and up to the 600 s timeout.
 
-The diffs are other projects' code, so the recordings and the grading material are kept out of
-this repository.
+The pre-registrations, the graders' instructions, every departure from the plan and the results
+are in [docs/benchmark](https://github.com/aleksbuss/4take/blob/main/docs/benchmark/README.md). The
+diffs are other projects' code, so the recordings and the graded packets are not.
 
 ---
 
@@ -335,9 +336,10 @@ a finding all four raised held a real, labelled defect 96% of the time; one rais
 held one 60% of the time; one raised by a single reviewer 41%. A single reviewer's finding is a
 pointer to check, not a verdict, and four in ten of them are real.
 
-**Read the council's output; don't only hand it to another model.** A pre-registered test on the
-same 50 PRs gave Gemini 3.8 Flash each diff alone, and again with the council's output as notes
-(three runs each, graded blind):
+**Read the council's output; don't only hand it to another model.** A
+[pre-registered test](https://github.com/aleksbuss/4take/blob/main/docs/benchmark/README.md#does-the-council-help-a-weaker-model)
+on the same 50 PRs gave Gemini 3.8 Flash each diff alone, and again with the council's output as
+notes (three runs each, graded blind):
 
 | | benchmark standard, 50 PRs |
 | :--- | ---: |
