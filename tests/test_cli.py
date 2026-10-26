@@ -798,3 +798,115 @@ def test_main_set_key_flag(home):
         with pytest.raises(SystemExit):
             main()
     run.assert_called_once()
+
+
+# --------------------------------------------------------------------------------------
+# A first run at a terminal asks for the key; CI, agents and MCP still get the error
+# --------------------------------------------------------------------------------------
+
+
+def _first_run(argv=("4take", "--quiet"), can_ask=True, typed=(KEY,), verdict="ok"):
+    """Run main() with no key configured; returns (exit code, getpass mock, run_council mock)."""
+    with (
+        patch("sys.argv", list(argv)),
+        patch("fourtake.cli._can_ask_for_key", return_value=can_ask),
+        patch("fourtake.cli.getpass.getpass", side_effect=list(typed)) as prompt,
+        patch("fourtake.cli._check_key", return_value=verdict),
+        patch("fourtake.cli.read_stdin", return_value="def add(a, b):\n    return a - b\n"),
+        patch("fourtake.cli.choose_models", side_effect=SystemExit(42)) as dispatch,
+    ):
+        with pytest.raises(SystemExit) as exc:
+            main()
+    return exc.value.code, prompt, dispatch
+
+
+def test_a_first_run_at_a_terminal_asks_saves_and_goes_on(home):
+    import json
+
+    code, prompt, dispatch = _first_run()
+    assert code == 42, "the review went on to choosing models"
+    prompt.assert_called_once()
+    dispatch.assert_called_once()
+    config = home / ".config" / "4take" / "config.json"
+    assert json.loads(config.read_text())["providers"]["openrouter"]["api_key"] == KEY
+    assert oct(config.stat().st_mode & 0o777) == "0o600"
+
+
+def test_without_a_terminal_there_is_no_prompt_only_the_error(home):
+    code, prompt, dispatch = _first_run(can_ask=False)
+    assert code == 1
+    prompt.assert_not_called()
+    dispatch.assert_not_called()
+
+
+def test_a_rejected_key_is_asked_for_again(home):
+    with patch("fourtake.cli._check_key", side_effect=["rejected", "ok"]):
+        with (
+            patch("sys.argv", ["4take", "--quiet"]),
+            patch("fourtake.cli._can_ask_for_key", return_value=True),
+            patch("fourtake.cli.getpass.getpass", side_effect=["sk-or-v1-wrong", KEY]) as prompt,
+            patch("fourtake.cli.read_stdin", return_value="x = 1\n"),
+            patch("fourtake.cli.choose_models", side_effect=SystemExit(42)),
+        ):
+            with pytest.raises(SystemExit) as exc:
+                main()
+    assert exc.value.code == 42
+    assert prompt.call_count == 2
+
+
+def test_three_rejected_keys_end_the_run_and_save_nothing(home):
+    code, prompt, dispatch = _first_run(typed=("a", "b", "c"), verdict="rejected")
+    assert code == 1
+    assert prompt.call_count == 3
+    dispatch.assert_not_called()
+    assert not (home / ".config" / "4take" / "config.json").exists()
+
+
+@pytest.mark.parametrize("typed", [("",), (KeyboardInterrupt(),), (EOFError(),)])
+def test_an_empty_or_cancelled_prompt_ends_the_run(home, typed):
+    code, _prompt, dispatch = _first_run(typed=typed)
+    assert code == 1
+    dispatch.assert_not_called()
+
+
+def test_a_dry_run_never_asks(home, capsys):
+    code, prompt, _dispatch = _first_run(argv=("4take", "--dry-run"))
+    assert code == 0
+    prompt.assert_not_called()
+
+
+def test_no_prompt_in_ci(monkeypatch):
+    monkeypatch.setenv("CI", "true")
+    with patch("sys.stderr") as stderr:
+        stderr.isatty.return_value = True
+        assert cli._can_ask_for_key() is False
+
+
+def test_no_prompt_when_stderr_is_captured(monkeypatch):
+    monkeypatch.delenv("CI", raising=False)
+    with patch("sys.stderr") as stderr:
+        stderr.isatty.return_value = False
+        assert cli._can_ask_for_key() is False
+
+
+def test_no_prompt_without_a_controlling_terminal(monkeypatch):
+    """getpass falls back to stdin without /dev/tty, and stdin is the code under review."""
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setattr(cli.os, "name", "posix")
+    with patch("sys.stderr") as stderr, patch("fourtake.cli.os.open", side_effect=OSError("no tty")):
+        stderr.isatty.return_value = True
+        assert cli._can_ask_for_key() is False
+
+
+def test_a_terminal_with_a_tty_may_be_asked(monkeypatch):
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setattr(cli.os, "name", "posix")
+    with (
+        patch("sys.stderr") as stderr,
+        patch("fourtake.cli.os.open", return_value=99) as opened,
+        patch("fourtake.cli.os.close") as closed,
+    ):
+        stderr.isatty.return_value = True
+        assert cli._can_ask_for_key() is True
+    opened.assert_called_once()
+    closed.assert_called_once_with(99)

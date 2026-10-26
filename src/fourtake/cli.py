@@ -249,13 +249,14 @@ def init_config():
 
 
 KEY_CHECK_URL = "https://openrouter.ai/api/v1/key"
+KEY_PROMPT = "OpenRouter API key (free at https://openrouter.ai/keys): "
 
 
 def _read_key() -> str:
     # Typed at a prompt the key is not echoed and stays out of the shell history, which an
     # argument (`--set-key sk-or-...`) would not. Piped in, it is read as it comes.
     if sys.stdin.isatty():
-        return getpass.getpass("OpenRouter API key (free at https://openrouter.ai/keys): ")
+        return getpass.getpass(KEY_PROMPT)
     return sys.stdin.readline()
 
 
@@ -305,16 +306,12 @@ def _save_key(key: str) -> Path:
     return config_path
 
 
-def set_key() -> None:
-    """`--set-key`: the one first-run step, without editing JSON or a shell profile by hand."""
-    key = _read_key().strip()
-    if not key:
-        logger.error("Error: no key entered. Keys are free at https://openrouter.ai/keys")
-        sys.exit(1)
+def _use_key(key: str) -> bool:
+    """Check a key the user gave and save it. False when OpenRouter rejects it; a config that cannot be written ends the run."""
     verdict = _check_key(key)
     if verdict == "rejected":
         logger.error("Error: OpenRouter rejected this key. Copy it again from https://openrouter.ai/keys")
-        sys.exit(1)
+        return False
     if verdict == "unreachable":
         logger.warning("Could not reach OpenRouter to check the key; saving it anyway.")
     try:
@@ -324,10 +321,56 @@ def set_key() -> None:
         sys.exit(1)
     shown = f"{key[:9]}…{key[-4:]}" if len(key) > 16 else "the key"
     logger.info(f"Saved {shown} to {path}, readable only by you. The CLI and the MCP server both use it.")
+    return True
+
+
+def set_key() -> None:
+    """`--set-key`: the one first-run step, without editing JSON or a shell profile by hand."""
+    key = _read_key().strip()
+    if not key:
+        logger.error("Error: no key entered. Keys are free at https://openrouter.ai/keys")
+        sys.exit(1)
+    if not _use_key(key):
+        sys.exit(1)
     if os.environ.get("OPENROUTER_API_KEY") or os.environ.get("FOURTAKE_API_KEY"):
         logger.warning("OPENROUTER_API_KEY is set in this shell and takes precedence over the saved key.")
     logger.info("Try it: printf 'def add(a, b):\\n    return a - b\\n' | 4take")
     sys.exit(0)
+
+
+def _can_ask_for_key() -> bool:
+    """
+    Whether a person is at a terminal to type a key.
+
+    stdin is usually the piped code, so the prompt goes through the terminal itself, which getpass
+    opens as /dev/tty. Without one, getpass would fall back to stdin and read the code as the key.
+    Under CI, an agent or the MCP server stderr is not a terminal, and a prompt would only hang.
+    """
+    if os.environ.get("CI") or not sys.stderr.isatty():
+        return False
+    if os.name == "nt":  # getpass reads the console there, never stdin
+        return True
+    try:
+        os.close(os.open("/dev/tty", os.O_RDWR))
+    except OSError:
+        return False
+    return True
+
+
+def _ask_for_key_first_run() -> None:
+    """A first run at a terminal asks for the key and saves it, so the review can go on."""
+    logger.info("No OpenRouter API key yet. Paste it once; 4take saves it for next time.")
+    for _ in range(3):
+        try:
+            key = getpass.getpass(KEY_PROMPT).strip()
+        except (KeyboardInterrupt, EOFError):
+            break
+        if key and _use_key(key):
+            return
+        if not key:
+            break
+    logger.error("Error: no usable key entered. Run `4take --set-key` when you have one.")
+    sys.exit(1)
 
 
 def render_dry_run(task_input: str, review_context: ReviewContext | None, output_format: str) -> str:
@@ -361,6 +404,15 @@ def require_api_key(config) -> None:
     if problem:
         logger.error(f"Error: {problem}")
         sys.exit(1)
+
+
+def ensure_api_key(config, cli_overrides: dict):
+    """The config to run with: at a terminal a missing key is asked for first; elsewhere it is an error."""
+    if missing_api_key(config) and _can_ask_for_key():
+        _ask_for_key_first_run()
+        config = load_config(cli_overrides)
+    require_api_key(config)
+    return config
 
 
 def accept_risk_enabled(args) -> bool:
@@ -427,7 +479,7 @@ def main() -> None:
         dry_run = getattr(args, "dry_run", False)
         if not dry_run:
             # A dry run sends nothing, so it has nothing to authenticate.
-            require_api_key(config)
+            config = ensure_api_key(config, cli_overrides)
 
         task_input = read_stdin()
         if not task_input.strip():
