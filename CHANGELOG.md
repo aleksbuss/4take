@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-26
+
+The API key in one step on the first run; reviews behave as in 0.2.2.
+
 ### Added
 - **`4take --set-key`: the first-run step in one command.** It asks for the OpenRouter key
   without echoing it (or reads it from a pipe), checks it against OpenRouter's key endpoint, which
