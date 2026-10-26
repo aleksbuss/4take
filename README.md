@@ -203,7 +203,7 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
 
 ```json
 {
-  "version": "0.2.4",
+  "version": "0.2.5",
   "timestamp": "2026-08-16T14:20:00Z",
   "config": {"models_requested": 12, "min_responses": 4, "timeout_seconds": 600, "strict": false},
   "summary": {
