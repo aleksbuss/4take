@@ -50,7 +50,7 @@ This document outlines the architectural milestones and feature roadmap for the 
   - Windows users do not experience Unicode encoding crashes when printing emojis or special characters.
 
 ## Sprint 4: Robustness & Distribution
-**Status: done, except that the package is not on PyPI yet.** The install commands in the README (`uv tool`, `pipx`) work from the first release; `publish.yml` is ready. 429s back off with jitter and honour `Retry-After` ([ADR-0002](docs/adr/0002-cap-retries-at-four-and-honour-retry-after.md)), and a 429 is retried eight times ([ADR-0003](docs/adr/0003-retry-a-rate-limited-provider-eight-times.md)).
+**Status: done.** 0.2.0 is on PyPI, so the install commands in the README (`uv tool`, `pipx`) work; `publish.yml` publishes each `v*` tag. 429s back off with jitter and honour `Retry-After` ([ADR-0002](docs/adr/0002-cap-retries-at-four-and-honour-retry-after.md)), and a 429 is retried eight times ([ADR-0003](docs/adr/0003-retry-a-rate-limited-provider-eight-times.md)).
 **Goal:** Global accessibility and model fallback logic.
 - **Tasks:**
   - Document installation methods (`uv tool`, `pipx`, etc.) in the README.
