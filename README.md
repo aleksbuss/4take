@@ -49,6 +49,11 @@ pipx install 4take
 pip install 4take
 ```
 
+4take needs **Python 3.10 or newer**. The `python3` that comes with macOS is 3.9, and pip there
+fails with `No matching distribution found for 4take`. `uv tool install 4take` fetches a suitable
+Python by itself, whatever the system has; to get uv, run
+`curl -LsSf https://astral.sh/uv/install.sh | sh` or `brew install uv`.
+
 ### 2. Set Your OpenRouter API Key
 
 Get an API key at [OpenRouter](https://openrouter.ai/keys):

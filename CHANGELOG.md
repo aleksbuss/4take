@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The README's install step says 4take needs Python 3.10 or newer, that macOS's own `python3` is
+  3.9 (where pip only reports `No matching distribution found for 4take`), and that
+  `uv tool install 4take` fetches a suitable Python by itself.
+
 ## [0.2.2] - 2026-10-26
 
 One fix to what the review shows; how findings are grouped and counted is unchanged.
