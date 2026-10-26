@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-26
+
+A first run at a terminal asks for the API key and carries on; reviews behave as in 0.2.3.
+
 ### Added
 - **A first run at a terminal asks for the key and carries on.** Without a key, `git diff | 4take`
   in a terminal now prompts for it, as `--set-key` does (hidden input, checked with OpenRouter,
