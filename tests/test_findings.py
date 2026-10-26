@@ -496,6 +496,14 @@ def test_a_finding_survives_the_ways_models_write_its_tag(tag, severity, categor
             "Incorrect exception handling in fan_out",
             "fan_out",
         ),
+        # The word closed with a bracket it never opened: 7 of 444 titles in Greptile run 4 began
+        # with the stray `] `.
+        (
+            "* [CRITICAL] LOGIC] Invalid Zod schema for token response validation (at parse_refresh)",
+            DefectCategory.LOGIC,
+            "Invalid Zod schema for token response validation",
+            "parse_refresh",
+        ),
         # Only the upper-case name is a category; an ordinary first word stays in the title.
         (
             "* [WARNING] Logic error in the retry loop (at retry)",

@@ -360,6 +360,134 @@ def test_the_mcp_tool_carries_the_consensus_block():
 
 
 # --------------------------------------------------------------------------------------
+# The report for the user: every finding, beside how many reviewers raised it
+# --------------------------------------------------------------------------------------
+
+_SQLI = "* [CRITICAL] [INJECTION] SQL injection (at search_users)\n  - Issue: term is concatenated.\n"
+_LIMIT = "* [WARNING] Unbounded limit (at page_size)\n  - Issue: limit is never capped.\n"
+_NAMING = "* [SUGGESTION] Helper name hides that it writes to disk\n  - Issue: load() also saves.\n"
+
+
+def _council(*contents: str, error: str | None = None) -> CouncilResult:
+    responses = [
+        ModelResponse(model=f"m{i}:free", content=c, error=None, latency_ms=1, served_model=f"m{i}:free")
+        for i, c in enumerate(contents)
+    ]
+    return CouncilResult(responses=responses, errors=[], warning=None, error=error, total_latency_ms=1)
+
+
+def test_the_report_lists_every_finding_most_agreed_first():
+    """
+    An agent filtering the council keeps what most reviewers shared and drops the rest, so the
+    user is shown every finding beside its agreement, the single-reviewer ones included.
+    """
+    # The single-reviewer finding is written first, so a report that kept the order the reviews
+    # were written in, rather than agreement, would put it at the top.
+    result = _council(_NAMING + _SQLI + _LIMIT, _SQLI, _SQLI + _LIMIT, _SQLI)
+    payload = json.loads(serialise_result(result, SimpleNamespace(min_responses=4)))
+
+    header, *lines = payload["report_for_user"]
+    assert lines == [
+        "- 4/4 CRITICAL `search_users` — SQL injection",
+        "- 2/4 WARNING `page_size` — Unbounded limit",
+        "- 1/4 SUGGESTION — Helper name hides that it writes to disk",
+    ]
+    assert [line.split(" — ", 1)[1] for line in lines] == [c["title"] for c in payload["consensus"]]
+    assert header.startswith("4take: 3 findings from 4 independent reviewers, most-agreed first.")
+    for share in ("96%", "60%", "41%"):
+        assert share in header
+    assert "act on 3 or more, and check 1 or 2 against the code" in header
+
+
+def test_a_paragraph_or_a_cut_off_title_still_fits_a_line_that_can_be_relayed():
+    """
+    Two shapes from Greptile run 4: a model wrote a 2,000-character paragraph as its title, and a
+    finding without one took its title from the issue's first 80 characters, cut inside a code
+    span. The open backtick turned the rest of a relayed line into code. `consensus` keeps both.
+    """
+    paragraph = "* [WARNING] In ClientPermissionsV2.java the method " + "evaluates a permission, " * 40
+    untitled = (
+        "* [WARNING] ERROR_HANDLING (at app/models/embeddable_host.rb:13-15)\n"
+        "  - Issue: The `before_validation` callback calls `self.host.sub!` without checking if `host`"
+        " is present.\n"
+    )
+    payload = json.loads(
+        serialise_result(_council(paragraph + "\n" + untitled), SimpleNamespace(min_responses=1))
+    )
+
+    # The two tie on agreement and severity, so each is paired with its whole title in `consensus`.
+    relayed = {
+        c["title"]: line.split(" — ", 1)[1]
+        for c, line in zip(payload["consensus"], payload["report_for_user"][1:], strict=True)
+    }
+    long = next(t for t in relayed if t.startswith("In ClientPermissionsV2"))
+    cut = next(t for t in relayed if t.startswith("The `before_validation`"))
+    assert len(long) > 900
+    assert relayed[long] == (
+        "In ClientPermissionsV2.java the method evaluates a permission, evaluates a permission, evaluates"
+        " a permission, evaluates a permission, evaluates a…"
+    )
+    assert cut.endswith("without checking if `hos")
+    assert relayed[cut] == "The `before_validation` callback calls `self.host.sub!` without checking if…"
+
+
+def test_the_report_comes_first_and_every_other_field_is_unchanged():
+    """The CLI's JSON and anything that parses this payload read these keys; one is added, first."""
+    payload = json.loads(serialise_result(_council(_SQLI), SimpleNamespace(min_responses=1)))
+    assert list(payload) == [
+        "report_for_user",
+        "status",
+        "error",
+        "warning",
+        "responses_received",
+        "distinct_models",
+        "min_responses",
+        "total_latency_ms",
+        "context",
+        "consensus",
+        "responses",
+        "errors",
+    ]
+
+
+def test_a_clean_review_reports_no_finding():
+    result = _council("NO_ISSUES_FOUND: clean.", "NO_ISSUES_FOUND: clean.")
+    payload = json.loads(serialise_result(result, SimpleNamespace(min_responses=2)))
+    assert payload["consensus"] == []
+    assert payload["report_for_user"] == ["4take: no finding from 2 independent reviewers."]
+
+
+def test_a_degraded_council_with_no_finding_does_not_read_as_clean():
+    payload = json.loads(
+        serialise_result(_council("NO_ISSUES_FOUND: clean."), SimpleNamespace(min_responses=4))
+    )
+    assert payload["status"] == "degraded"
+    assert payload["report_for_user"] == [
+        "4take: no finding from 1 independent reviewer. Degraded: 4 independent reviewers were required."
+    ]
+
+
+def test_a_failed_council_reports_why_and_no_finding():
+    payload = json.loads(
+        serialise_result(_council(error="all models failed"), SimpleNamespace(min_responses=4))
+    )
+    assert payload["status"] == "error"
+    assert payload["report_for_user"] == ["4take: no review — all models failed"]
+
+
+@pytest.mark.asyncio
+async def test_the_tool_description_asks_for_the_report_and_a_check_of_low_agreement():
+    tools = await mcp.list_tools()
+    description = next(t for t in tools if t.name == "get_4take_opinion").description
+    assert "`report_for_user`" in description
+    assert "verbatim" in description
+    for share in ("96%", "60%", "41%"):
+        assert share in description
+    assert "Act on agreement 3 or more" in description
+    assert "do not drop it unchecked" in description
+
+
+# --------------------------------------------------------------------------------------
 # A non-code input is refused before any request goes out
 # --------------------------------------------------------------------------------------
 
@@ -380,6 +508,7 @@ async def test_prose_is_refused_without_dispatching():
     assert payload["status"] == "error"
     assert "does not look like source code" in payload["error"]
     assert payload["responses"] == []
+    assert payload["report_for_user"] == [f"4take: no review — {payload['error']}"]
 
 
 @pytest.mark.asyncio

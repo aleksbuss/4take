@@ -31,7 +31,13 @@ If your agent runtime supports the **Model Context Protocol (MCP)**:
 
 - **Server Entrypoint:** `4take-mcp` (or `uvx --from '4take[mcp]' 4take-mcp`). The MCP
   server ships as the `mcp` extra: `pip install '4take[mcp]'`.
-- **Server output:** the same `consensus` list the CLI emits, plus `status`
+- **Server output:** first `report_for_user`, a list of lines to show the user verbatim or close
+  to it: a header with the [calibration](#-the-agent-as-chairman-4-step-synthesis-framework) and
+  what follows from it (agreement 3 or more: confirm in the code, then fix; 1 or 2: check against
+  the code before accepting or rejecting it), then one line per `consensus` entry, most-agreed
+  first, such as ``- 2/4 WARNING `page_size` — Unbounded limit``. The denominator is the number
+  of independent reviewers that answered. Show every line, the ones you go on to reject included:
+  the user sees only what you relay. Then the same `consensus` list the CLI emits, plus `status`
   (`ok` / `degraded` / `error`), `distinct_models` and `min_responses`. `degraded`
   means fewer independent reviewers answered than were asked for; a `warning` alongside
   `status: ok` is informational, not a failure. Only a review fills a seat: an answer with
@@ -51,7 +57,8 @@ If your agent runtime supports the **Model Context Protocol (MCP)**:
   - `auto_context` (boolean, optional, default `false`): With a diff, also let the server choose
     context by name: what still uses what the change removes, the callers of what it edits, the
     definitions of what it calls. Sent after `context_files`, within the same budget.
-- **Return Value:** JSON string containing `responses` array with each model's independent critique and metadata.
+- **Return Value:** JSON string: `report_for_user` first, then the fields above and the
+  `responses` array with each model's independent critique and metadata.
 
 ---
 

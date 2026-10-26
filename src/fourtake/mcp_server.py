@@ -8,7 +8,7 @@ from pydantic import Field
 from .config import load_config
 from .context import ContextError, assemble
 from .engine import distinct_seats, run_council
-from .findings import build_consensus
+from .findings import Consensus, build_consensus
 from .input_kind import looks_like_code
 from .preflight import NoUsableModels, choose_models, missing_api_key
 from .safety import redact_secrets
@@ -28,10 +28,64 @@ def _fire_and_forget(coro) -> None:
     task.add_done_callback(_background_tasks.discard)
 
 
+# How often a consensus entry held a labelled defect, by agreement, over three recordings of the
+# eval corpus with four reviewers seated (AGENTS.md, step 2). The tool description quotes it too.
+_CALIBRATION = (
+    "On the eval corpus a finding held a labelled defect 96% of the time when all 4 reviewers raised "
+    "it, 60% when 2 or 3 did and 41% when 1 did: act on 3 or more, and check 1 or 2 against the code "
+    "before accepting or rejecting it."
+)
+
+# A title is whatever the model wrote on its finding's line, and one in Greptile run 4 ran to
+# 2,000 characters. 150 cuts 4 of that run's 444 titles; `consensus[].title` keeps them whole.
+_TITLE_CHARS = 150
+
+
+def _relayable(title: str) -> str:
+    """The title short enough to relay, with no backtick left open to turn the rest into code."""
+    if len(title) > _TITLE_CHARS:
+        title = title[:_TITLE_CHARS].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
+    if title.count("`") % 2:
+        # The unpaired backtick is the last one: a code span cut off, here or where the title
+        # was taken from the start of its issue.
+        title = title[: title.rfind("`")].rstrip(" ,;:") + "…"
+    return title
+
+
+def _report_for_user(
+    status: str, clusters: list[Consensus], seats: int, min_responses: int, error: str | None
+) -> list[str]:
+    """
+    The lines the agent is asked to show the user: a header, then one per finding, most-agreed first.
+
+    Over MCP the user sees only what the agent relays, and agents filter by agreement. Handed the
+    council's notes on the Greptile benchmark, a primary model took up 3 of the 4 bugs only the
+    council caught that three or four reviewers shared, and 0 of the 11 that one or two raised
+    (an exploratory breakdown). A single reviewer's finding still held a labelled defect 41% of
+    the time on the eval corpus, so every finding goes in front of the user beside its agreement.
+    """
+    reviewers = f"{seats} independent reviewer{'s' if seats != 1 else ''}"
+    if status == "error":
+        header = f"4take: no review — {error or 'no reviewer answered'}"
+    elif not clusters:
+        header = f"4take: no finding from {reviewers}."
+    else:
+        found = f"{len(clusters)} finding{'s' if len(clusters) != 1 else ''}"
+        header = f"4take: {found} from {reviewers}, most-agreed first. {_CALIBRATION}"
+    if status == "degraded":
+        header += f" Degraded: {min_responses} independent reviewers were required."
+    lines = [header]
+    for c in clusters:
+        where = f" `{c.symbol}`" if c.symbol else ""
+        lines.append(f"- {c.agreement}/{seats} {c.severity}{where} — {_relayable(c.title)}")
+    return lines
+
+
 def _refused(error: str) -> str:
     """The payload for a review that was never dispatched: the same shape as a failed council."""
     return json.dumps(
         {
+            "report_for_user": _report_for_user("error", [], 0, 0, error),
             "status": "error",
             "error": error,
             "warning": None,
@@ -79,6 +133,19 @@ async def get_4take_opinion(
     to send a non-code input anyway.
     Pass `context_files` with a diff: a defect between files — a changed return value a caller
     still relies on, a route missing the check its neighbours make — is invisible without them.
+
+    The result opens with `report_for_user`: a header, then one line per finding with how many
+    independent reviewers raised it (e.g. 3/4), its severity, symbol and title, most-agreed
+    first. Show those lines to the user verbatim, or close to it, before your own conclusions —
+    every line, including the ones you go on to reject.
+    Treat each finding by its agreement. On the eval corpus a finding all 4 reviewers raised held
+    a labelled defect 96% of the time, one raised by 2 or 3 reviewers 60%, and one raised by a
+    single reviewer 41%. Act on agreement 3 or more: confirm it in the code, then fix it. Check
+    agreement 1 or 2 against the code — open the file, run the tests — before accepting or
+    rejecting it; do not drop it unchecked, because at least four in ten of them are real.
+    Then tell the user which findings you confirmed and which you rejected, and why.
+    `consensus` carries the same entries with the models behind each; `responses[].content`
+    has each reviewer's full wording.
     """
     # Refuse before dispatching, for the reason the CLI refuses: four requests spent to
     # produce four copies of the empty-review sentinel is a worse answer than saying so.
@@ -158,7 +225,8 @@ async def get_4take_opinion(
 def serialise_result(result, config) -> str:
     """
     The MCP tool's output contract, extracted so it can be asserted without running a
-    council. Both the status rule and the consensus block are things agents rely on.
+    council. The status rule, the consensus block and the report for the user are all things
+    agents rely on.
     """
     # "Success" used to be reported even when every model failed, because result.error was
     # never serialised. Callers are agents: they must be able to tell failure from success.
@@ -175,8 +243,12 @@ def serialise_result(result, config) -> str:
     else:
         status = "ok"
 
+    clusters = build_consensus(result.responses)
     return json.dumps(
         {
+            # First, so it is the first thing an agent reads; built from the same entries as
+            # `consensus` below, in the same order.
+            "report_for_user": _report_for_user(status, clusters, seats, config.min_responses, result.error),
             "status": status,
             "error": result.error,
             "warning": result.warning,
@@ -200,7 +272,7 @@ def serialise_result(result, config) -> str:
                     "severities": c.severities,
                     "disputed": c.disputed,
                 }
-                for c in build_consensus(result.responses)
+                for c in clusters
             ],
             "responses": [
                 {
