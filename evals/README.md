@@ -19,4 +19,3 @@ carries.
 | `recordings_ctx/`, `runs_ctx/` | the cross-file corpus recorded without context, with it, and with `--auto-context` |
 | `record.py` | re-records against live models; the only step that uses the network |
 | `score.py` | scores recordings offline |
-| `backfill_duplicates.py` | one-off migration that restored `duplicate_of` in older recordings |

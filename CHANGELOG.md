@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-26
+
+Documentation and packaging only; the review behaves exactly as in 0.2.0.
+
+### Changed
+- **The benchmark comparison says when each side was recorded, and what the models may have
+  seen.** The commercial reviewers' comments on Greptile's 50 PRs date from late July 2025;
+  4take's runs from October 2026. The PRs and their bug descriptions have been public since 2025,
+  so a model trained later may have seen them. Both favour 4take, and the README, `docs/benchmark`
+  and the 0.2.0 release notes now say so.
+- **Claims the measurements do not support are gone.** The agent diagram no longer says the
+  council "dismisses hallucinations" and yields "final clean code", `CLAUDE.md` no longer says it
+  eliminates single-model hallucinations, and "universal", "seamlessly" and "beautiful" are out of
+  the README, `llms.txt`, the CLI help and the PyPI summary.
+- **Two README badges carried other projects' logos** (FastAPI's for FastMCP, OpenAI's for
+  OpenRouter). They are replaced by the PyPI version.
+
+### Removed
+- `evals/backfill_duplicates.py`, a one-off migration of recordings made before 0.2.0. It stays in
+  the git history.
+
 ## [0.2.0] - 2026-10-26
 
 ### Added

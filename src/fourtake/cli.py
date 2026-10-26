@@ -67,7 +67,7 @@ def _positive_float(value: str) -> float:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Universal LLM Council CLI")
+    parser = argparse.ArgumentParser(description="Code review by a council of free LLMs on OpenRouter")
     parser.add_argument("--models", type=str, help="Comma-separated list of models")
     # Positive, as the config file requires: 0 responses counted an empty council as a success, and
     # a timeout of 0 or less set the deadline in the past.

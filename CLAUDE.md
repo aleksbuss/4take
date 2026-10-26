@@ -2,7 +2,8 @@
 
 ## What is this?
 4take is a CLI and MCP server that queries 4 independent LLMs in parallel to review code.
-You pipe code into it, and it returns multi-model opinions to eliminate single-model hallucinations.
+You pipe code into it, and it returns four models' reviews with their findings grouped by how
+many raised each one.
 
 It reviews four axes, not just defects: **correctness**, **security**, **structure**
 (responsibility in the wrong layer, coupling that spreads one behavioural change across
