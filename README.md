@@ -14,7 +14,7 @@
 On Greptile's own 50-PR bug benchmark, a council of free models found 37 of 50 bugs:  
 level with Greptile (41), ahead of Copilot and CodeRabbit, whose reviews date from July 2025. [How it was measured](#-against-the-paid-reviewers-greptiles-benchmark)
 
-[⚡ 30-Second Quickstart](#-30-second-quickstart) •
+[⚡ Quickstart](#-quickstart) •
 [🤖 AI Agent & MCP Integration](#-ai-coding-agents--mcp-integration) •
 [✨ Features](#-features) •
 [📏 Benchmark](#-against-the-paid-reviewers-greptiles-benchmark) •
@@ -36,7 +36,7 @@ level with Greptile (41), ahead of Copilot and CodeRabbit, whose reviews date fr
 
 ---
 
-## ⚡ 30-Second Quickstart
+## ⚡ Quickstart
 
 ### 1. Install
 
@@ -64,7 +64,9 @@ Get a free key at [OpenRouter](https://openrouter.ai/keys), then save it once:
 
 It asks for the key without echoing it, checks it with OpenRouter and saves it to
 `~/.config/4take/config.json`, readable only by you. The CLI and the MCP server both read it
-from there, so an MCP client needs no `env` block.
+from there, so an MCP client needs no `env` block. Skip this step and the first review you run in
+a terminal asks for the key the same way, then carries on; without a terminal (CI, an agent, the
+MCP server) a missing key is an error that names `--set-key`.
 
 Or set it for the current shell instead:
 

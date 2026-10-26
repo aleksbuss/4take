@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A first run at a terminal asks for the key and carries on.** Without a key, `git diff | 4take`
+  in a terminal now prompts for it, as `--set-key` does (hidden input, checked with OpenRouter,
+  saved 0600), up to three tries, and then runs the review. The prompt goes through the terminal
+  itself, since stdin is the code; with no controlling terminal, under CI, or with stderr captured
+  (an agent, the MCP server), nothing is asked and the error naming `--set-key` stands, so no run
+  waits for input that cannot come. A dry run still needs no key.
+
+### Changed
+- The README's "30-Second Quickstart" is "Quickstart": a first key needs an OpenRouter account,
+  which takes longer than that.
+
 ## [0.2.3] - 2026-10-26
 
 The API key in one step on the first run; reviews behave as in 0.2.2.
