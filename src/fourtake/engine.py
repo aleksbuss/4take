@@ -415,6 +415,7 @@ async def run_council(
 
         task_to_model: dict[asyncio.Task, str] = {}
         pending: set[asyncio.Task] = set()
+        limit_announced = False
 
         for m in initial_models:
             t = asyncio.create_task(wrapped_query(m), name=f"4take-{m}")
@@ -577,9 +578,15 @@ async def run_council(
                         freed.append(f"replacing {model_id}")
 
                 if guard is not None and guard.tripped:
-                    if verbose:
-                        _log("[4take] ✗ OpenRouter's free-model limit for today is used up; stopping")
-                    break
+                    # Requests OpenRouter already accepted still return answers, so they are waited
+                    # for; what stops is everything new, since a spare would meet the same 429.
+                    if verbose and not limit_announced:
+                        limit_announced = True
+                        _log(
+                            "[4take] ✗ OpenRouter's free-model limit for today is used up; "
+                            "waiting only for requests already in flight"
+                        )
+                    freed = []
 
                 for reason in freed:
                     rotate_in(reason)
@@ -595,7 +602,7 @@ async def run_council(
             for t in pending:
                 if not t.done():
                     t.cancel()
-                    if seats_filled() < config.min_responses and not (guard is not None and guard.tripped):
+                    if seats_filled() < config.min_responses:
                         model_name = task_to_model.get(t, "unknown")
                         errors.append(
                             ModelResponse(

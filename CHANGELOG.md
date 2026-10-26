@@ -14,11 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retried and rotated through the whole pool until its deadline, ten minutes by default, and ended
   on a list of per-model errors that never said why. It now reads `free_model_daily_requests` from
   `GET /api/v1/key`, which costs no quota, before the council starts and again on a 429 from
-  OpenRouter, once per run however many models hit it. With none left it stops, in 0.2 s and two
-  requests in a simulated run, and says how many requests were used, that the limit resets at
+  OpenRouter, once per run however many models hit it. With none left it launches nothing more and
+  waits only for requests OpenRouter had already accepted, so answers already on their way are
+  kept; in a simulated run with none in flight it ended in 0.2 s and two requests. It says how many
+  requests were used, that the limit resets at
   00:00 UTC (the hour in the user's own zone and how long away), and that $10 of credits raises
   50 a day to 1000. The same sentence is the `error` of the JSON output and of the MCP result,
-  and a mid-review stop keeps the answers already in as a warning. A counter that cannot be read
+  and a stop after some answers keeps them, with the sentence as a warning. A counter that cannot be read
   (no network, a refused key, an exempt account) changes nothing: the review runs as before.
 
 ## [0.2.4] - 2026-10-26

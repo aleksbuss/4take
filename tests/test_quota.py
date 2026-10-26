@@ -365,7 +365,7 @@ async def test_a_council_that_meets_the_spent_allowance_ends_at_once_with_one_cl
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_a_council_with_some_answers_before_the_limit_keeps_them_and_says_it_stopped(real_quota):
+async def test_a_request_already_in_flight_when_the_limit_is_met_is_still_waited_for(real_quota):
     review = httpx.Response(
         200,
         json={
@@ -374,8 +374,11 @@ async def test_a_council_with_some_answers_before_the_limit_keeps_them_and_says_
         },
     )
 
-    def reply(request):
-        return review if json.loads(request.content)["model"] == "m0:free" else _rate_limited()
+    async def reply(request):
+        if json.loads(request.content)["model"] == "m0:free":
+            await asyncio.sleep(0.3)  # still in flight when the other models meet the 429
+            return review
+        return _rate_limited()
 
     respx.post(CHAT_URL).mock(side_effect=reply)
     respx.get(KEY_URL).mock(return_value=httpx.Response(200, json=_key_reply(50, 50)))

@@ -678,10 +678,11 @@ unlimited.
 
 When the day's allowance is spent, 4take says so and stops. Before a review it reads the counter
 from your key (`GET /api/v1/key`, which costs no quota), and a 429 during a review makes it read the
-counter again. With none left it ends at once with how many requests were used, when the limit
-resets (00:00 UTC, with the hour in your own time zone and how long that is away), and what raises
-it, instead of waiting out the provider's 429s for ten minutes. The same sentence is the `error`
-of the JSON output and of the MCP result. If the counter cannot be read, the review goes ahead as
+counter again. With none left it launches nothing more, waits only for requests OpenRouter had
+already accepted, and says how many requests were used, when the limit resets (00:00 UTC, with the
+hour in your own time zone and how long that is away) and what raises it, instead of waiting out
+the provider's 429s for ten minutes. The same sentence is the `error` of the JSON output and of the
+MCP result, or a warning when some answers came in first. If the counter cannot be read, the review goes ahead as
 before.
 
 If a model hits an HTTP 429 rate limit, `4take` retries it up to eight times with exponential
