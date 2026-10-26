@@ -196,6 +196,63 @@ def test_the_same_defect_clusters_even_when_models_rate_it_differently():
     assert cluster.severities == {"CRITICAL": 1, "WARNING": 1}
 
 
+def test_an_entry_takes_a_title_that_names_the_defect_over_a_bare_symbol():
+    """
+    Live, 2026-10-26: cohere wrote `[CRITICAL] INJECTION find_user (def find_user)` and, first in
+    order among equally severe findings, gave every entry it was in the title "find_user".
+    """
+    findings = [
+        _f(
+            "cohere/north-mini-code:free",
+            "CRITICAL",
+            "find_user",
+            "find_user",
+            "name is interpolated into the SQL",
+        ),
+        _f(
+            "poolside/laguna-s-2.1:free",
+            "CRITICAL",
+            "SQL injection via f-string",
+            "find_user",
+            "name interpolated into SQL",
+        ),
+    ]
+    (cluster,) = cluster_findings(findings)
+    assert cluster.title == "SQL injection via f-string"
+
+
+def test_a_bare_symbol_title_falls_back_to_the_issue_when_nothing_better_is_there():
+    findings = [
+        _f(
+            "cohere/north-mini-code:free",
+            "WARNING",
+            "`find_user`",
+            "find_user",
+            "The connection is never closed.",
+        )
+    ]
+    (cluster,) = cluster_findings(findings)
+    assert cluster.title == "The connection is never closed."
+
+
+def test_a_long_issue_shown_as_a_title_is_cut_at_a_word():
+    issue = "No error handling surrounds the database operations. An invalid db_path, malformed input or a locked file raises."
+    (cluster,) = cluster_findings(
+        [_f("cohere/north-mini-code:free", "WARNING", "find_user", "find_user", issue)]
+    )
+    assert cluster.title == "No error handling surrounds the database operations. An invalid db_path,…"
+
+
+def test_a_more_severe_bare_title_still_sets_the_severity():
+    findings = [
+        _f("a", "CRITICAL", "find_user", "find_user", "name is interpolated into the SQL query"),
+        _f("b", "WARNING", "Unparameterised query", "find_user", "name interpolated into the SQL query"),
+    ]
+    (cluster,) = cluster_findings(findings)
+    assert cluster.severity == "CRITICAL"
+    assert cluster.title == "name is interpolated into the SQL query"
+
+
 def test_severity_counts_are_reviewers_not_findings():
     """
     A verbose model listing one defect three times as CRITICAL must not read as three

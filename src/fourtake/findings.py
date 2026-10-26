@@ -557,6 +557,20 @@ def _linked_groups(tokens_of: list[set[str]], weights: dict[str, float]) -> list
     return list(groups.values())
 
 
+def _names_the_defect(f: Finding) -> bool:
+    """Whether the title says what is wrong rather than only where, or nothing at all."""
+    bare = f.title.strip("`() ").lower()
+    return bool(bare) and f.title != "(untitled)" and bare != (f.symbol or "").strip("`() ").lower()
+
+
+def _shown_title(f: Finding) -> str:
+    # Cohere's north-mini-code sometimes puts the symbol where the title belongs, `[CRITICAL]
+    # INJECTION find_user (def find_user)`: 11 of its 75 recorded findings. Its issue says more.
+    if _names_the_defect(f) or not f.issue:
+        return f.title
+    return f.issue if len(f.issue) <= 80 else f.issue[:80].rsplit(" ", 1)[0] + "…"
+
+
 def _order_key(f: Finding) -> tuple[str, ...]:
     """A total order on findings, drawn from the findings themselves: the reviewer, then the text."""
     return (f.model, f.raw, f.title, f.issue, f.fix, f.symbol or "", f.severity, f.category.value)
@@ -598,7 +612,9 @@ def cluster_findings(findings: list[Finding]) -> list[Consensus]:
         for f in group:
             by_severity.setdefault(f.severity, set()).add(f.model)
         severities = {sev: len(models) for sev, models in by_severity.items()}
-        worst = max(group, key=lambda f: SEVERITY_ORDER.get(f.severity, 0))
+        # Among the most severe, a title that names the defect beats one that only names the
+        # symbol: the first model in order otherwise lent its "find_user" to every entry it was in.
+        worst = max(group, key=lambda f: (SEVERITY_ORDER.get(f.severity, 0), _names_the_defect(f)))
         # Distinct reviewers, not raw findings: one model listing a defect twice is one
         # opinion, and counting it twice would manufacture consensus out of verbosity.
         models = sorted({f.model for f in group})
@@ -620,7 +636,7 @@ def cluster_findings(findings: list[Finding]) -> list[Consensus]:
             Consensus(
                 severity=worst.severity,
                 symbol=symbol,
-                title=worst.title,
+                title=_shown_title(worst),
                 models=models,
                 severities=severities,
                 findings=group,

@@ -8,7 +8,7 @@ Only the latest release receives security fixes. Today that is 0.2.x.
 
 Please do not open a public issue for a vulnerability.
 
-- Use GitHub's **Report a vulnerability** button (Security tab, once the repository is public), or
+- Use GitHub's **Report a vulnerability** button on the Security tab, or
 - write to **takelicensing@gmail.com** with the subject `4take security`.
 
 Include the output of `4take --version`, the steps to reproduce, and what an attacker gains. A

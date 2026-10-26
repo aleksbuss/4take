@@ -14,6 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   strict figures). The model given those findings caught 26, which is now the reason for
   `report_for_user` rather than the section's headline. The MCP section no longer opens with the
   20-bug Opus test, which stays in the ROADMAP.
+- The README's JSON example shows `served_model`, `served_provider`, `finish_reason`, `truncated`,
+  `duplicate_of`, `config` and `summary.distinct_models`, which the CLI has emitted all along and
+  the agent guides tell readers to rely on.
+
+### Fixed
+- **A consensus entry no longer takes a bare symbol as its title.** Cohere's north-mini-code
+  sometimes writes the symbol where the title belongs (`[CRITICAL] INJECTION find_user (def
+  find_user)`, 11 of its 75 recorded findings). Among equally severe findings the first in order set
+  the title, so in a live review on 26 October all five entries read "find_user", in the CLI and in
+  `report_for_user` alike. An entry now takes a title that names the defect when one of its findings
+  has one, and otherwise the start of the issue, cut at a word. Grouping and agreement are
+  unchanged: `evals/score.py` prints the same report before and after.
 
 ## [0.2.1] - 2026-10-26
 
