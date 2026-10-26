@@ -19,9 +19,9 @@ level with Greptile (41), ahead of Copilot and CodeRabbit. [How it was measured]
 [🤖 AI Agent & MCP Integration](#-ai-coding-agents--mcp-integration) •
 [✨ Features](#-features) •
 [📏 Benchmark](#-against-the-paid-reviewers-greptiles-benchmark) •
-[🏗️ Architecture](#-how-it-works) •
+[🏗️ Architecture](#%EF%B8%8F-how-it-works) •
 [💻 CLI Recipes](#-cli-usage--recipes) •
-[⚙️ Configuration](#-configuration) •
+[⚙️ Configuration](#%EF%B8%8F-configuration-file) •
 [📊 OpenRouter Limits Guide](#-openrouter-free-tier--rate-limits)
 
 </div>
@@ -278,7 +278,7 @@ corpus the median was about 50 s, and 27 of 28 councils seated four.
 - 🤝 **Consensus Grouping**: Findings several models raised independently are grouped and ranked by how many raised them, so the cross-referencing is done for you rather than left in four parallel reviews.
 - 🔄 **Fault-Tolerant Dynamic Rotation**: If a model hits a rate limit (HTTP 429) or fails, the engine seamlessly rotates in replacement candidates from a pre-ranked 12-model pool with exponential backoff.
 - 🆓 **Free Models Only**: Requests go only to OpenRouter's free (`:free`) models, and a paid model is rejected before anything is sent. Free has limits: roughly 4 to 8 reviews a day on an account that has never been topped up, roughly 80 to 160 once it has ([details](#-openrouter-free-tier--rate-limits)).
-- 🛡️ **Zero-Config Privacy & Secret Redaction**: Automatically scrubs API keys, passwords, and authorization tokens before sending payloads over the wire.
+- 🛡️ **Secret Redaction**: Automatically scrubs API keys, passwords, and authorization tokens before sending payloads over the wire. The code itself still goes to third-party free endpoints ([privacy](#%EF%B8%8F-privacy--security)).
 - 🚦 **Cross-Process Rate Limiter**: Shared file-locked token bucket ensures concurrent terminal sessions or background agents never trigger rate limit bans.
 - 🎨 **Rich Terminal UI & JSON Output**: Beautiful ANSI Markdown rendering in terminal, plus `--format json` for automated scripts & CI pipelines.
 
@@ -347,10 +347,10 @@ same 50 PRs gave Gemini 3.8 Flash each diff alone, and again with the council's 
 
 In an exploratory breakdown, the model took up 3 of the 4 bugs only the council caught that three or
 four reviewers shared, and none of the 11 that one or two raised: it kept the consensus and dropped
-the long tail with the noise. (The council's row credits its best reviewer per PR against the model's majority of three
-runs, which favours the council.) An earlier test with Claude Opus as the primary model showed no
-gain either (15 of 20 real bugs from 4take's own history alone, 14 with the council). 4take does not make a model a better
-reviewer by being pasted into its context.
+the long tail with the noise. (The council's row credits its best reviewer per PR against the
+model's majority of three runs, which favours the council.) An earlier test with Claude Opus as the
+primary model showed no gain either (15 of 20 real bugs from 4take's own history alone, 14 with the
+council). 4take does not make a model a better reviewer by being pasted into its context.
 
 **So 4take puts every finding in front of you.** Over MCP the user sees only what the agent
 relays, so the payload opens with `report_for_user`: one line per finding with its agreement
