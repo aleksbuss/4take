@@ -477,6 +477,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failure and rotates a replacement in, exactly as a duplicate seat does.
 - ADR-0001, `CHANGELOG.md` and `POST_MORTEMS.md` all claimed 10 retries; the code has always
   used 4. Superseded by [ADR-0002](docs/adr/0002-cap-retries-at-four-and-honour-retry-after.md).
+- **The fallback pool no longer names a model that left the free tier.** The pool is used only
+  when the OpenRouter catalogue cannot be read. `inclusionai/ling-3.0-flash-fin:free` is gone
+  from the catalogue; `nvidia/nemotron-3.5-lightning:free`, which answered 25 of 27 requests on
+  the author's machine since 12 October, takes its place.
 
 ## [0.1.0] - 2026-07-23
 
