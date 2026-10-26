@@ -86,5 +86,6 @@ This document outlines the architectural milestones and feature roadmap for the 
   of leaving the choice to the agent.
 - **Auto context on by default?** The pre-registered gate is met (named 12 of 12 in three recordings);
   it sends more code to providers, so it stays opt-in until that is decided.
-- **First public release:** `SECURITY.md` and a contributor agreement in place, then the first
-  publish to PyPI.
+- **First public release.** **Status: done.** `SECURITY.md` and a draft contributor agreement are in
+  place, and 0.2.0 is on PyPI. The agreement takes effect, and outside pull requests can be merged,
+  once a signing bot is switched on for pull requests.
