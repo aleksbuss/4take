@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-26
+
+One fix to what the review shows; how findings are grouped and counted is unchanged.
+
 ### Changed
 - **The README leads with what the council found, not with what an agent did with it.** On the
   weak-primary test's 50 PRs the council's findings caught 37 bugs and Gemini 3.8 Flash alone 24
@@ -17,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The README's JSON example shows `served_model`, `served_provider`, `finish_reason`, `truncated`,
   `duplicate_of`, `config` and `summary.distinct_models`, which the CLI has emitted all along and
   the agent guides tell readers to rely on.
+- `uv.lock` pins the patched PyJWT, certifi, cryptography, mcp and urllib3. It is used by CI and
+  `uv sync`; installs from PyPI resolve their own versions and already had the fixed ones.
 
 ### Fixed
 - **A consensus entry no longer takes a bare symbol as its title.** Cohere's north-mini-code
