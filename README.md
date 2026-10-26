@@ -187,7 +187,7 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
 
 ```json
 {
-  "version": "0.2.0",
+  "version": "0.2.1",
   "timestamp": "2026-08-16T14:20:00Z",
   "summary": {
     "task_hash": "25d297f773c3",
