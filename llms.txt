@@ -1,6 +1,6 @@
-# 4take — Universal LLM Council CLI (OpenRouter)
+# 4take — LLM council for code review (OpenRouter free models)
 
-> Universal CLI and FastMCP server to query 4 independent LLMs in parallel via OpenRouter for code review, with findings grouped by how many reviewers raised them. Source-available under the Business Source License 1.1: free for individuals, solo developers and volunteer projects; organizations need a commercial license.
+> CLI and MCP server that sends code to 4 free LLMs from different vendors via OpenRouter for review, with findings grouped by how many reviewers raised them. Source-available under the Business Source License 1.1: free for individuals, solo developers and volunteer projects; organizations need a commercial license.
 
 ## Quickstart
 

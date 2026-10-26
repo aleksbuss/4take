@@ -10,7 +10,7 @@ name = "4take"
 # Single source of truth: `src/fourtake/__init__.py`. Two hand-maintained version strings
 # drift, and the one that ships on PyPI is not the one `4take --version` prints.
 dynamic = ["version"]
-description = "Universal LLM Council CLI — get 4 independent AI opinions on your code in one command"
+description = "Code review by a council of four free LLMs on OpenRouter, with findings ranked by how many reviewers raised them"
 readme = "README.md"
 license = {text = "BUSL-1.1"}
 requires-python = ">=3.10"

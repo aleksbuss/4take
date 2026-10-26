@@ -7,7 +7,7 @@ description: Get multiple independent AI opinions on your code using the 4take C
 ## When to use
 - After writing a new feature or complex algorithm
 - Before committing critical security, database, or async logic
-- When you want multiple independent AI reviews to catch hallucinations and blindspots
+- When you want several independent AI reviews to catch what one model misses
 - When code works and you want to know whether its structure will survive the next change
 
 Reviews four axes: correctness, security, structure and simplicity. Takes code, a diff or

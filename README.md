@@ -4,13 +4,12 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-yellow.svg)](https://github.com/aleksbuss/4take/blob/main/LICENSE)
-[![FastMCP](https://img.shields.io/badge/FastMCP-Ready-6366f1?style=flat&logo=fastapi&logoColor=white)](https://modelcontextprotocol.io/)
-[![Powered by OpenRouter](https://img.shields.io/badge/API-OpenRouter-000000?style=flat&logo=openai&logoColor=white)](https://openrouter.ai/)
+[![PyPI](https://img.shields.io/pypi/v/4take)](https://pypi.org/project/4take/)
 [![CI Status](https://github.com/aleksbuss/4take/actions/workflows/ci.yml/badge.svg)](https://github.com/aleksbuss/4take/actions)
 [![Linted with Ruff](https://img.shields.io/badge/linting-ruff-D7FF64.svg)](https://github.com/astral-sh/ruff)
 
 **Multi-Model AI Council for Code Review.**  
-*Get 4 independent AI opinions on your code via OpenRouter in one command.*
+*Four free models from four vendors review your code in one command, and their findings are ranked by how many raised each one.*
 
 On Greptile's own 50-PR bug benchmark, a council of free models found 37 of 50 bugs:  
 level with Greptile (41), ahead of Copilot and CodeRabbit, whose reviews date from July 2025. [How it was measured](#-against-the-paid-reviewers-greptiles-benchmark)
@@ -78,33 +77,33 @@ git diff --cached | 4take
 
 ## 🤖 AI Coding Agents & MCP Integration
 
-`4take` is built for **AI Coding Agents** (Claude Code, Cursor, Antigravity IDE, Windsurf, Cline, Roo Code, Codex). It provides agents with a native "Council of LLMs" to audit their code in parallel before presenting it to the user.
+`4take` works with AI coding agents (Claude Code, Cursor, Antigravity IDE, Windsurf, Cline, Roo Code, Codex) as an MCP server or a CLI: the agent sends its code to the council and gets the findings back ranked by agreement, to show the user.
 
 Whether the council improves what a given coding agent ships has not been measured. The eval below scores the council against single reviewers on a fixed corpus, and the one test with a frontier model as the primary (20 bugs) found no gain. The [ROADMAP](https://github.com/aleksbuss/4take/blob/main/ROADMAP.md) lists what is planned.
 
 ```text
-                       ┌─────────────────────────┐
-                       │    AI Coding Agent      │
-                       │ (Chairman / Synthesizer)│
-                       └────────────┬────────────┘
-                                    │
-                                    │ 1. Submits code draft
-                                    ▼
-                         ┌────────────────────┐
-                         │   4take Council    │
-                         └──────────┬─────────┘
-                                    │
-       ┌────────────────────────────┼────────────────────────────┐
-       ▼                            ▼                            ▼
-  Model 1 (Nemotron)           Model 2 (Laguna)            Model 3 (Cohere)
-  (Flags Race Condition)      (Flags Race Condition)       (Suggests Type Hint)
-       └────────────────────────────┬────────────────────────────┘
-                                    │ 2. Synthesizes consensus
-                                    │ 3. Dismisses hallucinations
-                                    ▼
-                       ┌─────────────────────────┐
-                       │ Final Clean Code & PR   │
-                       └─────────────────────────┘
+                    ┌──────────────────────┐
+                    │   AI coding agent    │
+                    └──────────┬───────────┘
+                               │ 1. sends its code or diff
+                               ▼
+                    ┌──────────────────────┐
+                    │    4take council     │
+                    └──────────┬───────────┘
+          ┌────────────┬───────┴────┬────────────┐
+          ▼            ▼            ▼            ▼
+     reviewer 1   reviewer 2   reviewer 3   reviewer 4
+     (vendor A)   (vendor B)   (vendor C)   (vendor D)
+          └────────────┴───────┬────┴────────────┘
+                               │ 2. findings grouped and ranked
+                               ▼    by how many raised each one
+                    ┌──────────────────────┐
+                    │   report_for_user    │
+                    │  e.g. "3/4 HIGH ..." │
+                    └──────────┬───────────┘
+                               │ 3. the agent shows every line and
+                               ▼    checks each against the code
+                             user
 ```
 
 ### Option A: FastMCP Server (`4take-mcp`)
@@ -263,7 +262,7 @@ council took about 8½ minutes, and 6 ran to the 600 s limit. On the 28 short sn
 corpus the median was about 50 s, and 27 of 28 councils seated four.
 
 ### Ready-to-Use Agent Configuration Files:
-- **Universal Agent Instructions**: [`AGENTS.md`](https://github.com/aleksbuss/4take/blob/main/AGENTS.md)
+- **Instructions for any agent**: [`AGENTS.md`](https://github.com/aleksbuss/4take/blob/main/AGENTS.md)
 - **Claude Code**: [`CLAUDE.md`](https://github.com/aleksbuss/4take/blob/main/CLAUDE.md)
 - **Antigravity Skill**: [`SKILL.md`](https://github.com/aleksbuss/4take/blob/main/SKILL.md)
 - **Machine Summary**: [`llms.txt`](https://github.com/aleksbuss/4take/blob/main/llms.txt)
@@ -272,15 +271,15 @@ corpus the median was about 50 s, and 27 of 28 councils seated four.
 
 ## ✨ Features
 
-- 🚀 **1-Command Multi-Model Council**: Pipe any code, diff, or file directly into `4take`.
+- 🚀 **One Command**: Pipe a file or a diff into `4take`; four free models review it in parallel.
 - 🧠 **Auto-Discovery Ranked on Evidence**: Fetches and filters the free models on OpenRouter, then ranks them by the success rate and median latency they have actually delivered on your machine. The name-based heuristic (parameter count, context window) survives only as the cold-start prior for models you have not run yet.
 - 🔎 **Four Review Axes**: Correctness, security, structure and simplicity — not just defects. Every structural finding has to name its cost, so the breadth does not become a flood of taste.
 - 🤝 **Consensus Grouping**: Findings several models raised independently are grouped and ranked by how many raised them, so the cross-referencing is done for you rather than left in four parallel reviews.
-- 🔄 **Fault-Tolerant Dynamic Rotation**: If a model hits a rate limit (HTTP 429) or fails, the engine seamlessly rotates in replacement candidates from a pre-ranked 12-model pool with exponential backoff.
+- 🔄 **Fault-Tolerant Dynamic Rotation**: A rate-limited model (HTTP 429) is retried with exponential backoff; one that keeps failing gives its seat to the next model in a pre-ranked pool of up to 12.
 - 🆓 **Free Models Only**: Requests go only to OpenRouter's free (`:free`) models, and a paid model is rejected before anything is sent. Free has limits: roughly 4 to 8 reviews a day on an account that has never been topped up, roughly 80 to 160 once it has ([details](#-openrouter-free-tier--rate-limits)).
 - 🛡️ **Secret Redaction**: Automatically scrubs API keys, passwords, and authorization tokens before sending payloads over the wire. The code itself still goes to third-party free endpoints ([privacy](#%EF%B8%8F-privacy--security)).
 - 🚦 **Cross-Process Rate Limiter**: Shared file-locked token bucket ensures concurrent terminal sessions or background agents never trigger rate limit bans.
-- 🎨 **Rich Terminal UI & JSON Output**: Beautiful ANSI Markdown rendering in terminal, plus `--format json` for automated scripts & CI pipelines.
+- 🎨 **Terminal and JSON Output**: Markdown rendered in the terminal, or `--format json` for scripts and CI.
 
 ---
 
@@ -318,11 +317,11 @@ graded blind, against a rubric and an analysis written down before the run.
 - **What it is not.** One recording of a stochastic free pool, built and graded by the author of
   4take. A strong signal, not proof. The pool has moved on since: two of the four most-seated
   models of that run (apodex-1.1-mini, ling-3.0-flash-sante) have left the free tier, so the same
+  councils cannot be seated again.
 - **Fifteen months apart, on public data.** The commercial reviews were written in July 2025 and
   4take's in October 2026, and models improved in between: those tools would probably score higher
   today. The PRs and the benchmark's bug descriptions have been public since 2025, so a model trained
   later may have seen them, and nothing here rules that out. Both effects favour 4take.
-  councils cannot be seated again.
 - **Where it is weakest.** Large Java diffs: Keycloak 5 of 10. On two of them, and on one Sentry
   diff, only one free vendor reasoned through to an answer. A council took a median of six
   minutes on these diffs and up to the 600 s timeout.
