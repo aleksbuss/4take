@@ -1,0 +1,94 @@
+{
+  "recorded": {
+    "by": "4take 0.2.5 installed from PyPI, a live council on OpenRouter's free models, 2026-10-26",
+    "note": "4take reviewing its own src/fourtake/mcp_server.py (309 lines, commit 23c06e0). Four seats, eight failed or timed-out models; one reviewer filed the same defect twice, so an entry holds two findings and one reviewer."
+  },
+  "code": "(src/fourtake/mcp_server.py at commit 23c06e0, 309 lines; not stored, nothing here reads it)",
+  "warning": null,
+  "error": null,
+  "total_latency_ms": 518244,
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] RESOURCE_LEAK <Background task memory leak due to unbounded _background_tasks set> (global _background_tasks)\n  - Issue: _background_tasks is a global set that holds strong references to all fire_and_forget tasks. Since tasks are added on creation and only removed via done callback, long-running or never-completing tasks keep references alive indefinitely, causing unbounded memory growth. This can lead to resource exhaustion under sustained load.\n  - Fix: Replace the global set with a weak reference container (e.g., `weakref.WeakSet`) or ensure tasks are explicitly removed in a finally block; alternatively, limit concurrent fire_and_forget tasks via a semaphore to bound resource usage.\n\n* [WARNING] CONCURRENCY <Race condition on global _background_tasks set> (global _background_tasks)\n  - Issue: The set is mutated concurrently from multiple async tasks (add, discard, done callback) without synchronization. While CPython's GIL provides some safety, the operation is not atomic across coroutine boundaries and could lead to inconsistent state or missed removals under high contention.\n  - Fix: Protect set mutations with an asyncio.Lock or use a thread‑safe collection; e.g., `self._background_lock = asyncio.Lock()` and acquire it around set modifications.\n\n* [SUGGESTION] SIMPLICITY <Unnecessary strong reference tracking> (global _background_tasks)\n  - Issue: The comment explains that a weak reference would allow GC to reclaim tasks, but the code deliberately holds a strong reference to avoid missing notifications. However, the set adds significant complexity for a use case where fire_and_forget tasks are short‑lived; a simple `asyncio.create_task` without tracking may suffice, and the risk of leaks outweighs the benefit.\n  - Fix: Remove the global set and rely on the default task lifecycle; if notification is required, attach a weak callback or use `asyncio.get_running_loop().call_soon_threadsafe` to schedule cleanup after completion.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 39130
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "Looking at this code, I've identified several issues across the review axes.\n\n* [CRITICAL] CORRECTNESS Order-of-Operations Bug in `serialise_result` (at `serialise_result` function)\n  - Issue: `seats = distinct_seats(result.responses)` is called before checking `if result.error or not result.responses`. If `result.responses` is `None` or empty, `distinct_seats` will raise an exception before the error status can be set, causing the tool to crash instead of returning a graceful error response.\n  - Fix: Move the `seats` calculation after the error check, or compute it conditionally:\n    ```python\n    if result.error or not result.responses:\n        status = \"error\"\n        seats = 0\n    else:\n        seats = distinct_seats(result.responses)\n        if seats < config.min_responses:\n            status = \"degraded\"\n        else:\n            status = \"ok\"\n    ```\n\n* [CRITICAL] CORRECTNESS Unhandled Exception Propagation in `get_4take_opinion` (at `get_4take_opinion` function)\n  - Issue: Calls to `load_config`, `missing_api_key`, `redact_secrets`, `free_limit_problem`, `estimate_tokens`, and `run_council` are not wrapped in exception handlers. If any raise unexpected exceptions (network errors, JSON parsing errors, etc.), the MCP tool will crash instead of returning a graceful error response.\n  - Fix: Wrap the main logic in a try-except that returns `_refused()` with the exception message:\n    ```python\n    try:\n        # ... existing code ...\n    except Exception as e:\n        return _refused(f\"Unexpected error: {e}\")\n    ```\n\n* [WARNING] CORRECTNESS Potential AttributeError in Category Serialization (at `serialise_result` function)\n  - Issue: The expression `c.category.value if getattr(c, \"category\", None) else \"UNKNOWN\"` assumes that if `category` exists, it has a `.value` attribute. If `category` is a string or other non-enum type, this raises `AttributeError`.\n  - Fix: Use `getattr` with a fallback for the value attribute:\n    ```python\n    \"category\": getattr(getattr(c, \"category\", None), \"value\", \"UNKNOWN\"),\n    ```\n\n* [WARNING] ERROR_HANDLING Silent Exception Swallowing in Progress Callback (at `on_progress` function)\n  - Issue: The `except Exception: pass` in the progress callback silently discards all exceptions, including programming errors. This makes debugging difficult when progress notifications fail.\n  - Fix: Log the exception or at least use a more specific exception type:\n    ```python\n    except Exception as e:\n        # Log or handle specific exceptions, not all\n        pass\n    ```\n\n* [SUGGESTION] SIMPLICITY Redundant Null Check in Progress Callback (at `on_progress` function)\n  - Issue: The `if ctx:` check is redundant since `ctx` is a required parameter with no default value, so it will always be truthy when the function is called.\n  - Fix: Remove the redundant check:\n    ```python\n    def on_progress(msg: str, completed: int, total: int):\n        try:\n            _fire_and_forget(ctx.info(msg))\n            # ... rest of function\n        except Exception:\n            pass\n    ```\n\n* [SUGGESTION] STRUCTURE Missing Type Annotation for `_fire_and_forget` Parameter (at `_fire_and_forget` function)\n  - Issue: The `coro` parameter lacks a type annotation, making it unclear what type is expected and reducing IDE support.\n  - Fix: Add proper type annotation:\n    ```python\n    def _fire_and_forget(coro: asyncio.Future) -> None:\n    ```\n    or use `from typing import Awaitable` and `coro: Awaitable`.\n\n* [SUGGESTION] SIMPLICITY Telemetry Recording Not Protected (at telemetry recording block)\n  - Issue: The comment claims `record()` \"Never raises\", but there's no guarantee. If telemetry fails, it could crash the main tool.\n  - Fix: Wrap in try-except:\n    ```python\n    if config.telemetry:\n        try:\n            from .telemetry import record\n            record(result.responses, result.errors)\n        except Exception:\n            pass  # Telemetry failures should not affect main flow\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 116180
+    },
+    {
+      "model": "openrouter/dots-studio/dots-3-note-preview:free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n* [WARNING][AUTH_CRYPTO] Context reaches reviewers without redaction (at `get_4take_opinion`, `redact_secrets` / `assemble` / `run_council`)\n  - Issue: `redact_secrets(code)` is applied only to the primary input. The inline `context` text and the contents of `context_files` (read from disk by `assemble`) flow into `run_council(context=review_context)` untouched. Any credential in a context file or in the inline `context` is sent verbatim to the external reviewer models, bypassing the tool's own secret protection. Concrete: an agent passes `context=\"prod key: sk-...\"` or `context_files=[\"config/secrets.env\"]` and four third-party models receive it, because `sanitized_code` is redacted but `review_context` is not.\n  - Fix: redact the supplementary inputs too — apply `redact_secrets` to the inline `context` before `assemble`, and have `assemble` redact file contents (or redact the assembled `review_context` content) so no secondary path carries secrets to the models.\n\n* [WARNING][ERROR_HANDLING] Telemetry failure discards a completed review (at `get_4take_opinion`, telemetry `record` call)\n  - Issue: `record(result.responses, result.errors)` runs with no guard. The comment claims \"Never raises\", but there is no `try/except`; if the telemetry backend is unreachable or `record` raises for any reason, the exception propagates, `return serialise_result(result, config)` is skipped, and the agent receives an error instead of the council's result — the primary deliverable is lost to a secondary telemetry path. Concrete: telemetry endpoint down at the exact moment a review finishes.\n  - Fix: wrap so telemetry can never lose the result: `try: from .telemetry import record; record(result.responses, result.errors) except Exception: pass`.\n\n* [WARNING][LOGIC] \"error\" status lists findings that contradict the \"no review\" header (at `serialise_result` / `_report_for_user`)\n  - Issue: status becomes \"error\" whenever `result.error or not result.responses`, and `_report_for_user(\"error\", ...)` opens with \"4take: no review — {error}\" yet still appends one line per cluster built from `result.responses`. If `run_council` sets `result.error` while some models returned findings, the agent is shown \"no review\" followed by those findings, and the JSON `status: \"error\"` contradicts a non-empty `consensus`/`report_for_user`. The `or result.error` clause exists precisely because `result.error` can be truthy with responses present, so the contradiction is reachable. Concrete: 3 of 4 models return findings, 1 errors, and `result.error` is set.\n  - Fix: treat a run as \"error\" only when there are no usable findings (and list nothing), or keep listing findings but use a status that reflects partial failure and a header that does not claim no review.\n\n* [WARNING][AUTH] `context_files` sandbox rests on an unverified module (at `get_4take_opinion`, `assemble`)\n  - Issue: `_CONTEXT_FILES_HELP` tells the caller that paths are read \"under the project root\", so no path sanitization is needed. This file performs no validation — it hands `context_files` straight to `assemble`, which reads from disk. The security boundary therefore lives entirely in `assemble`, which is not reviewed here. If `assemble` does not reject paths outside the project root, an agent can pass `context_files=[\"../../../etc/passwd\"]` or `[\"../../.env\"]` and the contents are read and sent to the external reviewers — arbitrary file read and exfiltration.\n  - Fix: verify `assemble` resolves and restricts paths to the project root before reading; reject or clamp anything escaping it. Do not document the sandbox as guaranteed until it is enforced at the read site.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 193893
+    },
+    {
+      "model": "openrouter/recursive/flint-v1.0:free",
+      "served_model": "recursive/flint-v1.0:free",
+      "served_provider": "Recursive",
+      "content": "* [WARNING] [LOGIC] Error status can include findings (at _report_for_user)\n  - Issue: When status is error, _report_for_user sets the error header but does not return early; it continues into the cluster loop and appends finding lines. serialise_result can pass a non-empty clusters list alongside a non-null result.error, because its status rule treats error as authoritative even when responses exist. The output can therefore mix an error header with findings, producing a wrong result the agent may relay as a review.\n  - Fix: Return the error header immediately when status is error, before iterating clusters.\n\n* [WARNING] [ERROR_HANDLING] Background task exceptions are not retrieved (at _fire_and_forget)\n  - Issue: The done callback only discards the task from _background_tasks; it does not consume task.exception(). A failing background council or progress task can therefore end with an unretrieved exception, deferring the failure to task teardown and making it easy to miss or surface only as an opaque event-loop error. This leaves the failure unhandled and can produce an unobserved task exception.\n  - Fix: Add a done callback that checks task.cancelled() and calls task.exception(), or wrap the coroutine in try/except and store the error.\n\n* [WARNING] [BOUNDS] Title relay can exceed the truncation cap (at _relayable)\n  - Issue: For a title longer than _TITLE_CHARS with no space in its first 150 characters, title[:150].rsplit(\" \", 1)[0] returns the full 150-character prefix, and appending the ellipsis produces a 151-character title. The _TITLE_CHARS invariant is violated for single-word or long unbroken titles, e.g. a 151-character single-word title.\n  - Fix: Truncate to _TITLE_CHARS - 1 before appending the ellipsis, or slice the final string to _TITLE_CHARS.\n\n* [WARNING] [STRUCTURE] Refusal payload drifts from failed-council shape (at _refused)\n  - Issue: The comment on _refused promises the same shape as a failed council, but the hand-built JSON omits fields that serialise_result emits, including consensus, distinct_models, min_responses, total_latency_ms, and context. Agents that branch on those keys after a refusal will encounter missing data despite the stated contract.\n  - Fix: Construct a failed result object or call serialise_result with a stub result instead of duplicating the payload by hand.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 218224
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "error": "Client error (404): Provider returned error",
+      "latency_ms": 412
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "error": "Upstream provider error: Upstream error from Nvidia: Internal server error",
+      "latency_ms": 71016
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "Reasoned through the whole 8192-token budget without answering",
+      "latency_ms": 75557
+    },
+    {
+      "model": "openrouter/google/gemma-4-26b-a4b-it:free",
+      "error": "Provider error 429 after 8 retries: Provider returned error",
+      "latency_ms": 221171
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "error": "Provider error 429 after 8 retries: Provider returned error",
+      "latency_ms": 238727
+    },
+    {
+      "model": "openrouter/xingchen-agi/xing4.0-29b-a4b:free",
+      "error": "Exceeded per-model timeout of 300s",
+      "latency_ms": 300000
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "error": "Reasoned through the whole 32768-token budget without answering",
+      "latency_ms": 244898
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "error": "Exceeded per-model timeout of 300s",
+      "latency_ms": 300000
+    }
+  ]
+}

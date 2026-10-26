@@ -1,0 +1,69 @@
+{
+  "recorded": {
+    "by": "4take 0.2.2 installed from PyPI, a live council on OpenRouter's free models, 2026-10-26; rebuilt from the text report it printed, which round-trips to the same text",
+    "note": "Two planted defects. One answer came from a model whose vendor already held a seat and is held aside (duplicate_of)."
+  },
+  "code": "import sqlite3\n\ndef find_user(db_path, name):\n    conn = sqlite3.connect(db_path)\n    rows = conn.execute(f\"SELECT id, email FROM users WHERE name = '{name}'\").fetchall()\n    return rows[0] if rows else None\n",
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "total_latency_ms": 32700,
+  "responses": [
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": null,
+      "content": "* [CRITICAL] INJECTION find_user uses string interpolation for SQL (at find_user)\n  - Issue: The name argument is directly interpolated into the SQL string via f-string, allowing an attacker to inject arbitrary SQL. For example, passing name = \"admin' OR '1'='1\" would cause the query to return all rows, bypassing authentication.\n  - Fix: Use a parameterized query: conn.execute(\"SELECT id, email FROM users WHERE name = ?\", (name,)). This ensures the database driver escapes the input.\n\n* [WARNING] RESOURCE_LEAK find_user leaves sqlite connection open (at find_user)\n  - Issue: The connection created with sqlite3.connect is never closed, even on exceptions. Over many calls this leaks file descriptors and can exhaust database connections.\n  - Fix: Use a context manager: with sqlite3.connect(db_path) as conn: ... or ensure conn.close() in a finally block.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 13600
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": null,
+      "content": "* [CRITICAL] INJECTION <SQL injection via name parameter> (f\"SELECT id, email FROM users WHERE name = '{name}'\")\n  - Issue: The user‑supplied `name` is interpolated directly into the SQL string, allowing arbitrary SQL fragments to be injected and executed when `find_user` is called with malicious input (e.g., `name = \"'; DROP TABLE users; --\"`). This can lead to data corruption, unauthorized data access, or complete database compromise.\n  - Fix: Use a parameterized query: `conn.execute(\"SELECT id, email FROM users WHERE name = ?\", (name,))`.\n\n* [WARNING] RESOURCE_LEAK <sqlite3 connection not closed> (conn = sqlite3.connect(db_path))\n  - Issue: The DB connection is opened but never closed, so each call leaks a file descriptor and may exhaust the connection pool under high load, causing eventual failures.\n  - Fix: Wrap the connection in a context manager: `with sqlite3.connect(db_path) as conn:` to ensure proper cleanup.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16800
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": null,
+      "content": "* [CRITICAL] INJECTION SQL Injection in find_user (at f-string interpolation in execute call)\n  - Issue: The `name` parameter is directly interpolated into the SQL query string. An attacker can pass `name=\"' OR '1'='1' --\"` to bypass authentication or `name=\"'; DROP TABLE users; --\"` to destroy data. The f-string provides no sanitization.\n  - Fix: Use parameterized queries: `conn.execute(\"SELECT id, email FROM users WHERE name = ?\", (name,))`\n\n* [WARNING] RESOURCE_LEAK Database connection never closed (at sqlite3.connect call)\n  - Issue: The connection object is created but never closed. Under load, this leaks file descriptors and database locks. Connections should be managed with context managers or explicit close calls.\n  - Fix: Use a context manager: `with sqlite3.connect(db_path) as conn:`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 25400
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": null,
+      "content": "* [CRITICAL] INJECTION <SQL injection via name parameter> (in find_user line with f\"SELECT ... WHERE name = '{name}'\")\n  - Issue: The query interpolates `name` directly, allowing an attacker to inject arbitrary SQL (e.g., name = \"'; DROP TABLE users;--\"). This can lead to data corruption or denial of service.\n  - Fix: Use parameterized queries: `conn.execute(\"SELECT id, email FROM users WHERE name = ?\", (name,))`.\n\n* [WARNING] RESOURCE_LEAK <sqlite3 connection not closed> (in find_user)\n  - Issue: The `sqlite3.connect` call returns a connection that is never closed, so repeated calls leak file descriptors and may exhaust the OS limit under load.\n  - Fix: Wrap the connection in a `with` statement or explicitly call `conn.close()` in a finally block.\n\n* [WARNING] LOGIC <unhandled None or non‑string name> (in find_user)\n  - Issue: Passing `None` or a non‑string to `name` causes a TypeError when formatted into the SQL string and yields an invalid query, breaking the function for legitimate inputs.\n  - Fix: Validate `name` is a non‑empty string before building the query, e.g., `if not isinstance(name, str) or not name: return None`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "latency_ms": 26700
+    },
+    {
+      "model": "openrouter/xingchen-agi/xing4.0-29b-a4b:free",
+      "served_model": "xingchen-agi/xing4.0-29b-a4b:free",
+      "served_provider": null,
+      "content": "* [CRITICAL] [INJECTION] SQL injection via f-string interpolation (line 4)\n  - Issue: The `name` parameter is concatenated directly into the SQL query using an f-string, so any input containing SQL metacharacters (e.g., `' OR '1'='1`) alters the query semantics and can return all rows, drop tables, or extract data from other columns. This is a classic injection vector that bypasses the intended single-row lookup.\n  - Fix: Use parameterized query: `conn.execute(\"SELECT id, email FROM users WHERE name = ?\", (name,))`\n\n* [WARNING] [RESOURCE_LEAK] Connection is never closed (lines 3-5)\n  - Issue: `sqlite3.connect()` returns a live connection object that must be closed. There is no `finally`, no `with` block, and no explicit `conn.close()`. If any exception is raised between connect and the return statement (e.g., DB error, I/O error), the connection leaks and the file handle stays open. Under repeated calls this accumulates open file descriptors.\n  - Fix: Wrap in `with sqlite3.connect(db_path) as conn:` or add `conn.close()` in a `finally` block.\n\n* [SUGGESTION] [STRUCTURE] Function mixes connection lifecycle with query logic; no error handling for missing table or malformed db_path\n  - Issue: If `db_path` points to a nonexistent database or the `users` table is absent, `conn.execute` raises `sqlite3.OperationalError` with no catch, propagating an unhandled exception to the caller. A caller expecting `None` on missing user will instead crash. The function also has no way to distinguish \"no user found\" from \"database error,\" which are semantically different outcomes.\n  - Fix: Add a try/except around the execute, or document that callers must handle `sqlite3.Error`. Consider returning a sentinel or raising a domain exception instead of returning `None` for errors.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 32200
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "error": "Client error (404): Provider returned error",
+      "latency_ms": 400
+    }
+  ]
+}
