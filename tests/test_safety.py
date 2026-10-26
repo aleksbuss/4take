@@ -6,36 +6,43 @@ def test_redact_secrets_basic():
     expected = "password = '***REDACTED***'"
     assert redact_secrets(input_text) == expected
 
+
 def test_redact_secrets_json_style():
     input_text = '{"api_key": "sk-1234567890abcdef12345678"}'
     expected = '{"api_key": "***REDACTED***"}'
     assert redact_secrets(input_text) == expected
 
+
 def test_redact_secrets_multiple():
-    input_text = '''
+    input_text = """
     const token = "ghp_123456789012345678901234567890123456"
     let AUTH_TOKEN="abc"
-    '''
+    """
     assert "***REDACTED***" in redact_secrets(input_text)
+
 
 def test_redact_secrets_standalone_patterns():
     # OpenAI / OpenRouter key
     assert redact_secrets("sk-or-v1-abcdef12345678901234567890") == "***REDACTED***"
-    
+
     # AWS Key
     assert redact_secrets("AWS_KEY=AKIAIOSFODNN7EXAMPLE") == "AWS_KEY=***REDACTED***"
-    
+
     # Bearer JWT
     jwt = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.doNotLeakThisSignature123"
     assert redact_secrets(jwt) == "Bearer ***REDACTED JWT***"
-    
+
     # Connection String with password
     db_url = "DATABASE_URL=postgres://appuser:SecretPassword123@db.example.com:5432/production"
-    assert redact_secrets(db_url) == "DATABASE_URL=postgres://appuser:***REDACTED***@db.example.com:5432/production"
-    
+    assert (
+        redact_secrets(db_url)
+        == "DATABASE_URL=postgres://appuser:***REDACTED***@db.example.com:5432/production"
+    )
+
     # Private Key
     rsa_key = "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0...\n-----END RSA PRIVATE KEY-----"
     assert redact_secrets(rsa_key) == "***REDACTED PRIVATE KEY***"
+
 
 def test_redact_secrets_no_match():
     input_text = "const max_retries = 10; let foo = 'bar';"
@@ -45,9 +52,6 @@ def test_redact_secrets_no_match():
 def test_redact_secrets_empty():
     assert redact_secrets("") == ""
     assert redact_secrets(None) is None
-
-
-
 
 
 # --------------------------------------------------------------------------------------
@@ -75,8 +79,10 @@ from fourtake.safety import redact_secrets_with_report
         ("access_token=ya29.abcdefghijk", "OAuth access token"),
         ("TOKEN=abcdef123456", "the bare word, uppercase"),
         # A bot token inside the Bot API URL has no key name in front of it, so it went out.
-        ("fetch(`https://api.telegram.org/bot110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw/sendMessage`)",
-         "Telegram bot token in a URL"),
+        (
+            "fetch(`https://api.telegram.org/bot110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw/sendMessage`)",
+            "Telegram bot token in a URL",
+        ),
         ("await bot.start('7123456789:AAE-5nMqZ3rXyL0pT2vWkQ8sHjF4dGcB1aN')", "Telegram bot token, 35 chars"),
         ("new Groq({ apiKey: env, fallback: 'gsk_Q2w3E4r5T6y7U8i9O0p1A2s3D4f5G6h7J8k9' })", "Groq key"),
     ],
@@ -104,12 +110,15 @@ def test_previously_leaked_forms_are_redacted(text, label):
         ("MAX_TOKENS = 4096", "constant merely containing 'token'"),
         ("authors = load_authors()", "identifier merely containing 'auth'"),
         ("self.token_count = 12", "attribute merely containing 'token'"),
-        ("if len(common) < _MIN_SHARED_TOKENS:\n        return 0.0",
-         "a key must not bind to a value on the next line"),
-        ('secret_key:\n    "value on the next line"',
-         "the quoted rule must not cross a newline either"),
-        ('const started = "2026-09-14T12:30:45Z"; const ratio = "100000:1";',
-         "times and ratios are not bot tokens"),
+        (
+            "if len(common) < _MIN_SHARED_TOKENS:\n        return 0.0",
+            "a key must not bind to a value on the next line",
+        ),
+        ('secret_key:\n    "value on the next line"', "the quoted rule must not cross a newline either"),
+        (
+            'const started = "2026-09-14T12:30:45Z"; const ratio = "100000:1";',
+            "times and ratios are not bot tokens",
+        ),
         ("fetch(`http://localhost:8080/bot/status`)", "a URL with a port is not a bot token"),
     ],
 )
@@ -130,8 +139,10 @@ def test_code_is_not_mangled_by_broader_patterns(text, label):
         ("const myGoogleAuth = await this.auth.getToken();", "await"),
         ("type SkipToken = typeof skipToken;", "typeof"),
         ("const refreshAccessToken = async (refreshToken: string) => {", "async"),
-        ("export const getCalendar = (credential: CredentialPayload | null): Calendar | null => {",
-         "a parameter's type"),
+        (
+            "export const getCalendar = (credential: CredentialPayload | null): Calendar | null => {",
+            "a parameter's type",
+        ),
         ("  password: string;", "an interface member"),
         ("  password: string", "the same member without a semicolon"),
         ("    credential: CredentialWithAppName,", "a type or a value in an object literal"),
@@ -174,11 +185,14 @@ def test_a_config_value_is_still_a_secret_after_the_code_fix(text, secret):
     assert secret not in redact_secrets(text)
 
 
-@pytest.mark.parametrize("text,secret", [
-    ("Authorization: Bearer abcdef123456ghijkl", "abcdef123456ghijkl"),
-    ("authorization: bearer sk-abc123def456xyz0", "sk-abc123def456xyz0"),
-    ("Proxy-Authorization: Basic dXNlcjpwYXNzd29yZA==", "dXNlcjpwYXNzd29yZA=="),
-])
+@pytest.mark.parametrize(
+    "text,secret",
+    [
+        ("Authorization: Bearer abcdef123456ghijkl", "abcdef123456ghijkl"),
+        ("authorization: bearer sk-abc123def456xyz0", "sk-abc123def456xyz0"),
+        ("Proxy-Authorization: Basic dXNlcjpwYXNzd29yZA==", "dXNlcjpwYXNzd29yZA=="),
+    ],
+)
 def test_an_auth_header_loses_the_credential_not_the_scheme(text, secret):
     """
     This shipped as a leak: the assignment rule treated the scheme word as the value, so
@@ -190,15 +204,18 @@ def test_an_auth_header_loses_the_credential_not_the_scheme(text, secret):
     assert "REDACTED" in out
 
 
-@pytest.mark.parametrize("text", [
-    'curl -H "Authorization: Bearer $TOKEN" "$API/login"',
-    'curl -H "Authorization: Bearer ${API_TOKEN}" "$API/login"',
-    "headers: { Authorization: `Bearer ${token}` }",
-    'headers = {"Authorization": f"Bearer {token}"}',
-    'req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))',
-    'headers["Authorization"] = "Bearer #{token}"',
-    "Authorization: Bearer {{ api_token }}",
-])
+@pytest.mark.parametrize(
+    "text",
+    [
+        'curl -H "Authorization: Bearer $TOKEN" "$API/login"',
+        'curl -H "Authorization: Bearer ${API_TOKEN}" "$API/login"',
+        "headers: { Authorization: `Bearer ${token}` }",
+        'headers = {"Authorization": f"Bearer {token}"}',
+        'req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))',
+        'headers["Authorization"] = "Bearer #{token}"',
+        "Authorization: Bearer {{ api_token }}",
+    ],
+)
 def test_an_auth_header_filled_in_at_run_time_is_left_alone(text):
     """
     `Bearer $TOKEN` names where the credential comes from; it is not the credential. It went
@@ -235,10 +252,13 @@ def test_the_projects_own_source_survives_redaction():
     import pathlib
 
     source_dir = pathlib.Path(__file__).resolve().parent.parent / "src" / "fourtake"
-    mangled = [p.name for p in sorted(source_dir.glob("*.py"))
-               # safety.py is the exception on purpose: its comments quote literal example
-               # secrets (`DB_PASSWORD=hunter2`), and redacting those is the rule working.
-               if p.name != "safety.py" and redact_secrets(p.read_text()) != p.read_text()]
+    mangled = [
+        p.name
+        for p in sorted(source_dir.glob("*.py"))
+        # safety.py is the exception on purpose: its comments quote literal example
+        # secrets (`DB_PASSWORD=hunter2`), and redacting those is the rule working.
+        if p.name != "safety.py" and redact_secrets(p.read_text()) != p.read_text()
+    ]
     assert mangled == []
 
 
@@ -264,7 +284,7 @@ def test_the_report_counts_what_was_removed_not_what_matched():
     text = (
         "DB_PASSWORD=hunter2\n"
         "Authorization: Bearer abcdef123456ghij\n"
-        "api_key = provider.api_key\n"      # code: matches the rule, must not be counted
+        "api_key = provider.api_key\n"  # code: matches the rule, must not be counted
     )
     out, report = redact_secrets_with_report(text)
 
@@ -273,21 +293,29 @@ def test_the_report_counts_what_was_removed_not_what_matched():
     assert "provider.api_key" in out
 
 
-@pytest.mark.parametrize("text, expected", [
-    ("redis://:s3cretpass@cache:6379/0", "redis://:***REDACTED***@cache:6379/0"),
-    ("mongodb://user:pa/ss@host/db", "mongodb://user:***REDACTED***@host/db"),
-    ("amqp://guest:123456@rabbit:5672", "amqp://guest:***REDACTED***@rabbit:5672"),
-], ids=["no-user", "slash-in-password", "digit-password"])
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("redis://:s3cretpass@cache:6379/0", "redis://:***REDACTED***@cache:6379/0"),
+        ("mongodb://user:pa/ss@host/db", "mongodb://user:***REDACTED***@host/db"),
+        ("amqp://guest:123456@rabbit:5672", "amqp://guest:***REDACTED***@rabbit:5672"),
+    ],
+    ids=["no-user", "slash-in-password", "digit-password"],
+)
 def test_connection_string_passwords_are_redacted(text, expected):
     """A Redis URL has no user name; its password went out as written."""
     assert redact_secrets(text) == expected
 
 
-@pytest.mark.parametrize("text", [
-    'url = "https://host:8443/x/@me"',
-    "see https://example.com/a:b@c for details",
-    "ssh://git@github.com:22/org/repo.git",
-], ids=["port-then-path", "colon-in-path", "user-without-password"])
+@pytest.mark.parametrize(
+    "text",
+    [
+        'url = "https://host:8443/x/@me"',
+        "see https://example.com/a:b@c for details",
+        "ssh://git@github.com:22/org/repo.git",
+    ],
+    ids=["port-then-path", "colon-in-path", "user-without-password"],
+)
 def test_a_url_without_a_password_is_left_whole(text):
     """A port before a path, or a colon in the path, is not a password: it was cut to `***REDACTED***@`."""
     assert redact_secrets(text) == text

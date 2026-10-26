@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Reasoning models get room to think.** The output budget was sized for the answer (2048
+  tokens for a short input) with 40% of it for reasoning, and most free providers ignore that
+  cap: Novita (ling, apodex), Cohere and Poolside think until `max_tokens` runs out and return no
+  content (`finish_reason: length`). Councils of 6-7 October seated 1-2 vendors instead of 4. A
+  reasoning model now gets up to 32768 tokens, or its own maximum if lower, while the reasoning
+  cap stays sized on the answer, so a provider that honours it (Nvidia) thinks as briefly as
+  before. Free models are metered per request, not per token, so the room costs only a model
+  that uses it. Measured on the inputs that had come back empty at 2048: ling answered 12/12 of
+  corpus snippets and 6/8 diffs, apodex 13/14 and 5/8, after 2-7k tokens of thought on a snippet
+  and 15-26k on a diff. A model that thinks through the whole 32768 without answering, or past
+  the per-model timeout (cohere and laguna-s on every diff, which ran 5-14 minutes unbounded),
+  gives up its seat to another model rather than being asked again with reasoning off. Every
+  evaluation figure for 0.2.0 was recorded before this fix.
+- **A model its provider keeps refusing is left out of the pool.** Ranking only demoted it, and
+  with a dozen free models a demoted model still filled the rotation tail: gemma-4-31b was
+  refused 27 of 27 times in a week, and every council that reached it spent its time on 429
+  retries. A model whose provider refused every request in the last 72 hours, at least 8 of
+  them, is now skipped until the refusals age out. A model that was served at all stays in.
+- **A rate-limited provider is retried eight times instead of four.** A retry after Poolside's
+  429 got through in 21-50% of cases, so four retries still cost laguna about one seat in four.
+  A 5xx keeps the shorter limit.
+- **`pip install '4take[mcp]'` no longer installs an `mcp` the server cannot import.** The extra
+  said `mcp>=1.28.1` with no upper bound. `mcp` 2.0 removed `mcp.server.fastmcp` (renamed
+  `MCPServer`), so a fresh install resolved 2.x and `4take-mcp` stopped at an import error that
+  its own hint then misreported as a missing extra. `uv.lock` pinned 1.28.1, which is why CI and
+  `uv sync` never saw it. The extra is now `mcp>=1.28.1,<2`.
+
+### Changed
+- **The source distribution leaves out the recorded council runs.** Without an `sdist` section
+  hatch ships everything git does not ignore, which put 400+ recorded model outputs and any
+  untracked draft in a 845 KB archive. It is now 260 KB. The eval corpora stay, because
+  `tests/test_input_kind.py` and `tests/test_autocontext.py` read them at collection time, and
+  the test suite passes from the unpacked archive (692 tests; the 11 that score recordings skip).
+- **The privacy warning says who receives the code.** Besides "external LLM providers", it now
+  says that free models are served by third parties, some of which may keep prompts or train on
+  them, and points to `--dry-run`. The README said so; the warning a user actually sees did not.
+- **A missing key reads "the OpenRouter API key is not set"**, in the CLI and in the MCP
+  payload, instead of "no OpenRouter API key (is not set)".
+
+## [0.2.0] - not yet published
+
 ### Added
 - **Reference context.** `--context-file PATH[:START-END]` (CLI) and `context_files` / `context`
   (MCP) send related code (callers, callees, types, config, tests) that the reviewers read but do
@@ -83,6 +125,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   value it also reports how often an entry holds a labelled defect; `--runs` pools that table
   across recordings.
 
+- **Dynamic model rotation**: when a model fails at runtime, the engine automatically rotates in the next best model from a pre-fetched pool (up to 12 candidates).
+- Model validation against OpenRouter API during CLI startup for explicitly configured models.
+- Graceful removal of missing or deprecated models with a warning log.
+- `CHANGELOG.md`, `CONTRIBUTING.md`, and ADR documentation.
+- **`mcp` is now an optional extra**: `pip install '4take[mcp]'`. The server dragged
+  starlette, uvicorn, sse-starlette, pyjwt and 12MB of cryptography into every CLI install
+  (54MB venv, 51 packages -> 17MB, 17 packages). The `4take-mcp` entry point stays
+  registered and prints the install command instead of an `ImportError` traceback.
+- **CI** now runs `ruff`, Conventional Commit checks, the test suite on Python 3.10-3.13,
+  and a packaging job that installs the built wheel and asserts the CLI runs without the
+  MCP extra.
+- **`publish.yml`**: PyPI Trusted Publishing on a `v*` tag, gated on the tag matching the
+  built artifact. Every documented install command 404s today because the package has
+  never been published.
+- **Consensus grouping**: both output formats now lead with the findings more than one
+  reviewer raised, ranked by how many did. Four reviews printed side by side left the
+  cross-referencing — the one job the council exists to do — to the reader.
+- **Telemetry**: `~/.cache/4take/stats.json` records model id, success, latency, error code
+  and finish reason for each dispatched model. No code, no reviews, no prompts. 0600,
+  capped at 2000 events, `--no-telemetry` to disable and `--clear-telemetry` to erase.
+- **Model ranking from evidence**: the name heuristic is now a cold-start prior only. Once a
+  model has been observed enough times, its measured success rate and median latency decide
+  its rank. The heuristic could not tell a 550B model that mostly times out from a 2.6B one
+  that always answers, and scored six of sixteen catalog models at exactly 0.
+- **Eval harness** (`evals/`): 28 snippets — 26 carrying 37 labelled defects, 2 deliberately
+  clean — scored offline against recorded council runs. Reports council recall against the
+  best single model, per-model label precision, noise on correct code, and how reliably
+  findings several models raised end up in one consensus entry. First numbers: 94.6% council
+  recall against 85.3% for the best single model that saw the same corpus.
+
 ### Changed
 - **License: Business Source License 1.1 instead of MIT.** 4take is free for a person using it
   for their own work, paid or unpaid, and for a self-employed developer working alone, directly or
@@ -141,6 +213,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of one model's findings sharing an entry 22–42% (was 37–52%; pooled, 31% against 44%). The
   first two measures reward merging, which is why they fell.
 
+- `get_best_free_models()` now accepts a `pool_size` parameter (default: `count * 3`) to return an extended pool for rotation.
+- `run_council()` now accepts `model_pool` and `active_count` parameters to support runtime rotation.
+- The package version is single-sourced from `src/fourtake/__init__.py`; `pyproject.toml`
+  no longer carries a second copy that can disagree with what `4take --version` prints.
+- Improved error handling when auto-discovery fails.
+
 ### Changed (breaking)
 - **A non-code input is refused instead of dispatched.** A design question or a plan piped in
   used to reach the council and come back as four copies of `NO_ISSUES_FOUND`: the reviewers
@@ -165,7 +243,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   controls are free of labelled *defects*; now that structure is reviewed too, a finding raised
   on one can be legitimate, and the number is expected to be non-zero.
 
-### Changed (breaking)
 - **MCP tool output**: `status` is now one of `ok` / `degraded` / `error`, with explicit
   `error` and `warning` fields. It previously reported `"Success"` even when every model
   had failed, because the engine's `error` was never serialised.
@@ -249,7 +326,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **An answer that was not a review filled a council seat.** Any non-empty answer took a seat,
   so on a public review benchmark 12 of 200 seats went to answers with neither a finding nor
   `NO_ISSUES_FOUND`: a small model's raw tool calls (`<|tool_call_start|>[read_file(...)]`),
-  a run of `<unk>` tokens, 10–18k characters of reasoning that never reached a tag, and a lone
+  a run of `<unk>` tokens, 11–21k characters of reasoning that never reached a tag, and a lone
   `* [WARNING] LOGIC`. Each read as a reviewer that had looked and found nothing, so those
   four-seat councils were three reviewers. Such an answer is now a failed model: it is reported
   in `errors`, a spare is rotated into its seat, and it is neither cached nor replayed from a
@@ -276,8 +353,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ling-3.0-flash models. The first paragraph under a tag that opens its line is now the issue
   when no `Issue:` is given; a tag mentioned mid-sentence, as leaked reasoning does, borrows
   nothing. A locator that is a file name, `(GroupAdapter.java)`, gave the symbol `java`, shared by
-  every finding filed against a Java file: 61 findings carried a file's extension or stem as
-  their symbol. A file name is now skipped and the name in backticks used instead. The
+  every finding filed against a Java file: 60 findings carried a file's extension as their
+  symbol, and more its stem. A file name is now skipped and the name in backticks used instead. The
   repository's eval reports are unchanged byte for byte; on the benchmark recordings, consensus
   entries that two or more reviewers share went from 137 to 144 of about 375.
 - **`SECRET_KEY = "..."` is redacted.** A key name had to end in a secret word and `key` is not
@@ -397,44 +474,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failure and rotates a replacement in, exactly as a duplicate seat does.
 - ADR-0001, `CHANGELOG.md` and `POST_MORTEMS.md` all claimed 10 retries; the code has always
   used 4. Superseded by [ADR-0002](docs/adr/0002-cap-retries-at-four-and-honour-retry-after.md).
-
-### Added
-- **Dynamic model rotation**: when a model fails at runtime, the engine automatically rotates in the next best model from a pre-fetched pool (up to 12 candidates).
-- Model validation against OpenRouter API during CLI startup for explicitly configured models.
-- Graceful removal of missing or deprecated models with a warning log.
-- `CHANGELOG.md`, `CONTRIBUTING.md`, and ADR documentation.
-- **`mcp` is now an optional extra**: `pip install '4take[mcp]'`. The server dragged
-  starlette, uvicorn, sse-starlette, pyjwt and 12MB of cryptography into every CLI install
-  (54MB venv, 51 packages -> 17MB, 17 packages). The `4take-mcp` entry point stays
-  registered and prints the install command instead of an `ImportError` traceback.
-- **CI** now runs `ruff`, Conventional Commit checks, the test suite on Python 3.10-3.13,
-  and a packaging job that installs the built wheel and asserts the CLI runs without the
-  MCP extra.
-- **`publish.yml`**: PyPI Trusted Publishing on a `v*` tag, gated on the tag matching the
-  built artifact. Every documented install command 404s today because the package has
-  never been published.
-- **Consensus grouping**: both output formats now lead with the findings more than one
-  reviewer raised, ranked by how many did. Four reviews printed side by side left the
-  cross-referencing — the one job the council exists to do — to the reader.
-- **Telemetry**: `~/.cache/4take/stats.json` records model id, success, latency, error code
-  and finish reason for each dispatched model. No code, no reviews, no prompts. 0600,
-  capped at 2000 events, `--no-telemetry` to disable and `--clear-telemetry` to erase.
-- **Model ranking from evidence**: the name heuristic is now a cold-start prior only. Once a
-  model has been observed enough times, its measured success rate and median latency decide
-  its rank. The heuristic could not tell a 550B model that mostly times out from a 2.6B one
-  that always answers, and scored six of sixteen catalog models at exactly 0.
-- **Eval harness** (`evals/`): 28 snippets — 26 carrying 37 labelled defects, 2 deliberately
-  clean — scored offline against recorded council runs. Reports council recall against the
-  best single model, per-model label precision, noise on correct code, and how reliably
-  findings several models raised end up in one consensus entry. First numbers: 94.6% council
-  recall against 85.3% for the best single model that saw the same corpus.
-
-### Changed
-- `get_best_free_models()` now accepts a `pool_size` parameter (default: `count * 3`) to return an extended pool for rotation.
-- `run_council()` now accepts `model_pool` and `active_count` parameters to support runtime rotation.
-- The package version is single-sourced from `src/fourtake/__init__.py`; `pyproject.toml`
-  no longer carries a second copy that can disagree with what `4take --version` prints.
-- Improved error handling when auto-discovery fails.
 
 ## [0.1.0] - 2026-07-23
 

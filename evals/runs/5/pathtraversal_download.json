@@ -1,0 +1,97 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:13:30.588897Z",
+  "config": {
+    "models_requested": 7,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "8b93eaecd064",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 28400,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "read_report",
+      "title": "Path traversal via unsanitized name",
+      "models": [
+        "cohere/north-mini-code:free",
+        "liquid/lfm-2.5-2.6b:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Path traversal allows reading arbitrary files> (at read_report)\n    - Issue: The function joins user‑supplied `name` with `ROOT` without validating that the resulting path stays inside the intended directory. If `name` is an absolute path (e.g., \"/etc/passwd\") or contains \"..\" components (e.g., \"../../../etc/passwd\"), `os.path.join` produces a path outside `/srv/reports`, and `os.path.isfile`/`open` will read or expose those files. This can lead to unauthorized information disclosure.\n    - Fix: After constructing `full`, verify that its real path is within `ROOT` before opening, e.g.:\n      ```python\n      full = os.path.join(ROOT, name)\n      full_real = os.path.realpath(full)\n      if not full_real.startswith(os.path.realpath(ROOT)):\n          raise FileNotFoundError(name)\n      with open(full_real, \"rb\") as fh:\n          return fh.read()\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7408
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Path traversal via unsanitized name (at read_report)\n  - Issue: The function joins user‑controlled name directly with ROOT using os.path.join, allowing an attacker to supply an absolute path (e.g., \"/etc/passwd\") or a relative path containing \"..\" (e.g., \"../../etc/passwd\"). os.path.join discards ROOT when name is absolute, and the resulting path is not normalized before the file check, so read_report can read any file readable by the process, violating the intended confinement to /srv/reports.\n  - Fix: Normalize the joined path with os.path.normpath, then verify that the normalized path starts with ROOT (using os.path.commonprefix or pathlib.Path.is_relative_to). Example: full = os.path.normpath(os.path.join(ROOT, name)); if not full.startswith(ROOT): raise ValueError; then open.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18899
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "liquid/lfm-2.5-2.6b:free",
+      "served_provider": "Liquid",
+      "content": "* [CRITICAL] SECURITY Path Traversal Vulnerability in read_report() (line 5)\n  - Issue: The `name` parameter is concatenated directly into the ROOT path via `os.path.join()` without validation. An attacker can supply relative paths like `../../etc/passwd` to read arbitrary files outside the intended `/srv/reports` directory, bypassing the intended confinement. Since the function only checks `os.path.isfile(full)` after joining, a file like `/etc/passwd` would pass the existence check and be read.\n  - Fix: Normalize the path and ensure it remains within ROOT. Use `os.path.realpath()` to resolve any symlinks and verify the resolved path starts with the canonical ROOT path. For example:\n    ```python\n    full = os.path.join(ROOT, name)\n    full = os.path.realpath(full)\n    if not full.startswith(os.path.realpath(ROOT)):\n        raise ValueError(\"Access denied: path traversal attempt detected\")\n    ```\n    Additionally, consider restricting `name` to a safe character set (alphanumeric + hyphens/underscores) or using a whitelist approach.\n\nThis is a critical security flaw because it allows unauthorized read access to arbitrary files on the system, regardless of the function's stated purpose of reading reports from a controlled directory.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 26629
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] [INJECTION] Path Traversal in read_report (at read_report)\n  - Issue: `os.path.join(ROOT, name)` does not prevent traversal. A caller passing `name = \"../../etc/passwd\"` (or an absolute path like `/etc/passwd`, which `os.path.join` silently prefers over ROOT) escapes the intended directory. `os.path.isfile` then resolves the escaped path, and `open` reads arbitrary files the process can access — a direct confidentiality breach.\n  - Fix: Resolve and confine the path: `full = os.path.realpath(os.path.join(ROOT, name)); if os.path.commonpath([full, os.path.realpath(ROOT)]) != os.path.realpath(ROOT): raise ValueError(name)` before opening.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8063
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION Path Traversal via os.path.join (at read_report full path construction)\n- Issue: An attacker can supply a name containing '..' (e.g., '../../etc/passwd'), causing `full` to resolve outside `/srv/reports` and read arbitrary files, resulting in unauthorized data exposure.\n- Fix: Resolve the path and verify it stays within ROOT, e.g., `full = os.path.realpath(full); if not full.startswith(ROOT): raise ValueError(\"Invalid path\")`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 20330
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "pathtraversal_download.py",
+    "exit_code": 0,
+    "wall_s": 28.8
+  }
+}

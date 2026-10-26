@@ -19,16 +19,14 @@ FALLBACK_MODELS = [
     "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
 ]
 
-VERIFIED_FREE_MODELS: set[str] = {
-    fb.split("openrouter/", 1)[-1].lower() for fb in FALLBACK_MODELS
-}
+VERIFIED_FREE_MODELS: set[str] = {fb.split("openrouter/", 1)[-1].lower() for fb in FALLBACK_MODELS}
 
 # Kept only for models the catalog cannot rule out on capabilities alone (access-gated or
 # purpose-built classifiers). Everything expressible as a capability is checked against the
 # API instead — see is_model_compatible.
 INCOMPATIBLE_MODEL_PATTERNS = [
-    "thinkingmachines/inkling",   # Requires an agentic harness (HTTP 403)
-    "content-safety",             # Moderation classifier, not a reviewer
+    "thinkingmachines/inkling",  # Requires an agentic harness (HTTP 403)
+    "content-safety",  # Moderation classifier, not a reviewer
 ]
 
 # Per-model capabilities harvested from the OpenRouter catalog during discovery/validation.
@@ -81,6 +79,7 @@ def get_model_limits(model_id: str) -> dict[str, Any]:
         "supports_include_reasoning": known.get("supports_include_reasoning", False),
     }
 
+
 def is_model_compatible(model_id: str, model_data: dict[str, Any] | None = None) -> bool:
     """
     Whether a model can serve as a text code reviewer.
@@ -107,6 +106,7 @@ def is_model_compatible(model_id: str, model_data: dict[str, Any] | None = None)
     supported = model_data.get("supported_parameters")
     return supported is None or "max_tokens" in set(supported)
 
+
 def is_model_free(model_data: dict[str, Any]) -> bool:
     """
     Determines if an OpenRouter model is 100% free based on its ID or pricing structure.
@@ -123,14 +123,11 @@ def is_model_free(model_data: dict[str, Any]) -> bool:
     except (ValueError, TypeError):
         zero_pricing = str(prompt_price) == "0" and str(completion_price) == "0"
 
-    is_free = (
-        model_id.endswith(":free")
-        or model_id.lower() in ("openrouter/free", "free")
-        or zero_pricing
-    )
+    is_free = model_id.endswith(":free") or model_id.lower() in ("openrouter/free", "free") or zero_pricing
     if is_free and model_id:
         VERIFIED_FREE_MODELS.add(model_id.lower())
     return is_free
+
 
 def is_free_model_id(model_id: str) -> bool:
     """
@@ -143,6 +140,7 @@ def is_free_model_id(model_id: str) -> bool:
         or clean_id in VERIFIED_FREE_MODELS
     )
 
+
 def get_model_provider(model_id: str) -> str:
     """
     Extract the provider / organization prefix from an OpenRouter model ID.
@@ -152,6 +150,7 @@ def get_model_provider(model_id: str) -> str:
     if "/" in model_id:
         return model_id.split("/")[0].lower()
     return model_id.lower()
+
 
 def evaluate_model_intelligence(model_id: str) -> int:
     """
@@ -165,42 +164,55 @@ def evaluate_model_intelligence(model_id: str) -> int:
     """
     score = 0
     model_id_lower = model_id.lower()
-    
+
     # 0. High priority for OpenRouter Free Router (routes to MiniMax M3, Tencent Hy3, Nemotron Ultra)
     if model_id_lower in ("openrouter/free", "free"):
         return 55
 
     # 1. Parameter count evaluation
-    if re.search(r'(7[0-9]b|[1-9][0-9]{2,}b|8x[1-9][0-9]*b)', model_id_lower):
+    if re.search(r"(7[0-9]b|[1-9][0-9]{2,}b|8x[1-9][0-9]*b)", model_id_lower):
         score += 50  # Heavy models (70B, 72B, 104B, 120b, 550b etc.)
-    elif re.search(r'(2[0-9]b|3[0-9]b|8x7b)', model_id_lower):
+    elif re.search(r"(2[0-9]b|3[0-9]b|8x7b)", model_id_lower):
         score += 30  # Medium models (26B, 27B, 30B, 31B, 32B, Mixtral 8x7B)
-    elif re.search(r'(\b1[0-9]b)', model_id_lower):
+    elif re.search(r"(\b1[0-9]b)", model_id_lower):
         score += 20  # 10B-19B models
-    elif re.search(r'(\b[7-9]b)', model_id_lower):
+    elif re.search(r"(\b[7-9]b)", model_id_lower):
         score += 10  # 7B-9B models
-        
+
     # 2. Architecture & Domain evaluation
-    if 'code' in model_id_lower or 'coder' in model_id_lower:
+    if "code" in model_id_lower or "coder" in model_id_lower:
         score += 30  # Specialized code models get priority for code review
-    if 'reasoning' in model_id_lower:
+    if "reasoning" in model_id_lower:
         score += 20  # Reasoning models
-    if 'llama-3' in model_id_lower or 'qwen-2' in model_id_lower or 'deepseek' in model_id_lower:
+    if "llama-3" in model_id_lower or "qwen-2" in model_id_lower or "deepseek" in model_id_lower:
         score += 25
-    elif 'mistral' in model_id_lower or 'gemma' in model_id_lower or 'nemotron' in model_id_lower or 'laguna' in model_id_lower:
+    elif (
+        "mistral" in model_id_lower
+        or "gemma" in model_id_lower
+        or "nemotron" in model_id_lower
+        or "laguna" in model_id_lower
+    ):
         score += 15
 
     # Quality Floor: penalize tiny non-code models (< 7B)
-    if re.search(r'(\b[1-6](\.[0-9]+)?b\b)', model_id_lower) and 'code' not in model_id_lower:
+    if re.search(r"(\b[1-6](\.[0-9]+)?b\b)", model_id_lower) and "code" not in model_id_lower:
         score = max(0, score - 30)
-        
+
     return score
+
 
 # A median as slow as this costs a model the full latency penalty. Free endpoints answer in
 # 30-120s, so the scale is set by what is actually observed, not by what feels fast.
 SLOW_P50_MS = 120_000
 LATENCY_PENALTY_POINTS = 25
 SUCCESS_POINTS = 100
+
+
+def _observed(model_id: str, stats: dict[str, ModelStats] | None) -> ModelStats | None:
+    if not stats:
+        return None
+    # Discovery names models bare; telemetry records them as dispatched, with the prefix.
+    return stats.get(model_id) or stats.get(f"openrouter/{model_id}")
 
 
 def blend_with_observed(model_id: str, prior: int, stats: dict[str, ModelStats] | None) -> float:
@@ -212,10 +224,7 @@ def blend_with_observed(model_id: str, prior: int, stats: dict[str, ModelStats] 
     `MIN_SAMPLES_FOR_RANKING` observations the two halves count equally; by three times that
     the measurements decide.
     """
-    observed = stats.get(model_id) if stats else None
-    if observed is None:
-        # Discovery names models bare; telemetry records them as dispatched, with the prefix.
-        observed = stats.get(f"openrouter/{model_id}") if stats else None
+    observed = _observed(model_id, stats)
     if observed is None or not observed.attempts:
         return float(prior)
 
@@ -225,7 +234,13 @@ def blend_with_observed(model_id: str, prior: int, stats: dict[str, ModelStats] 
     return (1.0 - weight) * prior + weight * measured
 
 
-async def get_best_free_models(min_context: int = 4000, count: int = 4, pool_size: int | None = None, timeout: int = 10, stats: dict | None = None) -> list[str]:
+async def get_best_free_models(
+    min_context: int = 4000,
+    count: int = 4,
+    pool_size: int | None = None,
+    timeout: int = 10,
+    stats: dict | None = None,
+) -> list[str]:
     """
     Fetches the best free models from OpenRouter that satisfy the minimum context length.
 
@@ -247,7 +262,7 @@ async def get_best_free_models(min_context: int = 4000, count: int = 4, pool_siz
         stats = aggregate()
 
     url = "https://openrouter.ai/api/v1/models"
-    
+
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(url)
@@ -256,9 +271,9 @@ async def get_best_free_models(min_context: int = 4000, count: int = 4, pool_siz
     except Exception as e:
         logger.warning(f"Failed to fetch models from OpenRouter: {e}")
         return []
-        
+
     free_models = []
-    
+
     for model in models_data:
         # One entry with a null field must cost that entry, not the discovery of every other one.
         model_id = model.get("id") or ""
@@ -266,17 +281,23 @@ async def get_best_free_models(min_context: int = 4000, count: int = 4, pool_siz
             continue  # nothing to request it by: it used to join the pool as "openrouter/"
         context_length = model.get("context_length") or 0
         _record_model_limits(model)
-        
+
         # Filter strictly for free, compatible models satisfying minimum context length
         if is_model_free(model) and is_model_compatible(model_id, model) and context_length >= min_context:
+            observed = _observed(model_id, stats)
+            if observed is not None and observed.unavailable:
+                logger.debug("skipping %s: its provider refused every recent request", model_id)
+                continue
             prior = evaluate_model_intelligence(model_id)
 
-            free_models.append({
-                "id": model_id,
-                "context_length": context_length,
-                "score": blend_with_observed(model_id, prior, stats),
-                "prior": prior,
-            })
+            free_models.append(
+                {
+                    "id": model_id,
+                    "context_length": context_length,
+                    "score": blend_with_observed(model_id, prior, stats),
+                    "prior": prior,
+                }
+            )
     # Sort by score descending, then context descending
     free_models.sort(key=lambda x: (x["score"], x["context_length"]), reverse=True)
 
@@ -295,20 +316,20 @@ async def get_best_free_models(min_context: int = 4000, count: int = 4, pool_siz
             logger.debug(
                 "ranking: %s prior %d -> %.1f from observed history", m["id"], m["prior"], m["score"]
             )
-    
+
     # Group models by provider to ensure diversity across organizations
     by_provider = {}
     for m in free_models:
         prov = get_model_provider(m["id"])
         by_provider.setdefault(prov, []).append(m)
-        
+
     # Sort providers by the highest score of their top model
     sorted_providers = sorted(
         by_provider.keys(),
         key=lambda p: (by_provider[p][0]["score"], by_provider[p][0]["context_length"]),
-        reverse=True
+        reverse=True,
     )
-    
+
     # The seated cohort gets one model per provider, best first, so the council is made of
     # genuinely independent voices.
     selected: list[dict] = []
@@ -339,6 +360,7 @@ async def get_best_free_models(min_context: int = 4000, count: int = 4, pool_siz
 
     return [f"openrouter/{m['id']}" for m in selected]
 
+
 async def validate_configured_models(models: list[str], timeout: int = 10) -> list[str]:
     """
     Validates configured OpenRouter models against the API to ensure they are available AND 100% free.
@@ -346,23 +368,27 @@ async def validate_configured_models(models: list[str], timeout: int = 10) -> li
     Non-OpenRouter models are checked against free naming conventions.
     """
     url = "https://openrouter.ai/api/v1/models"
-    
+
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(url)
             response.raise_for_status()
             available_models_data = response.json().get("data", [])
     except Exception as e:
-        logger.warning(f"Failed to fetch models from OpenRouter for validation: {e}. Enforcing strict :free suffix check.")
+        logger.warning(
+            f"Failed to fetch models from OpenRouter for validation: {e}. Enforcing strict :free suffix check."
+        )
         return [m for m in models if is_free_model_id(m)]
-        
+
     model_map = {m.get("id"): m for m in available_models_data if m.get("id")}
     for m in available_models_data:
         _record_model_limits(m)
-    
+
     valid_models = []
     for original_m in models:
-        model_id = original_m.split("openrouter/", 1)[1] if original_m.startswith("openrouter/") else original_m
+        model_id = (
+            original_m.split("openrouter/", 1)[1] if original_m.startswith("openrouter/") else original_m
+        )
         if model_id in model_map:
             model_info = model_map[model_id]
             if is_model_free(model_info):
@@ -374,13 +400,14 @@ async def validate_configured_models(models: list[str], timeout: int = 10) -> li
                 )
         else:
             if is_free_model_id(model_id):
-                logger.warning(f"Warning: Free model '{original_m}' not found in current OpenRouter catalog. Keeping with warning.")
+                logger.warning(
+                    f"Warning: Free model '{original_m}' not found in current OpenRouter catalog. Keeping with warning."
+                )
                 valid_models.append(original_m)
             else:
                 logger.error(
                     f"Zero-Cost Violation: Model '{original_m}' is not a verified free model. "
                     f"4take operates strictly in zero-token-cost mode. Rejecting '{original_m}'."
                 )
-            
-    return valid_models
 
+    return valid_models

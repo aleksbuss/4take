@@ -93,8 +93,7 @@ _ENDS_ITS_LINE = re.compile(r"[ \t\r]*(?:(?:#|//).*)?$", re.MULTILINE)
 
 def _is_config_value(match: re.Match) -> bool:
     """A value against a tight `KEY=`, or one that ends its line."""
-    return bool(_TIGHT_EQUALS.search(match.group(1))
-                or _ENDS_ITS_LINE.match(match.string, match.end()))
+    return bool(_TIGHT_EQUALS.search(match.group(1)) or _ENDS_ITS_LINE.match(match.string, match.end()))
 
 
 # The rules match only the key's last word — `token` in `self._token` — so the rest of the name
@@ -113,8 +112,11 @@ def _names_its_own_key(match: re.Match, value: str) -> bool:
 def _redact_assignment_value(match: re.Match) -> str:
     """Redact the value of a `key = value` pair, leaving the key and syntax intact."""
     prefix, value = match.group(1), match.group(2)
-    if (not _is_config_value(match) or _names_its_own_key(match, value)
-            or not _looks_like_a_literal_secret(value, quoted=False)):
+    if (
+        not _is_config_value(match)
+        or _names_its_own_key(match, value)
+        or not _looks_like_a_literal_secret(value, quoted=False)
+    ):
         return match.group(0)
     return f"{prefix}{REDACTED}"
 
@@ -154,9 +156,7 @@ _RULES: list[_Rule] = [
     # Quoted assignment: api_key = "..." / {"token": "..."}
     _Rule(
         "assignment",
-        re.compile(
-            rf"""(?i)(['"]?{_SECRET_KEY}['"]?[ \t]*[:=][ \t]*['"])(.*?)(['"])"""
-        ),
+        re.compile(rf"""(?i)(['"]?{_SECRET_KEY}['"]?[ \t]*[:=][ \t]*['"])(.*?)(['"])"""),
         _redact_quoted_value,
     ),
     # Unquoted assignment: DB_PASSWORD=hunter2, `password: hunter2` in YAML, .env lines.
@@ -164,9 +164,7 @@ _RULES: list[_Rule] = [
     # the rule above requires a quote right after the separator.
     _Rule(
         "bare-assignment",
-        re.compile(
-            rf"""(?i)({_SECRET_KEY}[ \t]*[:=][ \t]*)([^\s'"`,;#\]}}]+)"""
-        ),
+        re.compile(rf"""(?i)({_SECRET_KEY}[ \t]*[:=][ \t]*)([^\s'"`,;#\]}}]+)"""),
         _redact_assignment_value,
     ),
     # OpenAI / Anthropic / OpenRouter
@@ -210,9 +208,7 @@ _RULES: list[_Rule] = [
     # PEM private keys
     _Rule(
         "private-key",
-        re.compile(
-            r"-----BEGIN[ A-Z0-9_-]*PRIVATE KEY-----[\s\S]*?-----END[ A-Z0-9_-]*PRIVATE KEY-----"
-        ),
+        re.compile(r"-----BEGIN[ A-Z0-9_-]*PRIVATE KEY-----[\s\S]*?-----END[ A-Z0-9_-]*PRIVATE KEY-----"),
         "***REDACTED PRIVATE KEY***",
     ),
     # Credentials embedded in a connection string. The user name may be empty (`redis://:pw@host`,

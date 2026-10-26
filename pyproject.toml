@@ -59,11 +59,30 @@ Changelog = "https://github.com/aleksbuss/4take/blob/main/CHANGELOG.md"
 [tool.hatch.build.targets.wheel]
 packages = ["src/fourtake"]
 
+[tool.hatch.build.targets.sdist]
+# The recorded council runs are 400+ files of model output that no installer needs. The corpora
+# stay: tests/test_input_kind.py and tests/test_autocontext.py iterate them at collection time,
+# so an sdist without them fails its own test suite. Without this block hatch ships everything
+# git does not ignore, which includes untracked drafts left in the working tree.
+exclude = [
+    "/evals/runs",
+    "/evals/runs_ctx",
+    "/evals/recordings",
+    "/evals/recordings_ctx",
+    "/.github",
+    "/uv.lock",
+    "/docs-draft-*.md",
+]
+
 [project.optional-dependencies]
 # The MCP server is opt-in: it drags starlette, uvicorn, sse-starlette, python-multipart,
 # pyjwt and ~12MB of cryptography into an install that otherwise only pipes stdin to an API.
-mcp = ["mcp>=1.28.1"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21", "mcp>=1.28.1"]
+#
+# Capped below 2: mcp 2.x removed `mcp.server.fastmcp` (renamed to MCPServer), which
+# `fourtake.mcp_server` imports. `uv.lock` pins 1.28.1, so CI and `uv sync` never see it, but
+# `pip install '4take[mcp]'` resolves fresh and would install 2.x and fail on import.
+mcp = ["mcp>=1.28.1,<2"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21", "mcp>=1.28.1,<2"]
 
 [tool.ruff]
 line-length = 110

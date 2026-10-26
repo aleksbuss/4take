@@ -1,0 +1,115 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:02:05.490731Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "80f1be20e84a",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 16670,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "checkoutBranch",
+      "title": "Command injection via unsanitized repoPath and branch",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "checkoutBranch",
+      "title": "stderr discarded masks git failures",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "checkoutBranch",
+      "title": "Missing stderr",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] INJECTION checkoutBranch() concatenates unsanitized inputs into shell command (at checkoutBranch function)\n  - Issue: The `repoPath` and `branch` parameters are directly interpolated into a shell command without any sanitization. An attacker controlling either parameter can inject arbitrary shell commands. For example, `branch = \"main; rm -rf /\"` or `repoPath = \"/safe/path; cat /etc/passwd #\"` would execute malicious commands.\n  - Fix: Use `execFile` with an argument array to avoid shell interpretation, or use `git` CLI arguments directly:\n```javascript\nconst { execFile } = require(\"child_process\");\nfunction checkoutBranch(repoPath, branch, cb) {\n  execFile(\"git\", [\"checkout\", branch], { cwd: repoPath }, (err, stdout) => cb(err, stdout));\n}\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7120
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] ERROR_HANDLING <Missing stderr> (at checkoutBranch)\n  - Issue: The exec callback ignores stderr, so if git checkout fails and writes error messages to stderr, the caller receives only undefined or empty stderr, losing diagnostic info. For example, if branch does not exist, stderr contains \"error: pathspec ... did not match any file(s) known to git\".\n  - Fix: Change callback to (err, stdout, stderr) => cb(err, { stdout, stderr }) or pass stderr to cb.\n\n* [CRITICAL] INJECTION <Command injection via repoPath or branch> (at checkoutBranch)\n  - Issue: Direct interpolation of user-controlled repoPath and branch into a shell command allows an attacker to execute arbitrary commands if they can control either argument (e.g., repoPath = \"; rm -rf /\", branch = \"master; cat /etc/passwd\"). The lack of quoting or escaping makes this exploitable.\n  - Fix: Use child_process.exec with options { cwd: repoPath } and pass command as [\"git\", \"checkout\", branch] via execFile or spawn, or at least properly quote arguments using shell-escape library.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 14102
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Command injection via unsanitized repoPath and branch (at checkoutBranch)\n  - Issue: The function directly interpolates user‑controlled `repoPath` and `branch` into a shell command string, allowing an attacker to inject arbitrary commands via shell metacharacters (e.g., `; rm -rf /`). This leads to remote code execution.\n  - Fix: Use `exec` with an argument array and the `cwd` option to avoid the shell: `exec(['git', 'checkout', branch], { cwd: repoPath }, (err, stdout, stderr) => cb(err, stdout));`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 14909
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] OS Command Injection (at checkoutBranch)\n  - Issue: `repoPath` and `branch` are interpolated directly into a shell command string without sanitization or escaping. An attacker controlling either argument can inject arbitrary shell commands (e.g., `branch=\"main; rm -rf /\"`).\n  - Fix: Replace `exec` with `spawn` and pass arguments as an array, or use `execFile` with explicit args to avoid shell interpretation.\n\n* [WARNING] [ERROR_HANDLING] stderr discarded masks git failures (at checkoutBranch)\n  - Issue: The `exec` callback provides `(error, stdout, stderr)`, but only `stdout` is forwarded to `cb`. Git errors written to stderr are silently lost, so callers see no indication of failure when git reports problems to stderr.\n  - Fix: Forward stderr or treat non-empty stderr as an error: `(err, stdout, stderr) => cb(err || stderr, stdout)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16663
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "cmdinjection_git.js",
+    "exit_code": 0,
+    "wall_s": 18.2
+  }
+}

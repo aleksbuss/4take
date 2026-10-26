@@ -1,0 +1,272 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:06:40.945767Z",
+  "config": {
+    "models_requested": 8,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "66df33378953",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 83200,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 2,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "probe_versions",
+      "title": "Untrusted binary names allow arbitrary command execution",
+      "models": [
+        "dots-studio/dots-3-note-preview:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "CRITICAL",
+      "category": "RESOURCE_LEAK",
+      "symbol": "probe_versions",
+      "title": "at probe_versions function",
+      "models": [
+        "dots-studio/dots-3-note-preview:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "readline",
+      "title": "Deadlock on pipe buffer",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "RESOURCE_LEAK",
+      "symbol": "wait",
+      "title": "Subprocess handles never reaped",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "probe_versions",
+      "title": "at probe_versions function",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "probe_versions",
+      "title": "Missing binary causes unhandled exception",
+      "models": [
+        "dots-studio/dots-3-note-preview:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "FileNotFoundError",
+      "title": "Missing binaries and non-zero exits ignored",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "UNKNOWN",
+      "symbol": null,
+      "title": "ERROR_H<unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> NO_ISSUES_FOUNDNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change",
+      "models": [
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "BOUNDS",
+      "symbol": "probe_versions",
+      "title": "at probe_versions function",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "probe_versions",
+      "title": "at probe_versions function",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "LOGIC",
+      "symbol": "probe_versions",
+      "title": "Version output may be on stderr, leading to empty string",
+      "models": [
+        "dots-studio/dots-3-note-preview:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "run",
+      "title": "Manual Popen is unnecessary",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "probe_versions",
+      "title": "at probe_versions function",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [RESOURCE_LEAK] Subprocess handles never reaped (line 5)\n  - Issue: `proc.wait()` is never called. Each loop iteration leaks a process handle and leaves a zombie child. Under sustained load this exhausts PIDs or memory.\n  - Fix: Call `proc.wait()` after reading, or replace with `subprocess.run()`.\n\n* [CRITICAL] [ERROR_HANDLING] Deadlock on pipe buffer (line 6)\n  - Issue: `readline()` blocks until a newline. If the child writes more than the pipe buffer (~64 KB), the child blocks forever because the parent never drains the pipe and never reaps it. If the child emits no newline, `readline()` hangs indefinitely.\n  - Fix: Use `proc.communicate(timeout=...)` or `subprocess.run(..., capture_output=True, text=True, timeout=...)`.\n\n* [WARNING] [ERROR_HANDLING] Missing binaries and non-zero exits ignored (line 5-6)\n  - Issue: A missing binary raises `FileNotFoundError` uncaught. A failing command (non-zero exit) is silently recorded as an empty or partial string, corrupting the return dict.\n  - Fix: Wrap in `try/except FileNotFoundError` and check `proc.returncode` before trusting the output.\n\n* [SUGGESTION] [SIMPLICITY] Manual Popen is unnecessary (line 4-6)\n  - Issue: `subprocess.run()` captures output, waits, and enforces a timeout in one call, eliminating the leak and deadlock risks above.\n  - Fix: Replace the loop body with `subprocess.run([name, \"--version\"], capture_output=True, text=True, timeout=5, check=False)`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18510
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] RESOURCE_LEAK at `probe_versions` function\n  - Issue: Each `subprocess.Popen` creates a child process that is never waited or reaped. The processes become zombies after completion, leaking process table entries and file descriptors. With many binaries, this accumulates zombie processes that consume system resources.\n  - Fix: Use `proc.communicate()` or `proc.wait()` to reap the process, or use `subprocess.run()` with `capture_output=True`.\n\n* [CRITICAL] INJECTION at `probe_versions` function\n  - Issue: The `name` parameter is passed directly to `subprocess.Popen` as a list element without validation. If `name` contains shell metacharacters or is a path like `/bin/cat /etc/passwd`, it executes that command. Even without shell=True, paths with spaces can be exploited.\n  - Fix: Validate `name` against a whitelist of allowed binary names, or use `shlex.quote()` if shell execution is intended, and verify the binary exists in expected directories.\n\n* [WARNING] ERROR_HANDLING at `probe_versions` function\n  - Issue: If a binary doesn't exist or fails to execute, `Popen` raises `FileNotFoundError` or `PermissionError` which propagates unhandled. Additionally, `readline()` on a failed process could return empty bytes, causing `decode()` to work on empty data.\n  - Fix: Wrap in try/except, check `proc.returncode`, and handle missing binaries gracefully.\n\n* [WARNING] BOUNDS at `probe_versions` function\n  - Issue: No timeout on subprocess execution. A hanging binary (e.g., waiting for stdin) will block the entire function indefinitely.\n  - Fix: Add `timeout` parameter to `communicate()` or use `subprocess.run()` with timeout.\n\n* [SIMPLICITY] STRUCTURE at `probe_versions` function\n  - Issue: The function uses low-level `Popen` when `subprocess.run()` with `capture_output=True` and `text=True` provides the same functionality with automatic process reaping and cleaner code.\n  - Fix: Replace with `result = subprocess.run([name, \"--version\"], capture_output=True, text=True, timeout=5)` and handle exceptions appropriately.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 24003
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION <Untrusted binary names allow arbitrary command execution> (function argument `binaries`)\n  - Issue: The function executes `subprocess.Popen([name, \"--version\"])` with user‑controlled `name`. An attacker can supply a path such as `\"../malicious\"` or `\"sh -c 'rm -rf /'\"` causing execution of unintended binaries or shell commands, leading to code execution or denial of service.\n  - Fix: Validate that each `name` is a safe, expected binary (e.g., whitelist or check that it resolves to an existing executable) before invoking `Popen`.\n\n* [WARNING] ERROR_H<unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk><unk> NO_ISSUES_FOUNDNO_ISSUES_FOUND: Correct, safe, well-structured, and no simpler version is worth the change.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 28713
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n* [WARNING] [RESOURCE_LEAK] Subprocess not reaped, leading to zombie processes (in `probe_versions`)\n    - Issue: The function creates a subprocess with `subprocess.Popen` but never calls `proc.wait()` or `proc.communicate()`. The process may continue running after the function returns, and the stdout pipe is not closed. If `binaries` contains many entries, this can accumulate zombie processes and file descriptors, eventually exhausting system resources. Additionally, the lack of `wait()` means the process might not have finished producing the version string, leading to potentially incomplete data.\n    - Fix: Use `proc.communicate()` after reading the first line, or replace the manual `Popen` with `subprocess.run([name, \"--version\"], capture_output=True, text=True)` and then extract the first line of stdout. This ensures the process is waited on and pipes are closed.\n\n* [WARNING] [ERROR_HANDLING] Missing binary causes unhandled exception (in `probe_versions`)\n    - Issue: If a binary specified in `binaries` does not exist, `subprocess.Popen` raises `FileNotFoundError` (a subclass of `OSError`). The function does not catch this exception, so it will propagate to the caller, crashing the program instead of returning a partial result or an error indicator. This makes the function fragile when probing a list that may contain optional or invalid binary names.\n    - Fix: Wrap the `Popen` call in a try/except block, and on `FileNotFoundError`, store an error string (e.g., `\"not found\"`) or skip the binary, depending on the desired behavior.\n\n* [SUGGESTION] [LOGIC] Version output may be on stderr, leading to empty string (in `probe_versions`)\n    - Issue: Some programs print their `--version` output to stderr instead of stdout (e.g., certain older versions of tools, or tools that follow non-standard conventions). The function only reads from stdout, so for such programs it will capture an empty string, which is misleading. A concrete example: the `aws` CLI used to write `--version` to stderr in some versions.\n    - Fix: Capture both stdout and stderr, either by setting `stderr=subprocess.STDOUT` to merge them, or by using `subprocess.run` with `capture_output=True` and checking both streams.\n\n* [SUGGESTION] [SECURITY] Unvalidated binary names could allow arbitrary file execution (in `probe_versions`)\n    - Issue: The `name` argument is used directly as the executable path. If the `binaries` list is derived from untrusted input (e.g., user configuration), an attacker could supply a path like `../../tmp/evil` to execute an arbitrary file. While the list form avoids shell injection, it does not prevent path traversal. The function should validate that `name` is a simple basename without directory components, or document that the input must be trusted.\n    - Fix: Validate that `name` contains no path separators (e.g., `os.path.sep`), or resolve the full path against a whitelist of allowed directories.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 83194
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "served_model": "nvidia/nemotron-3.5-lightning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [LOGIC] Unhandled decode error on version output (at function `probe_versions`)\n  - Issue: `proc.stdout.readline().decode()` uses the default UTF‑8 encoding. If a binary emits non‑UTF‑8 bytes (e.g., locale‑specific output), a `UnicodeDecodeError` will be raised and the function will crash, leaving the process orphaned. No `errors` argument or try/except guards the decode.\n  - Fix: add `errors='replace'` or `errors='ignore'` to the `decode` call, or catch `UnicodeDecodeError` and store a placeholder.\n\n* [WARNING] [RESOURCE_LEAK] Process not waited for after reading one line (at function `probe_versions`)\n  - Issue: `subprocess.Popen` starts the binary but the function never calls `proc.wait()`, `proc.communicate()`, or `proc.poll()`. The underlying process remains alive after the function returns, leaking file descriptors and potentially causing zombie processes if the caller does not clean up. This is especially problematic when the function is called in a loop over many binaries.\n  - Fix: either use `proc.communicate()` to read all output and wait, or at minimum call `proc.wait()` after `readline()`.\n\n* [WARNING] [LOGIC] Return‑code ignored; may produce stale or empty version strings (at function `probe_versions`)\n  - Issue: The function reads a line from `stdout` but never checks `proc.returncode`. If a binary exits with a non‑zero status (e.g., not recognized, missing dependencies), the captured line may be empty or garbage, yet the function records it as a version. Callers relying on the returned dict may assume success.\n  - Fix: capture `proc.returncode` after reading and either skip entries with a non‑zero code or raise an informative error.\n\n* [SUGGESTION] [SIMPLICITY] Use `subprocess.run` with `capture_output=True` for a cleaner API (at function `probe_versions`)\n  - Issue: The current code manually manages `Popen`, `readline`, and decoding, which is error‑prone (as shown). `subprocess.run([name, \"--version\"], capture_output=True, text=True)` would start the process, capture stdout, wait for termination, and return the output in one call, eliminating the resource‑leak and decode‑error concerns.\n  - Fix: replace the loop body with `result = subprocess.run([name, \"--version\"], capture_output=True, text=True); out[name] = result.stdout.strip()` (or handle `result.returncode` as desired).\n\nNo other defects were found that meet the CRITICAL or WARNING thresholds for exploitability or data loss. The code is otherwise functional for well‑behaved binaries that emit a single UTF‑8 line and exit cleanly.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "latency_ms": 51695
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "error": "answered without a review: no finding and no NO_ISSUES_FOUND",
+      "latency_ms": 9825
+    }
+  ],
+  "_eval": {
+    "snippet": "leak_subprocess.py",
+    "exit_code": 0,
+    "wall_s": 83.8
+  }
+}

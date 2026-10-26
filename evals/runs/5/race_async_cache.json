@@ -1,0 +1,102 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:14:54.039724Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "4a1ccc905809",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 24775,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "CONCURRENCY",
+      "symbol": "get",
+      "title": "Race condition on token refresh",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 4,
+        "CRITICAL": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "__init__",
+      "title": "Missing lock initialization",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] CONCURRENCY Race condition on token refresh (at `get`)\n  - Issue: The check-then-act pattern (`self._token is None or self._token.expired` followed by `await self._refresh()`) is not atomic. Two concurrent coroutines can both see the token as expired, both call `self._refresh()`, and the second overwrite the first's result. This causes redundant refresh calls (wasted network, potential rate-limiting, side effects) and possible inconsistent state if refresh is not idempotent.\n  - Fix: Guard the refresh with an `asyncio.Lock`, or use a pending `asyncio.Future` so concurrent callers await the same in-flight refresh result instead of each triggering their own.\n\n* [WARNING] ERROR_HANDLING No error handling on refresh failure (at `get`)\n  - Issue: If `self._refresh()` raises an exception, `self._token` remains in its old (possibly expired) state and the exception propagates to the caller. There is no retry logic, no caching of a stale token as fallback, and no logging — the caller gets an unhandled exception with no indication of what happened.\n  - Fix: Decide on a policy (e.g., return stale token on refresh failure, or retry with backoff) and wrap the refresh call accordingly.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5034
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [CONCURRENCY] Race condition causing duplicate token refresh (at TokenCache.get)\n    - Issue: When multiple coroutines call `get()` concurrently while `self._token` is None or expired, they all pass the condition before any updates `self._token`, leading to multiple awaits of `self._refresh()`. This wastes work and may cause undesirable side effects if the refresh operation is not idempotent.\n    - Fix: Introduce an `asyncio.Lock` to serialize the refresh and re‑check the token after acquiring the lock:\n      ```python\n      class TokenCache:\n          def __init__(self, refresh):\n              self._token = None\n              self._refresh = refresh\n              self._lock = asyncio.Lock()\n      \n          async def get(self):\n              if self._token is None or self._token.expired:\n                  async with self._lock:\n                      if self._token is None or self._token.expired:\n                          self._token = await self._refresh()\n              return self._token\n      ```\n\n* [WARNING] [ERROR_HANDLING] Unhandled exception from refresh leads to infinite retry loop (at TokenCache.get)\n    - Issue: If `self._refresh()` raises an exception, `self._token` remains unchanged (possibly None). Subsequent calls to `get()` will repeatedly invoke the failing refresh, resulting in an infinite retry loop without any backoff or error propagation.\n    - Fix: Catch exceptions from the refresh, preserve the existing token if available, and either re‑raise a domain‑specific error or return the stale token:\n      ```python\n      class TokenCache:\n          def __init__(self, refresh):\n              self._token = None\n              self._refresh = refresh\n              self._lock = asyncio.Lock()\n      \n          async def get(self):\n              if self._token is None or self._token.expired:\n                  async with self._lock:\n                      if self._token is None or self._token.expired:\n                          try:\n                              self._token = await self._refresh()\n                          except Exception:\n                              # Keep old token if any; otherwise propagate.\n                              if self._token is None:\n                                  raise\n              return self._token\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12391
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] LOGIC Race condition in concurrent token refresh (at TokenCache.get)\n  - Issue: When multiple coroutines call `get()` concurrently while the token is None or expired, all will execute `self._refresh()` simultaneously. This causes redundant refresh calls, potential rate limiting, and wasted resources. The token assignment `self._token = token` is not atomic with the refresh check, so multiple refreshes can complete and overwrite each other.\n  - Fix: Add an asyncio.Lock or use a \"refresh in progress\" flag to ensure only one refresh occurs at a time. Example:\n    ```python\n    async def get(self):\n        if self._token is None or self._token.expired:\n            async with self._lock:\n                if self._token is None or self._token.expired:\n                    token = await self._refresh()\n                    self._token = token\n        return self._token\n    ```\n\n* [WARNING] ERROR_HANDLING Missing lock initialization (at TokenCache.__init__)\n  - Issue: The proposed fix requires `self._lock = asyncio.Lock()` in `__init__`, but the current implementation has no lock mechanism. Without proper synchronization, the class cannot safely handle concurrent access, making it unsuitable for production async applications where multiple tasks may request tokens simultaneously.\n  - Fix: Initialize `self._lock = asyncio.Lock()` in `__init__` and use double-checked locking pattern in `get()` to prevent thundering herd on token refresh.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 17303
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] CONCURRENCY Race condition on token refresh (at TokenCache.get)\n  - Issue: Two concurrent calls to `get` can both evaluate `self._token is None or self._token.expired` as true and each invoke `await self._refresh()`, resulting in duplicate refresh operations, wasted resources, and possible side‑effects (e.g., rate‑limited API calls). This defect manifests under concurrent load but is benign under sequential usage.\n  - Fix: Add an asyncio lock to serialize refresh attempts:\n    ```python\n    def __init__(self, refresh):\n        self._token = None\n        self._refresh = refresh\n        self._lock = asyncio.Lock()\n    async def get(self):\n        async with self._lock:\n            if self._token is None or self._token.expired:\n                self._token = await self._refresh()\n        return self._token\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 24769
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "race_async_cache.py",
+    "exit_code": 0,
+    "wall_s": 25.2
+  }
+}

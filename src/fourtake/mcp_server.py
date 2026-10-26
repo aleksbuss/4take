@@ -30,14 +30,18 @@ def _fire_and_forget(coro) -> None:
 
 def _refused(error: str) -> str:
     """The payload for a review that was never dispatched: the same shape as a failed council."""
-    return json.dumps({
-        "status": "error",
-        "error": error,
-        "warning": None,
-        "responses_received": 0,
-        "responses": [],
-        "errors": [],
-    }, ensure_ascii=False, indent=2)
+    return json.dumps(
+        {
+            "status": "error",
+            "error": error,
+            "warning": None,
+            "responses_received": 0,
+            "responses": [],
+            "errors": [],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
 
 
 _CONTEXT_FILES_HELP = (
@@ -54,8 +58,7 @@ _AUTO_CONTEXT_HELP = (
     "name the ones you know matter."
 )
 _CONTEXT_HELP = (
-    "The same kind of related code as text, for code the server cannot read from disk. "
-    "Read, not reviewed."
+    "The same kind of related code as text, for code the server cannot read from disk. Read, not reviewed."
 )
 
 
@@ -96,7 +99,10 @@ async def get_4take_opinion(
         # `code` as sent, not `sanitized_code`: marking reads diff headers, which a redaction must
         # not be able to rewrite, and it sends nothing.
         review_context, _ = assemble(
-            context_files, config.context_budget_tokens, inline=context, reviewed=code,
+            context_files,
+            config.context_budget_tokens,
+            inline=context,
+            reviewed=code,
             auto=auto_context,
         )
     except ContextError as e:
@@ -106,17 +112,21 @@ async def get_4take_opinion(
         try:
             if ctx:
                 _fire_and_forget(ctx.info(msg))
-                if ctx.request_context and ctx.request_context.meta and ctx.request_context.meta.progressToken:
+                if (
+                    ctx.request_context
+                    and ctx.request_context.meta
+                    and ctx.request_context.meta.progressToken
+                ):
                     _fire_and_forget(
                         ctx.request_context.session.send_progress_notification(
                             progress_token=ctx.request_context.meta.progressToken,
                             progress=completed,
-                            total=total
+                            total=total,
                         )
                     )
         except Exception:
             pass  # Ignore progress errors to not crash the main tool
-        
+
     review_tokens = estimate_tokens(sanitized_code)
     total_tokens = review_tokens + (review_context.tokens if review_context is not None else 0)
     try:
@@ -139,9 +149,11 @@ async def get_4take_opinion(
         # As in the CLI: agents reach 4take through this tool at least as often, and a pool
         # ranked only on CLI runs is ranked on a fraction of the evidence. Never raises.
         from .telemetry import record
+
         record(result.responses, result.errors)
 
     return serialise_result(result, config)
+
 
 def serialise_result(result, config) -> str:
     """
@@ -163,58 +175,59 @@ def serialise_result(result, config) -> str:
     else:
         status = "ok"
 
-    return json.dumps({
-        "status": status,
-        "error": result.error,
-        "warning": result.warning,
-        "responses_received": len(result.responses),
-        "distinct_models": seats,
-        "min_responses": config.min_responses,
-        "total_latency_ms": result.total_latency_ms,
-        # What the reviewers read beside the code, and what the budget left out of it.
-        "context": result.context.summary() if getattr(result, "context", None) else None,
-        # The same ranked grouping the CLI emits. Agents reach 4take through this tool at
-        # least as often as through the CLI, and AGENTS.md tells them to read consensus
-        # first — which they could not, because it was never sent.
-        "consensus": [
-            {
-                "agreement": c.agreement,
-                "severity": c.severity,
-                "category": c.category.value if getattr(c, "category", None) else "UNKNOWN",
-                "symbol": c.symbol,
-                "title": c.title,
-                "models": c.models,
-                "severities": c.severities,
-                "disputed": c.disputed,
-            }
-            for c in build_consensus(result.responses)
-        ],
-        "responses": [
-            {
-                "model": r.model,
-                "served_model": r.served_model,
-                "served_provider": r.served_provider,
-                "content": r.content,
-                "error": r.error,
-                "finish_reason": r.finish_reason,
-                "truncated": r.truncated,
-                "duplicate_of": r.duplicate_of,
-                "latency_ms": r.latency_ms
-            } for r in result.responses
-        ],
-        "errors": [
-            {
-                "model": e.model,
-                "error": e.error,
-                "latency_ms": e.latency_ms
-            } for e in result.errors
-        ]
-    }, ensure_ascii=False, indent=2)
+    return json.dumps(
+        {
+            "status": status,
+            "error": result.error,
+            "warning": result.warning,
+            "responses_received": len(result.responses),
+            "distinct_models": seats,
+            "min_responses": config.min_responses,
+            "total_latency_ms": result.total_latency_ms,
+            # What the reviewers read beside the code, and what the budget left out of it.
+            "context": result.context.summary() if getattr(result, "context", None) else None,
+            # The same ranked grouping the CLI emits. Agents reach 4take through this tool at
+            # least as often as through the CLI, and AGENTS.md tells them to read consensus
+            # first — which they could not, because it was never sent.
+            "consensus": [
+                {
+                    "agreement": c.agreement,
+                    "severity": c.severity,
+                    "category": c.category.value if getattr(c, "category", None) else "UNKNOWN",
+                    "symbol": c.symbol,
+                    "title": c.title,
+                    "models": c.models,
+                    "severities": c.severities,
+                    "disputed": c.disputed,
+                }
+                for c in build_consensus(result.responses)
+            ],
+            "responses": [
+                {
+                    "model": r.model,
+                    "served_model": r.served_model,
+                    "served_provider": r.served_provider,
+                    "content": r.content,
+                    "error": r.error,
+                    "finish_reason": r.finish_reason,
+                    "truncated": r.truncated,
+                    "duplicate_of": r.duplicate_of,
+                    "latency_ms": r.latency_ms,
+                }
+                for r in result.responses
+            ],
+            "errors": [
+                {"model": e.model, "error": e.error, "latency_ms": e.latency_ms} for e in result.errors
+            ],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
 
 
 def main():
     mcp.run()
 
+
 if __name__ == "__main__":
     main()
-

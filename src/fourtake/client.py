@@ -40,6 +40,18 @@ REASONING_BUDGET_SHARE = 0.4
 MIN_ANSWER_TOKENS = 1024
 MIN_REASONING_TOKENS = 256
 
+# Room a reasoning model thinks in on its first attempt. Most free providers ignore the
+# reasoning cap (Nvidia honours it), so the budget sized for the answer left nothing: measured
+# on 2026-10-07, ling and apodex thought for 2-7k tokens on a short snippet and 15-26k on a
+# 5-30 KB diff before answering. Free models are metered per request, not per token, so the
+# ceiling costs only a model that spends it.
+REASONING_OUTPUT_TOKENS = 32768
+
+# A provider's 429 is worth outlasting. Measured on 2026-10-07/08, a retry after Poolside's 429
+# got through in 21-50% of cases, so four retries still cost laguna about one seat in four. A
+# provider that never relents (gemma: 0 of 69) is left out of the pool by telemetry instead.
+RATE_LIMIT_RETRIES = 8
+
 
 def reasoning_budget(total_tokens: int) -> int:
     """Thinking allowance that can never crowd out the findings."""
@@ -142,6 +154,7 @@ async def query_model(
     max_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
     semaphore: asyncio.Semaphore | None = None,
     max_retries: int = 4,
+    rate_limit_retries: int = RATE_LIMIT_RETRIES,
     max_output_cap: int | None = None,
     supports_reasoning: bool = False,
     deadline: float | None = None,
@@ -153,7 +166,13 @@ async def query_model(
 
     # On reasoning models max_tokens budgets thinking AND the answer together, so an
     # under-sized budget yields a response truncated mid-thought with no findings at all.
-    current_max_tokens = max_tokens
+    # `max_tokens` is sized for the answer; a reasoning model gets room to think on top.
+    answer_tokens = max_tokens
+    current_max_tokens = (
+        max(max_tokens, min(REASONING_OUTPUT_TOKENS, max_output_cap or REASONING_OUTPUT_TOKENS))
+        if supports_reasoning
+        else max_tokens
+    )
 
     def build_payload() -> dict:
         body = {
@@ -175,10 +194,11 @@ async def query_model(
         }
         if supports_reasoning:
             # `exclude` only hides the chain of thought — those tokens are still generated
-            # and still spend the budget, so hiding alone does not stop reasoning from
-            # starving the answer. Bound it explicitly and leave the majority for findings.
+            # and still spend the budget. The cap is sized on the answer: a provider that
+            # honours it thinks briefly, as it did when the evals were recorded, and the room
+            # above it is for the providers that do not.
             body["reasoning"] = {
-                "max_tokens": reasoning_budget(current_max_tokens),
+                "max_tokens": reasoning_budget(answer_tokens),
                 "exclude": True,
             }
         return body
@@ -248,7 +268,7 @@ async def query_model(
 
             # 2. Transient errors: 429 (Rate limit) or 5xx (Server error)
             if response.status_code == 429 or response.status_code >= 500:
-                if attempt >= max_retries:
+                if attempt >= (rate_limit_retries if response.status_code == 429 else max_retries):
                     err_msg = _extract_error_message(response)
                     detail = f": {err_msg}" if err_msg else ""
                     return ModelResponse(
@@ -344,6 +364,23 @@ async def query_model(
             served_provider = data.get("provider") if isinstance(data, dict) else None
             truncated = finish_reason == "length"
 
+            # A reasoning model that thought through all that room is looping, not short of
+            # space: on diffs cohere and laguna-s ran to 32768 with nothing to show, and a
+            # bigger budget only makes the council wait longer. The seat goes to another
+            # model that still reasons, not to this one with its reasoning switched off.
+            if content is None and truncated and supports_reasoning:
+                return ModelResponse(
+                    model=display_model_name,
+                    content=None,
+                    error=f"Reasoned through the whole {current_max_tokens}-token budget without answering",
+                    latency_ms=latency,
+                    served_model=served_model,
+                    served_provider=served_provider,
+                    finish_reason=finish_reason,
+                    truncated=truncated,
+                    reasoning=reasoning,
+                )
+
             # Grow the budget once before accepting a truncated answer. Reasoning models
             # routinely spend the whole allowance thinking and return nothing usable.
             if truncated and not grew_budget:
@@ -391,12 +428,17 @@ async def query_model(
             latency = int((time.monotonic() - start_time) * 1000)
             timeout_val = getattr(client.timeout, "read", "unknown")
             return ModelResponse(
-                model=display_model_name, content=None, error=f"Timeout after {timeout_val}s", latency_ms=latency
+                model=display_model_name,
+                content=None,
+                error=f"Timeout after {timeout_val}s",
+                latency_ms=latency,
             )
 
         except httpx.ConnectError:
             latency = int((time.monotonic() - start_time) * 1000)
-            return ModelResponse(model=display_model_name, content=None, error="Connection failed", latency_ms=latency)
+            return ModelResponse(
+                model=display_model_name, content=None, error="Connection failed", latency_ms=latency
+            )
 
         except (httpx.ReadError, httpx.WriteError, httpx.RemoteProtocolError) as e:
             # A connection dropped mid-exchange is the network, not the model, and it passes: retry
@@ -410,13 +452,17 @@ async def query_model(
                 continue
             latency = int((time.monotonic() - start_time) * 1000)
             return ModelResponse(
-                model=display_model_name, content=None,
-                error=f"Connection dropped after {attempt} retries: {_describe(e)}", latency_ms=latency,
+                model=display_model_name,
+                content=None,
+                error=f"Connection dropped after {attempt} retries: {_describe(e)}",
+                latency_ms=latency,
             )
 
         except Exception as e:
             latency = int((time.monotonic() - start_time) * 1000)
-            return ModelResponse(model=display_model_name, content=None, error=_describe(e), latency_ms=latency)
+            return ModelResponse(
+                model=display_model_name, content=None, error=_describe(e), latency_ms=latency
+            )
 
 
 def _describe(error: Exception) -> str:
@@ -426,6 +472,3 @@ def _describe(error: Exception) -> str:
         return type(error).__name__
     # An httpx message ("Server disconnected") reads as nothing without the error it belongs to.
     return f"{type(error).__name__}: {text}" if isinstance(error, httpx.HTTPError) else text
-
-
-

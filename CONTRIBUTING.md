@@ -2,9 +2,9 @@
 
 First off, thank you for considering contributing to `4take`! We appreciate your time and effort.
 
-## Code of Conduct
+## Conduct
 
-By participating in this project, you agree to abide by our Code of Conduct. Please be respectful and professional in your interactions.
+Be respectful and professional in issues, pull requests and reviews. Harassment and personal attacks get a contributor removed.
 
 ## Local Development Setup
 
@@ -66,18 +66,27 @@ We strictly follow the [Conventional Commits](https://www.conventionalcommits.or
 feat(discovery): add validation against OpenRouter API models list
 ```
 
+## Licensing of Contributions
+
+4take is licensed under the Business Source License 1.1 (see `LICENSE`) and is also licensed
+commercially to organizations. A pull request is merged only after its author has agreed to the
+[Contributor License Agreement](CLA.md), which lets the Licensor distribute the contribution under
+both. If your employer or a client may own what you write, get their permission first.
+
 ## Pull Requests
 
 1. Fork the repository and create your branch from `main`.
 2. Make your changes and ensure tests pass.
 3. Update `CHANGELOG.md` under the `[Unreleased]` section if your changes are notable.
-4. Open a Pull Request with a clear title and description of your changes.
-5. Our CI pipeline will automatically run tests and linting (including checking for Conventional Commits compliance).
+4. Open a Pull Request with a clear title and description of your changes. Say in it if any part
+   comes from another project or from a code generator or AI tool.
+5. Agree to the [CLA](CLA.md) in the pull request.
+6. Our CI pipeline will automatically run tests and linting (including checking for Conventional Commits compliance).
 
 ## CI Status
 
 Our CI pipeline enforces:
-- **Linting**: Code formatting and style checks.
+- **Linting**: `ruff check` style and correctness checks (formatting is not a gate yet).
 - **Testing**: Passing the `pytest` suite.
 - **Commit Messages**: Validation of Conventional Commits format.
 

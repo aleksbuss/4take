@@ -24,6 +24,7 @@ class BucketState:
     # exactly the burst being prevented, just moved further down the queue.
     next_available: float = 0.0
 
+
 class PersistentTokenBucket:
     def __init__(self, rpm: int = 10):
         self.rpm = rpm
@@ -32,13 +33,14 @@ class PersistentTokenBucket:
 
     def _sync_acquire_tokens(self, tokens: int, max_wait: float | None = None) -> float:
         import os
+
         fd = _acquire_lock_sync(self.state_file)
         wait_time = 0.0
         try:
             # Read state
             try:
                 os.lseek(fd, 0, os.SEEK_SET)
-                content = os.read(fd, 4096).decode('utf-8').strip('\x00').strip()
+                content = os.read(fd, 4096).decode("utf-8").strip("\x00").strip()
                 if not content:
                     raise ValueError("Empty file")
                 data = json.loads(content)
@@ -90,17 +92,19 @@ class PersistentTokenBucket:
 
             # Write state
             os.lseek(fd, 0, os.SEEK_SET)
-            data_out = json.dumps({
-                "tokens": state.tokens,
-                "last_update": state.last_update,
-                "rpm": state.rpm,
-                "next_available": state.next_available,
-            }).encode('utf-8')
-            padded_data = data_out.ljust(4096, b' ')
+            data_out = json.dumps(
+                {
+                    "tokens": state.tokens,
+                    "last_update": state.last_update,
+                    "rpm": state.rpm,
+                    "next_available": state.next_available,
+                }
+            ).encode("utf-8")
+            padded_data = data_out.ljust(4096, b" ")
             os.write(fd, padded_data)
         finally:
             _release_lock_sync(fd)
-            
+
         return wait_time
 
     async def acquire(self, tokens: int = 1, max_wait: float | None = None) -> bool:
@@ -119,4 +123,3 @@ class PersistentTokenBucket:
             logger.info("Rate limit: waiting %.1fs...", wait_time)
             await asyncio.sleep(wait_time)
         return True
-

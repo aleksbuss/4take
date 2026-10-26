@@ -33,15 +33,15 @@ class DefectCategory(str, Enum):
     the agents downstream take it at its word.
     """
 
-    INJECTION = "INJECTION"               # SQLi, command injection, path traversal, XSS
-    CONCURRENCY = "CONCURRENCY"           # Race conditions, TOCTOU, deadlocks, atomicity
-    RESOURCE_LEAK = "RESOURCE_LEAK"       # Unclosed handles, connections, memory, subprocess
-    BOUNDS = "BOUNDS"                     # Off-by-one, out of bounds, index error, slice/range
-    ERROR_HANDLING = "ERROR_HANDLING"     # Bare except, swallowed exceptions, unhandled None
-    AUTH_CRYPTO = "AUTH_CRYPTO"           # Timing attacks, secrets, token/JWT, crypto, auth
-    LOGIC = "LOGIC"                       # Inverted condition, broken calculation, division by zero
-    STRUCTURE = "STRUCTURE"               # Leaky boundaries, high coupling, duplicated drift
-    SIMPLICITY = "SIMPLICITY"             # Indirection with one implementation, hand-rolled stdlib
+    INJECTION = "INJECTION"  # SQLi, command injection, path traversal, XSS
+    CONCURRENCY = "CONCURRENCY"  # Race conditions, TOCTOU, deadlocks, atomicity
+    RESOURCE_LEAK = "RESOURCE_LEAK"  # Unclosed handles, connections, memory, subprocess
+    BOUNDS = "BOUNDS"  # Off-by-one, out of bounds, index error, slice/range
+    ERROR_HANDLING = "ERROR_HANDLING"  # Bare except, swallowed exceptions, unhandled None
+    AUTH_CRYPTO = "AUTH_CRYPTO"  # Timing attacks, secrets, token/JWT, crypto, auth
+    LOGIC = "LOGIC"  # Inverted condition, broken calculation, division by zero
+    STRUCTURE = "STRUCTURE"  # Leaky boundaries, high coupling, duplicated drift
+    SIMPLICITY = "SIMPLICITY"  # Indirection with one implementation, hand-rolled stdlib
     UNKNOWN = "UNKNOWN"
 
 
@@ -76,9 +76,7 @@ _CATEGORY_TAG_RE = re.compile(r"\[\s*(" + "|".join(CATEGORY_NAMES) + r")\s*\]", 
 # ... and as most recorded models actually wrote it: the bare word after the tag,
 # `[CRITICAL] LOGIC <title>`. Upper case only, so a title that opens with the ordinary word —
 # "Logic error in the retry loop" — keeps it.
-_BARE_CATEGORY_RE = re.compile(
-    r"^[\s*`]*(" + "|".join(CATEGORY_NAMES) + r")\b[*`]*\s*[:\-\u2013\u2014]?\s*"
-)
+_BARE_CATEGORY_RE = re.compile(r"^[\s*`]*(" + "|".join(CATEGORY_NAMES) + r")\b[*`]*\s*[:\-\u2013\u2014]?\s*")
 
 
 def _category(raw: str | None) -> DefectCategory:
@@ -97,10 +95,10 @@ def _read_tag(match: re.Match[str], rest: str) -> tuple[str, DefectCategory, str
         bare = _BARE_CATEGORY_RE.match(rest)
         if separate:
             category = _category(separate.group(1))
-            rest = rest[: separate.start()] + rest[separate.end():]
+            rest = rest[: separate.start()] + rest[separate.end() :]
         elif bare:
             category = DefectCategory(bare.group(1))
-            rest = rest[bare.end():]
+            rest = rest[bare.end() :]
         elif word in CATEGORY_NAMES:
             # `[STRUCTURE]` written where the severity goes still names the category.
             category = DefectCategory(word)
@@ -154,11 +152,33 @@ _FILE_NAME_RE = re.compile(
 # Words that survive the phrase-stripping above but name a language construct rather than a
 # symbol: "(at the list comprehension)" reduces to `list`, which is not a function anyone can
 # agree on. A real identifier of the same spelling is vanishingly rare next to this prose.
-_NOT_A_SYMBOL = frozenset({
-    "list", "dict", "set", "tuple", "loop", "call", "block", "line", "code", "body",
-    "comprehension", "handler", "expression", "statement", "variable", "parameter",
-    "argument", "constructor", "closure", "callback", "branch", "condition", "clause",
-})
+_NOT_A_SYMBOL = frozenset(
+    {
+        "list",
+        "dict",
+        "set",
+        "tuple",
+        "loop",
+        "call",
+        "block",
+        "line",
+        "code",
+        "body",
+        "comprehension",
+        "handler",
+        "expression",
+        "statement",
+        "variable",
+        "parameter",
+        "argument",
+        "constructor",
+        "closure",
+        "callback",
+        "branch",
+        "condition",
+        "clause",
+    }
+)
 _TOKEN_RE = re.compile(r"[a-z0-9_]{3,}")
 
 # Words that appear in nearly every review and therefore carry no grouping signal. Terms a
@@ -166,7 +186,8 @@ _TOKEN_RE = re.compile(r"[a-z0-9_]{3,}")
 # absent: those are exactly the words that should pull two findings together.
 # A block of prose is the readable form for a word list; the equivalent list literal is a
 # 90-element column nobody proofreads.
-_STOPWORDS = frozenset("""
+_STOPWORDS = frozenset(
+    """
 about above after again against all also always and any are because been before being
 both but can cannot code could day does doing done during each either else even ever every
 example few for from function had has have here how however into its just like line lines
@@ -175,7 +196,8 @@ over own same should since some such than that the their them then there these t
 this those through thus too under until use used uses using very via was way what when
 where which while who why will with within without would you your
 issue fix problem code snippet review finding severity title
-""".split())  # noqa: SIM905
+""".split()  # noqa: SIM905
+)
 
 
 @dataclass
@@ -200,7 +222,7 @@ class Finding:
 class Consensus:
     """One defect as the council reported it, across every model that raised it."""
 
-    severity: str            # the highest severity any model assigned
+    severity: str  # the highest severity any model assigned
     symbol: str | None
     title: str
     models: list[str] = field(default_factory=list)
@@ -245,8 +267,9 @@ def _normalise_symbol(raw: str | None) -> str | None:
     parts = [part.strip() for part in re.split(r"[,;]", text)]
     text = next((part for part in parts if not _FILE_NAME_RE.search(part)), "")
     text = re.sub(r"^(?:the|a|an)\s+", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"\s+(?:function|method|call|loop|block|comprehension|handler)$", "",
-                  text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"\s+(?:function|method|call|loop|block|comprehension|handler)$", "", text, flags=re.IGNORECASE
+    )
     # "def summarise(samples)" and "checkoutBranch(repoPath, branch)" are how models write a
     # signature instead of a name; both mean the symbol in front of the parentheses.
     text = re.sub(r"^(?:def|async def|function|class|fn)\s+", "", text, flags=re.IGNORECASE)
@@ -311,7 +334,7 @@ def parse_findings(content: str | None, model: str) -> list[Finding]:
         match = _SEVERITY_RE.search(head)
         if match is None:  # unreachable: `starts` was built from this same regex
             continue
-        severity, category, title_raw = _read_tag(match, head[match.end():].strip())
+        severity, category, title_raw = _read_tag(match, head[match.end() :].strip())
 
         symbol_match = _LOCATOR_RE.search(title_raw)
         symbol = None

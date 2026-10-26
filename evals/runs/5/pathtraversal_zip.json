@@ -1,0 +1,113 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:14:26.826296Z",
+  "config": {
+    "models_requested": 10,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "327c26020d67",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 3,
+    "total_latency_ms": 53721,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "unpack",
+      "title": "Zip slip path traversal allows writing outside destination",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "CRITICAL": 4
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "[CRITICAL] [SECURITY] ZIP Slip (Path Traversal) in extract\n- Issue: `zf.extract(member, dest)` is called with unvalidated `member` names from `namelist()`. An archive containing entries like `../../etc/cron.d/backdoor` or absolute paths will write files outside `dest`, allowing arbitrary file overwrite.\n- Fix: Before extraction, resolve the target path and ensure it stays within `dest`:\n```python\nimport os\nfor member in zf.namelist():\n    target = os.path.realpath(os.path.join(dest, member))\n    if not target.startswith(os.path.realpath(dest) + os.sep):\n        raise ValueError(f\"Path traversal detected: {member}\")\n    zf.extract(member, dest)\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 6108
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] INJECTION Zip Slip vulnerability (at unpack)\n    - Issue: The function extracts archive members without validating their paths. A malicious zip containing entries like \"../../etc/passwd\" will be extracted outside the intended destination directory, allowing arbitrary file write and potential system compromise.\n    - Fix: Before extracting each member, compute the absolute target path and ensure it resides within the destination directory. Raise an error if any member attempts to escape.\n      ```python\n      import os\n      import zipfile\n\n      def unpack(archive_path, dest):\n          abs_dest = os.path.abspath(dest)\n          with zipfile.ZipFile(archive_path) as zf:\n              for member in zf.namelist():\n                  target = os.path.abspath(os.path.join(abs_dest, member))\n                  if not target.startswith(abs_dest):\n                      raise ValueError(f\"Invalid zip member path: {member}\")\n                  zf.extract(member, dest)\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 7852
+    },
+    {
+      "model": "openrouter/apodex/apodex-1.1-mini:free",
+      "served_model": "apodex/apodex-1.1-mini:free",
+      "served_provider": "Novita",
+      "content": "\n\n* [CRITICAL] [AUTH_CRYPTO] Zip slip path traversal allows writing outside destination (at `unpack`)\n    - Issue: `zf.extract(member, dest)` writes each archive member verbatim without validating its path. A malicious archive containing entries like `../../etc/passwd` or `foo/../../../etc/passwd` will resolve to paths outside `dest`, overwriting arbitrary host files. This is the classic CVE-2007-4559 zip-slip vulnerability and is exploitable with any attacker-controlled archive.\n    - Fix: Normalize and bind each member path to `dest` before extraction, rejecting anything that escapes:\n      ```python\n      import os\n      dest = os.path.realpath(dest)\n      for member in zf.namelist():\n          target = os.path.realpath(os.path.join(dest, member))\n          if not target.startswith(dest + os.sep):\n              raise ValueError(f\"Path traversal attempt: {member}\")\n          zf.extract(member, dest)\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 2201
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [CRITICAL] INJECTION Path traversal via archive member names (at unpack)\n  - Issue: zipfile.extract does not sanitize member paths; an archive containing entries like \"../../etc/passwd\" will cause extraction outside the intended destination, allowing arbitrary file write.\n  - Fix: Validate each member path to ensure it stays within dest before extraction, e.g.:\n\n```\ndef unpack(archive_path, dest):\n    with zipfile.ZipFile(archive_path) as zf:\n        for member in zf.namelist():\n            target = os.path.join(dest, member)\n            if not os.path.commonprefix([os.path.realpath(target), os.path.realpath(dest)]) == os.path.realpath(dest):\n                raise ValueError(f\"Path traversal attempt: {member}\")\n            zf.extract(member, dest)\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 53715
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "served_model": "nvidia/nemotron-3.5-lightning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] [INJECTION] Zip slip vulnerability in unpack (at unpack)\n- Issue: The function iterates over `zf.namelist()` and calls `zf.extract(member, dest)` without validating member paths, allowing a crafted archive containing `../` sequences to write files outside `dest`. An attacker can achieve arbitrary file overwrite or execution by naming a member such as `../../../tmp/malicious.sh`.\n- Fix: Resolve each member path relative to `dest` and reject any that escape the destination, e.g.:\n\n```python\nimport os\nimport zipfile\n\ndef unpack(archive_path, dest):\n    with zipfile.ZipFile(archive_path) as zf:\n        for member in zf.namelist():\n            target = os.path.join(dest, member)\n            if not os.path.realpath(target).startswith(os.path.realpath(dest)):\n                continue  # or raise an error\n            zf.extract(member, dest)\n```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 34240
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 1633
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "error": "Upstream provider error: Upstream error from Nvidia: ResourceExhausted: Worker local total request limit reached (483/16)",
+      "latency_ms": 40296
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 42628
+    }
+  ],
+  "_eval": {
+    "snippet": "pathtraversal_zip.py",
+    "exit_code": 0,
+    "wall_s": 54.2
+  }
+}

@@ -218,7 +218,7 @@ def _slice_lines(text: str, start: int, end: int, spec: str) -> tuple[str, int]:
     if start > len(lines):
         raise ContextError(f"{spec}: the file has only {len(lines)} lines")
     end = min(end, len(lines))
-    excerpt = "\n".join(lines[start - 1:end])
+    excerpt = "\n".join(lines[start - 1 : end])
     if len(excerpt.encode("utf-8")) > MAX_CONTEXT_FILE_BYTES:
         raise ContextError(f"{spec}: the range is over the {MAX_CONTEXT_FILE_BYTES // 1024} KB limit")
     return excerpt, end

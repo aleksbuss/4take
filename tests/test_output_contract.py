@@ -37,6 +37,7 @@ def _config(**overrides) -> FourtakeConfig:
 # S1.1 — stdout must carry only the payload
 # --------------------------------------------------------------------------------------
 
+
 def test_json_format_stdout_is_parseable(capsys):
     """
     `4take --format json` is the documented integration path for agents. httpx logs at INFO
@@ -57,10 +58,12 @@ def test_json_format_stdout_is_parseable(capsys):
         return result
 
     argv = ["4take", "--format", "json", "--accept-risk", "--quiet"]
-    with patch("sys.argv", argv), \
-         patch("fourtake.cli.read_stdin", return_value="print('hi')"), \
-         patch("fourtake.cli.run_council", new=fake_council), \
-         patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["openrouter/m:free"])):
+    with (
+        patch("sys.argv", argv),
+        patch("fourtake.cli.read_stdin", return_value="print('hi')"),
+        patch("fourtake.cli.run_council", new=fake_council),
+        patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["openrouter/m:free"])),
+    ):
         with pytest.raises(SystemExit):
             from fourtake.cli import main
 
@@ -101,6 +104,7 @@ def test_log_console_targets_stderr_with_markup_disabled():
 # S1.2 — Rich must not rewrite model ids
 # --------------------------------------------------------------------------------------
 
+
 def test_free_suffix_is_not_turned_into_an_emoji():
     """':free' followed by ':' formed ':free:', which Rich replaced with the 🆓 emoji."""
     buf = io.StringIO()
@@ -125,6 +129,7 @@ def test_bracketed_provider_error_does_not_raise_markup_error():
 # S1.4 — exit codes distinguish success, degradation and failure
 # --------------------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "n_responses,min_responses,expected",
     [(4, 4, 0), (5, 4, 0), (1, 4, 2), (3, 4, 2), (0, 4, 1)],
@@ -143,6 +148,7 @@ def test_exit_codes(n_responses, min_responses, expected):
 # --------------------------------------------------------------------------------------
 # S0.1 — output budget scales with input and respects the model's own ceiling
 # --------------------------------------------------------------------------------------
+
 
 def test_output_budget_never_below_floor():
     assert compute_output_budget(10, 65536) == MIN_OUTPUT_TOKENS
@@ -168,6 +174,7 @@ def test_output_budget_never_exceeds_global_ceiling():
 # S0.3 — truncation is retried once, then reported honestly
 # --------------------------------------------------------------------------------------
 
+
 def _resp(payload, status=200):
     m = MagicMock()
     m.status_code = status
@@ -184,9 +191,7 @@ async def test_truncated_response_retries_with_a_larger_budget():
     complete = _resp({"choices": [{"message": {"content": "full review"}, "finish_reason": "stop"}]})
     client.post.side_effect = [truncated, complete]
 
-    r = await query_model(
-        client, "http://d", "k", "m", "m", "code", max_tokens=2048, max_output_cap=32768
-    )
+    r = await query_model(client, "http://d", "k", "m", "m", "code", max_tokens=2048, max_output_cap=32768)
 
     assert r.content == "full review"
     assert r.truncated is False
@@ -215,9 +220,7 @@ async def test_reasoning_budget_requested_only_when_supported():
     client = AsyncMock()
     client.post.return_value = _resp({"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]})
 
-    await query_model(
-        client, "http://d", "k", "m", "m", "code", max_tokens=10_000, supports_reasoning=True
-    )
+    await query_model(client, "http://d", "k", "m", "m", "code", max_tokens=10_000, supports_reasoning=True)
     reasoning = client.post.call_args.kwargs["json"]["reasoning"]
     # Bounded, not merely hidden: `exclude` alone still lets thinking consume the budget.
     assert reasoning["exclude"] is True
@@ -232,6 +235,7 @@ async def test_reasoning_budget_requested_only_when_supported():
 # --------------------------------------------------------------------------------------
 # S2.2 — malformed 200 bodies are transient, not raw Python errors
 # --------------------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize(
     "body",
@@ -284,6 +288,7 @@ async def test_non_json_body_is_retried_not_reported_as_a_parse_error():
 # --------------------------------------------------------------------------------------
 # S2.1 — Retry-After is honoured as given
 # --------------------------------------------------------------------------------------
+
 
 def test_retry_after_parses_delta_seconds():
     r = MagicMock()
@@ -355,6 +360,7 @@ async def test_retry_is_skipped_when_it_would_pass_the_deadline():
 # S3.4 — the model that actually served the request is recorded
 # --------------------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_served_model_and_provider_are_captured():
     """With a router such as openrouter/free the requested id is not the reviewing model."""
@@ -378,6 +384,7 @@ async def test_served_model_and_provider_are_captured():
 # S1.3 — MCP must not report failure as success
 # --------------------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_mcp_reports_error_when_every_model_fails():
     import fourtake.mcp_server as mcp_server
@@ -396,9 +403,11 @@ async def test_mcp_reports_error_when_every_model_fails():
     async def fake_validate(models, timeout=10):
         return ["openrouter/m:free"]
 
-    with patch("fourtake.mcp_server.load_config", return_value=_config(default_models=["openrouter/m:free"])), \
-         patch("fourtake.mcp_server.run_council", new=fake_council), \
-         patch("fourtake.discovery.validate_configured_models", new=fake_validate):
+    with (
+        patch("fourtake.mcp_server.load_config", return_value=_config(default_models=["openrouter/m:free"])),
+        patch("fourtake.mcp_server.run_council", new=fake_council),
+        patch("fourtake.discovery.validate_configured_models", new=fake_validate),
+    ):
         data = json.loads(await mcp_server.get_4take_opinion("code", ctx=None))
 
     assert data["status"] == "error"
@@ -424,9 +433,11 @@ async def test_mcp_reports_degraded_on_partial_council():
     async def fake_validate(models, timeout=10):
         return ["openrouter/m:free"]
 
-    with patch("fourtake.mcp_server.load_config", return_value=_config(default_models=["openrouter/m:free"])), \
-         patch("fourtake.mcp_server.run_council", new=fake_council), \
-         patch("fourtake.discovery.validate_configured_models", new=fake_validate):
+    with (
+        patch("fourtake.mcp_server.load_config", return_value=_config(default_models=["openrouter/m:free"])),
+        patch("fourtake.mcp_server.run_council", new=fake_council),
+        patch("fourtake.discovery.validate_configured_models", new=fake_validate),
+    ):
         data = json.loads(await mcp_server.get_4take_opinion("code", ctx=None))
 
     assert data["status"] == "degraded"
@@ -436,6 +447,7 @@ async def test_mcp_reports_degraded_on_partial_council():
 # --------------------------------------------------------------------------------------
 # S5 — the accept-risk environment variable must be settable from a real shell
 # --------------------------------------------------------------------------------------
+
 
 def test_fourtake_accept_risk_env_var(monkeypatch):
     from fourtake.cli import accept_risk_enabled
@@ -464,6 +476,7 @@ def test_legacy_accept_risk_env_var_still_read(monkeypatch):
 # --------------------------------------------------------------------------------------
 # Self-audit regressions: defects introduced by the fixes above, caught by auditing them
 # --------------------------------------------------------------------------------------
+
 
 def test_cache_preserves_truncation_and_provenance():
     """
@@ -498,8 +511,12 @@ def test_exit_code_counts_seats_not_responses():
 
     responses = [
         ModelResponse("openrouter/free", "r", None, 1, served_model="same/model"),
-        ModelResponse("openrouter/a:free", "r", None, 1, served_model="same/model", duplicate_of="same/model"),
-        ModelResponse("openrouter/b:free", "r", None, 1, served_model="same/model", duplicate_of="same/model"),
+        ModelResponse(
+            "openrouter/a:free", "r", None, 1, served_model="same/model", duplicate_of="same/model"
+        ),
+        ModelResponse(
+            "openrouter/b:free", "r", None, 1, served_model="same/model", duplicate_of="same/model"
+        ),
     ]
     result = CouncilResult(responses=responses, errors=[], warning="dupes", error=None, total_latency_ms=1)
 
@@ -514,10 +531,16 @@ def test_text_output_discloses_truncation_and_duplicates():
 
     result = CouncilResult(
         responses=[
-            ModelResponse("openrouter/m:free", "half a review", None, 10, truncated=True, finish_reason="length"),
             ModelResponse(
-                "openrouter/openrouter/free", "same again", None, 10,
-                served_model="other/model", duplicate_of="other/model",
+                "openrouter/m:free", "half a review", None, 10, truncated=True, finish_reason="length"
+            ),
+            ModelResponse(
+                "openrouter/openrouter/free",
+                "same again",
+                None,
+                10,
+                served_model="other/model",
+                duplicate_of="other/model",
             ),
         ],
         errors=[],
@@ -540,9 +563,14 @@ async def test_mcp_output_carries_provenance_fields():
     result = CouncilResult(
         responses=[
             ModelResponse(
-                "openrouter/openrouter/free", "review", None, 10,
-                served_model="nvidia/nemotron", served_provider="NVIDIA",
-                finish_reason="stop", truncated=False,
+                "openrouter/openrouter/free",
+                "review",
+                None,
+                10,
+                served_model="nvidia/nemotron",
+                served_provider="NVIDIA",
+                finish_reason="stop",
+                truncated=False,
             )
         ],
         errors=[],
@@ -557,9 +585,11 @@ async def test_mcp_output_carries_provenance_fields():
     async def fake_validate(models, timeout=10):
         return ["openrouter/m:free"]
 
-    with patch("fourtake.mcp_server.load_config", return_value=_config(default_models=["openrouter/m:free"])), \
-         patch("fourtake.mcp_server.run_council", new=fake_council), \
-         patch("fourtake.discovery.validate_configured_models", new=fake_validate):
+    with (
+        patch("fourtake.mcp_server.load_config", return_value=_config(default_models=["openrouter/m:free"])),
+        patch("fourtake.mcp_server.run_council", new=fake_council),
+        patch("fourtake.discovery.validate_configured_models", new=fake_validate),
+    ):
         data = json.loads(await mcp_server.get_4take_opinion("code", ctx=None))
 
     r = data["responses"][0]
@@ -573,47 +603,67 @@ async def test_mcp_output_carries_provenance_fields():
 # S6 — the consensus block is a documented contract that agents read first
 # --------------------------------------------------------------------------------------
 
+
 def test_json_carries_consensus_ranked_by_agreement(capsys):
     """
     `consensus` is what AGENTS.md and CLAUDE.md tell an agent to read before `responses`, so
     its shape is a contract: agreement counted in distinct reviewers, most-agreed first.
     """
-    sqli = ("* [CRITICAL] SQL injection via term (at search_users)\n"
-            "  - Issue: term is concatenated into the query, so a quote ends the literal.\n")
-    sqli_other_words = ("* [WARNING] Unparameterised query (at search_users)\n"
-                        "  - Issue: user input is concatenated into the SQL query.\n")
-    solo = ("* [WARNING] Unbounded limit (at search_users)\n"
-            "  - Issue: limit is interpolated without validation.\n")
+    sqli = (
+        "* [CRITICAL] SQL injection via term (at search_users)\n"
+        "  - Issue: term is concatenated into the query, so a quote ends the literal.\n"
+    )
+    sqli_other_words = (
+        "* [WARNING] Unparameterised query (at search_users)\n"
+        "  - Issue: user input is concatenated into the SQL query.\n"
+    )
+    solo = (
+        "* [WARNING] Unbounded limit (at search_users)\n"
+        "  - Issue: limit is interpolated without validation.\n"
+    )
 
     result = CouncilResult(
         responses=[
             ModelResponse("openrouter/a:free", sqli, None, 10, served_model="a:free"),
             ModelResponse("openrouter/b:free", sqli_other_words + solo, None, 10, served_model="b:free"),
         ],
-        errors=[], warning=None, error=None, total_latency_ms=10,
+        errors=[],
+        warning=None,
+        error=None,
+        total_latency_ms=10,
     )
 
     async def fake_council(*args, **kwargs):
         return result
 
     argv = ["4take", "--format", "json", "--accept-risk", "--quiet"]
-    with patch("sys.argv", argv), \
-         patch("fourtake.cli.read_stdin", return_value="code"), \
-         patch("fourtake.cli.run_council", new=fake_council), \
-         patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["openrouter/a:free"])):
+    with (
+        patch("sys.argv", argv),
+        patch("fourtake.cli.read_stdin", return_value="code"),
+        patch("fourtake.cli.run_council", new=fake_council),
+        patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["openrouter/a:free"])),
+    ):
         with pytest.raises(SystemExit):
             from fourtake.cli import main
 
             main()
 
     consensus = json.loads(capsys.readouterr().out)["consensus"]
-    assert [c["agreement"] for c in consensus] == sorted(
-        [c["agreement"] for c in consensus], reverse=True
-    ), "most-agreed first"
+    assert [c["agreement"] for c in consensus] == sorted([c["agreement"] for c in consensus], reverse=True), (
+        "most-agreed first"
+    )
 
     top = consensus[0]
-    assert set(top) == {"agreement", "severity", "category", "symbol", "title", "models", "severities",
-                        "disputed"}
+    assert set(top) == {
+        "agreement",
+        "severity",
+        "category",
+        "symbol",
+        "title",
+        "models",
+        "severities",
+        "disputed",
+    }
     assert top["agreement"] == 2
     assert top["models"] == ["a:free", "b:free"]
     assert top["severity"] == "CRITICAL", "the cluster takes the worst severity raised"
@@ -625,25 +675,28 @@ def test_json_carries_consensus_ranked_by_agreement(capsys):
 
 def test_a_duplicate_seat_does_not_manufacture_agreement(capsys):
     """A router seating one model twice is one opinion, in the consensus block too."""
-    body = ("* [CRITICAL] SQL injection (at f)\n"
-            "  - Issue: input is concatenated into the query.\n")
+    body = "* [CRITICAL] SQL injection (at f)\n  - Issue: input is concatenated into the query.\n"
     result = CouncilResult(
         responses=[
             ModelResponse("openrouter/free", body, None, 10, served_model="x:free"),
-            ModelResponse("openrouter/x:free", body, None, 10, served_model="x:free",
-                          duplicate_of="x:free"),
+            ModelResponse("openrouter/x:free", body, None, 10, served_model="x:free", duplicate_of="x:free"),
         ],
-        errors=[], warning=None, error=None, total_latency_ms=10,
+        errors=[],
+        warning=None,
+        error=None,
+        total_latency_ms=10,
     )
 
     async def fake_council(*args, **kwargs):
         return result
 
     argv = ["4take", "--format", "json", "--accept-risk", "--quiet"]
-    with patch("sys.argv", argv), \
-         patch("fourtake.cli.read_stdin", return_value="code"), \
-         patch("fourtake.cli.run_council", new=fake_council), \
-         patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["openrouter/free"])):
+    with (
+        patch("sys.argv", argv),
+        patch("fourtake.cli.read_stdin", return_value="code"),
+        patch("fourtake.cli.run_council", new=fake_council),
+        patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["openrouter/free"])),
+    ):
         with pytest.raises(SystemExit):
             from fourtake.cli import main
 
@@ -677,10 +730,12 @@ def test_strict_mode_suppresses_solitary_findings(capsys):
         return result
 
     argv = ["4take", "--format", "json", "--accept-risk", "--quiet", "--strict"]
-    with patch("sys.argv", argv), \
-         patch("fourtake.cli.read_stdin", return_value="code"), \
-         patch("fourtake.cli.run_council", new=fake_council), \
-         patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["m1:free", "m2:free"])):
+    with (
+        patch("sys.argv", argv),
+        patch("fourtake.cli.read_stdin", return_value="code"),
+        patch("fourtake.cli.run_council", new=fake_council),
+        patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["m1:free", "m2:free"])),
+    ):
         with pytest.raises(SystemExit):
             from fourtake.cli import main
 
@@ -698,26 +753,35 @@ def test_strict_mode_keeps_a_critical_finding_a_single_reviewer_raised(capsys):
     Dropping every agreement-1 entry would let one model's SQL injection vanish and the output
     read as clean. Grouping is lexical: a critical finding stays however few raised it.
     """
-    sqli = ("* [CRITICAL] SQL injection via term (at search_users)\n"
-            "  - Issue: term is concatenated into the query\n")
-    minor = ("* [SUGGESTION] Row formatting duplicated (at format_row)\n"
-             "  - Issue: both handlers format rows by hand and will drift\n")
+    sqli = (
+        "* [CRITICAL] SQL injection via term (at search_users)\n"
+        "  - Issue: term is concatenated into the query\n"
+    )
+    minor = (
+        "* [SUGGESTION] Row formatting duplicated (at format_row)\n"
+        "  - Issue: both handlers format rows by hand and will drift\n"
+    )
     result = CouncilResult(
         responses=[
             ModelResponse("m1:free", sqli + minor, None, 10),
             ModelResponse("m2:free", "NO_ISSUES_FOUND: Correct, safe.", None, 10),
         ],
-        errors=[], warning=None, error=None, total_latency_ms=10,
+        errors=[],
+        warning=None,
+        error=None,
+        total_latency_ms=10,
     )
 
     async def fake_council(*args, **kwargs):
         return result
 
     argv = ["4take", "--format", "json", "--accept-risk", "--quiet", "--strict"]
-    with patch("sys.argv", argv), \
-         patch("fourtake.cli.read_stdin", return_value="code"), \
-         patch("fourtake.cli.run_council", new=fake_council), \
-         patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["m1:free", "m2:free"])):
+    with (
+        patch("sys.argv", argv),
+        patch("fourtake.cli.read_stdin", return_value="code"),
+        patch("fourtake.cli.run_council", new=fake_council),
+        patch("fourtake.discovery.get_best_free_models", new=AsyncMock(return_value=["m1:free", "m2:free"])),
+    ):
         with pytest.raises(SystemExit):
             from fourtake.cli import main
 
@@ -737,15 +801,20 @@ def test_strict_text_output_keeps_errors_and_counts_what_it_hid():
     """
     from fourtake.output import format_markdown
 
-    solo = ("* [WARNING] Sleeps after the final attempt (at retry)\n"
-            "  - Issue: the last failure still waits before raising\n")
+    solo = (
+        "* [WARNING] Sleeps after the final attempt (at retry)\n"
+        "  - Issue: the last failure still waits before raising\n"
+    )
     failed = ModelResponse("c:free", None, "HTTP 429 rate limited", 900)
     result = CouncilResult(
         responses=[
             ModelResponse("a:free", solo, None, 10),
             ModelResponse("b:free", "NO_ISSUES_FOUND: Correct, safe.", None, 10),
         ],
-        errors=[failed], warning=None, error=None, total_latency_ms=10,
+        errors=[failed],
+        warning=None,
+        error=None,
+        total_latency_ms=10,
     )
     text = format_markdown(result, _config(), "code", strict=True)
     assert "1 single-reviewer finding hidden by --strict" in text
@@ -753,9 +822,12 @@ def test_strict_text_output_keeps_errors_and_counts_what_it_hid():
     assert "## Errors" in text and "c:free" in text
 
     everything_failed = CouncilResult(
-        responses=[], errors=[failed], warning=None, error="all models failed", total_latency_ms=900,
+        responses=[],
+        errors=[failed],
+        warning=None,
+        error="all models failed",
+        total_latency_ms=900,
     )
     text = format_markdown(everything_failed, _config(), "code", strict=True)
     assert "## Consensus" not in text, "no consensus verdict over a run with no reviews"
     assert "c:free" in text
-

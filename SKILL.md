@@ -14,7 +14,7 @@ Reviews four axes: correctness, security, structure and simplicity. Takes code, 
 config — a design question is refused unless you pass `--force-review`.
 
 ## How to use
-Runs exclusively on 100% free OpenRouter models (`:free` tier) with zero token expenditure.
+Runs only on OpenRouter's free models (`:free` tier); a paid model is rejected before any request goes out. Free-tier limits apply: roughly 4 to 8 reviews a day on an OpenRouter account that has never been topped up, roughly 80 to 160 once it has, so do not call it in a loop.
 
 ```bash
 cat path/to/file.py | 4take --format json --accept-risk --quiet
@@ -35,6 +35,10 @@ already grouped across models:
 - `category` is what the reviewers declared, `UNKNOWN` when none did; it is never guessed
 
 `responses[].content` holds each model's full review when you need a finding's wording.
+
+A large diff can take up to 10 minutes and often seats fewer than four reviewers (exit code `2`):
+few free models reason through one to an answer. A partial council is still a usable review; read
+`agreement` against `summary.distinct_models`.
 
 ## Synthesizer Protocol
 1. **Read `consensus`, then the responses behind it**: Parse every critique you act on.

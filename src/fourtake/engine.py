@@ -59,7 +59,10 @@ PROMPT_OVERHEAD_TOKENS = 1200
 
 
 def model_input_capacity(
-    model_id: str, input_tokens: int, overrides: dict[str, int] | None = None, review_tokens: int | None = None
+    model_id: str,
+    input_tokens: int,
+    overrides: dict[str, int] | None = None,
+    review_tokens: int | None = None,
 ) -> int:
     """
     How many input tokens this model can actually accept, after reserving room for the
@@ -99,7 +102,9 @@ def filter_models_by_context(
     return keep, skipped
 
 
-def compute_output_budget(input_tokens: int, model_max_output: int, ceiling: int = MAX_OUTPUT_TOKENS_CEILING) -> int:
+def compute_output_budget(
+    input_tokens: int, model_max_output: int, ceiling: int = MAX_OUTPUT_TOKENS_CEILING
+) -> int:
     """
     Size the completion budget for one model.
 
@@ -311,10 +316,7 @@ async def run_council(
     deadline = start_time + config.timeout
 
     async with httpx.AsyncClient(limits=limits, timeout=timeout, headers=headers) as client:
-        semaphores = {
-            name: asyncio.Semaphore(limit)
-            for name, limit in config.provider_concurrency.items()
-        }
+        semaphores = {name: asyncio.Semaphore(limit) for name, limit in config.provider_concurrency.items()}
         # A provider without a configured cap is held to what the council plans to have in flight:
         # rotation replaces a finished model, so no more than `planned_launch` ever run at once.
         default_semaphore = asyncio.Semaphore(max(1, planned_launch))
@@ -322,9 +324,7 @@ async def run_council(
         async def wrapped_query(model_str: str) -> ModelResponse:
             resolved = resolve_model(model_str, config)
             if not resolved:
-                return ModelResponse(
-                    model=model_str, content=None, error="Unknown provider", latency_ms=0
-                )
+                return ModelResponse(model=model_str, content=None, error="Unknown provider", latency_ms=0)
 
             # Pre-flight Zero-Cost Guard: strictly prevent network calls to paid/unverified models
             if resolved.provider_name == "openrouter" and not is_free_model_id(resolved.api_model_name):
@@ -362,19 +362,19 @@ async def run_council(
             try:
                 resp = await asyncio.wait_for(
                     query_model(
-                    client=client,
-                    provider_url=resolved.url,
-                    api_key=resolved.api_key,
-                    api_model_name=resolved.api_model_name,
-                    display_model_name=resolved.display_model_name,
-                    prompt=task_input,
-                    system_prompt=rendered_system_prompt,
-                    nonce=review_nonce,
-                    semaphore=sem,
-                    max_tokens=compute_output_budget(input_tokens, model_max_output),
-                    max_output_cap=model_max_output,
-                    supports_reasoning=limits["supports_reasoning"],
-                    deadline=deadline,
+                        client=client,
+                        provider_url=resolved.url,
+                        api_key=resolved.api_key,
+                        api_model_name=resolved.api_model_name,
+                        display_model_name=resolved.display_model_name,
+                        prompt=task_input,
+                        system_prompt=rendered_system_prompt,
+                        nonce=review_nonce,
+                        semaphore=sem,
+                        max_tokens=compute_output_budget(input_tokens, model_max_output),
+                        max_output_cap=model_max_output,
+                        supports_reasoning=limits["supports_reasoning"],
+                        deadline=deadline,
                         acquire_token=_acquire_slot,
                         context_block=context_block,
                     ),
@@ -441,7 +441,9 @@ async def run_council(
             nonlocal pool_index
             # A model from a vendor that already holds a seat can never take one, so launching
             # it would only spend a request while the seat stays empty.
-            while pool_index < len(model_pool) and get_model_provider(model_pool[pool_index]) in seated_vendor:
+            while (
+                pool_index < len(model_pool) and get_model_provider(model_pool[pool_index]) in seated_vendor
+            ):
                 pool_index += 1
             if pool_index >= len(model_pool) or seats_filled() >= config.min_responses:
                 return False
@@ -506,8 +508,10 @@ async def run_council(
                                 result.error = f"served by an incompatible model ({seat})"
                                 errors.append(result)
                                 if verbose:
-                                    _log(f"[4take] ✗ {result.model} was served by {seat}, "
-                                         f"which cannot review code")
+                                    _log(
+                                        f"[4take] ✗ {result.model} was served by {seat}, "
+                                        f"which cannot review code"
+                                    )
                                 freed.append(f"incompatible seat {seat}")
                             elif not is_review(result.content):
                                 # Neither a finding nor the clean verdict: a tool call, `<unk>`
@@ -531,15 +535,19 @@ async def run_council(
                                 vendor = get_model_provider(seat)
                                 held_same_vendor.append(result)
                                 if verbose:
-                                    _log(f"[4take] ⧉ {result.model} was served by {seat}; "
-                                         f"{vendor} already holds a seat")
+                                    _log(
+                                        f"[4take] ⧉ {result.model} was served by {seat}; "
+                                        f"{vendor} already holds a seat"
+                                    )
                                 freed.append(f"{vendor} already seated")
                             else:
                                 seen_served.add(seat)
                                 seated_vendor[get_model_provider(seat)] = seat
                                 responses.append(result)
                                 if verbose:
-                                    _log(f"[4take] ✓ {result.model} responded ({result.latency_ms / 1000.0:.1f}s)")
+                                    _log(
+                                        f"[4take] ✓ {result.model} responded ({result.latency_ms / 1000.0:.1f}s)"
+                                    )
                                 if progress_callback:
                                     try:
                                         progress_callback(
@@ -563,7 +571,9 @@ async def run_council(
 
                 if seats_filled() >= config.min_responses:
                     if verbose:
-                        _log(f"[4take] ✓ min_responses={config.min_responses} reached, cancelling remaining...")
+                        _log(
+                            f"[4take] ✓ min_responses={config.min_responses} reached, cancelling remaining..."
+                        )
                     break
 
         finally:
@@ -615,8 +625,9 @@ async def run_council(
         return CouncilResult(
             responses=responses,
             errors=errors,
-            warning="; ".join([f"only {len(seen_served)} distinct of {len(all_launched)} models responded",
-                               *notes]),
+            warning="; ".join(
+                [f"only {len(seen_served)} distinct of {len(all_launched)} models responded", *notes]
+            ),
             error=None,
             total_latency_ms=total_latency_ms,
             context=context,
@@ -632,5 +643,3 @@ async def run_council(
             context=context,
             models_asked=len(all_launched),
         )
-
-

@@ -14,6 +14,7 @@ def test_read_stdin_isatty():
             read_stdin()
         assert exc_info.value.code == 1
 
+
 def test_read_stdin_success():
     mock_stdin = MagicMock()
     mock_stdin.isatty.return_value = False
@@ -21,6 +22,7 @@ def test_read_stdin_success():
     with patch("sys.stdin", mock_stdin):
         data = read_stdin()
         assert data == "def foo(): pass"
+
 
 def test_main_version():
     with patch("sys.argv", ["4take", "--version"]):
@@ -30,22 +32,27 @@ def test_main_version():
             assert exc_info.value.code == 0
             assert "4take" in mock_stdout.getvalue()
 
+
 def test_main_empty_stdin():
     with patch("sys.argv", ["4take"]), patch("fourtake.cli.read_stdin", return_value="   "):
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 1
 
+
 def test_main_success():
     with patch("sys.argv", ["4take", "--quiet"]):
         with patch("fourtake.cli.read_stdin", return_value="print('hello')"):
             with patch("fourtake.cli.run_council") as mock_run:
-                mock_run.return_value = CouncilResult(responses=[], errors=[], warning=None, error=None, total_latency_ms=10)
+                mock_run.return_value = CouncilResult(
+                    responses=[], errors=[], warning=None, error=None, total_latency_ms=10
+                )
                 with patch("fourtake.cli.output_result", return_value=0) as mock_output:
                     with pytest.raises(SystemExit) as exc_info:
                         main()
                     assert exc_info.value.code == 0
                     mock_output.assert_called_once()
+
 
 def test_main_keyboard_interrupt():
     with patch("sys.argv", ["4take"]), patch("fourtake.cli.read_stdin", side_effect=KeyboardInterrupt):
@@ -53,14 +60,18 @@ def test_main_keyboard_interrupt():
             main()
         assert exc_info.value.code == 130
 
+
 def test_main_clear_cache():
-    with patch("sys.stdin.isatty", return_value=False), \
-         patch("sys.stdin.read", return_value=""), \
-         patch("sys.argv", ["4take", "--clear-cache"]), \
-         patch("fourtake.cache.clear_cache", return_value=5):
+    with (
+        patch("sys.stdin.isatty", return_value=False),
+        patch("sys.stdin.read", return_value=""),
+        patch("sys.argv", ["4take", "--clear-cache"]),
+        patch("fourtake.cache.clear_cache", return_value=5),
+    ):
         with pytest.raises(SystemExit) as exc:
             main()
         assert exc.value.code == 0
+
 
 def test_main_generic_exception():
     with patch("sys.argv", ["4take"]):
@@ -69,15 +80,17 @@ def test_main_generic_exception():
                 main()
             assert exc_info.value.code == 1
 
+
 def test_init_config_creates_zero_cost_template(tmp_path):
     import json
 
     from fourtake.cli import init_config
+
     with patch("pathlib.Path.home", return_value=tmp_path):
         with pytest.raises(SystemExit) as exc_info:
             init_config()
         assert exc_info.value.code == 0
-        
+
         cfg_file = tmp_path / ".config" / "4take" / "config.json"
         assert cfg_file.exists()
         with open(cfg_file) as f:
@@ -92,6 +105,7 @@ def test_init_config_creates_zero_cost_template(tmp_path):
 
 def test_init_config_already_exists(tmp_path):
     from fourtake.cli import init_config
+
     with patch("pathlib.Path.home", return_value=tmp_path):
         cfg_file = tmp_path / ".config" / "4take" / "config.json"
         cfg_file.parent.mkdir(parents=True, exist_ok=True)
@@ -109,44 +123,56 @@ def test_main_init_config_flag(tmp_path):
 
 
 def test_main_auto_discovery_fallback():
-    with patch("sys.argv", ["4take", "--quiet"]), \
-         patch("fourtake.cli.read_stdin", return_value="print('test')"), \
-         patch("fourtake.discovery.get_best_free_models", return_value=[]), \
-         patch("fourtake.cli.run_council", return_value=CouncilResult([], [], None, None, 0)), \
-         patch("fourtake.cli.output_result", return_value=0):
+    with (
+        patch("sys.argv", ["4take", "--quiet"]),
+        patch("fourtake.cli.read_stdin", return_value="print('test')"),
+        patch("fourtake.discovery.get_best_free_models", return_value=[]),
+        patch("fourtake.cli.run_council", return_value=CouncilResult([], [], None, None, 0)),
+        patch("fourtake.cli.output_result", return_value=0),
+    ):
         with pytest.raises(SystemExit) as exc:
             main()
         assert exc.value.code == 0
 
 
 def test_main_configured_models_invalid_exit():
-    with patch("sys.argv", ["4take", "--models=openrouter/paid-model", "--quiet"]), \
-         patch("fourtake.cli.read_stdin", return_value="print('test')"), \
-         patch("fourtake.discovery.validate_configured_models", return_value=[]):
+    with (
+        patch("sys.argv", ["4take", "--models=openrouter/paid-model", "--quiet"]),
+        patch("fourtake.cli.read_stdin", return_value="print('test')"),
+        patch("fourtake.discovery.validate_configured_models", return_value=[]),
+    ):
         with pytest.raises(SystemExit) as exc:
             main()
         assert exc.value.code == 1
 
 
 def test_main_token_limit_exceeded_all():
-    with patch("sys.argv", ["4take", "--quiet"]), \
-         patch("fourtake.cli.read_stdin", return_value="print('large code')"), \
-         patch("fourtake.cli.estimate_tokens", return_value=999999), \
-         patch("fourtake.discovery.get_best_free_models", return_value=["openrouter/m1:free"]):
+    with (
+        patch("sys.argv", ["4take", "--quiet"]),
+        patch("fourtake.cli.read_stdin", return_value="print('large code')"),
+        patch("fourtake.cli.estimate_tokens", return_value=999999),
+        patch("fourtake.discovery.get_best_free_models", return_value=["openrouter/m1:free"]),
+    ):
         with pytest.raises(SystemExit) as exc:
             main()
         assert exc.value.code == 1
 
 
 def test_main_token_limit_pruning_partial():
-    with patch("sys.argv", ["4take", "--quiet"]), \
-         patch("fourtake.cli.read_stdin", return_value="print('medium code')"), \
-         patch("fourtake.cli.estimate_tokens", return_value=20000), \
-         patch("fourtake.discovery.get_best_free_models", return_value=["openrouter/m1:free", "openrouter/m2:free"]), \
-         patch("fourtake.cli.load_config") as mock_load, \
-         patch("fourtake.cli.run_council", return_value=CouncilResult([], [], None, None, 0)) as mock_run, \
-         patch("fourtake.cli.output_result", return_value=0):
+    with (
+        patch("sys.argv", ["4take", "--quiet"]),
+        patch("fourtake.cli.read_stdin", return_value="print('medium code')"),
+        patch("fourtake.cli.estimate_tokens", return_value=20000),
+        patch(
+            "fourtake.discovery.get_best_free_models",
+            return_value=["openrouter/m1:free", "openrouter/m2:free"],
+        ),
+        patch("fourtake.cli.load_config") as mock_load,
+        patch("fourtake.cli.run_council", return_value=CouncilResult([], [], None, None, 0)) as mock_run,
+        patch("fourtake.cli.output_result", return_value=0),
+    ):
         from fourtake.config import FourtakeConfig, ProviderConfig
+
         mock_load.return_value = FourtakeConfig(
             # A key, because the run now stops before dispatch without one, and this test is
             # about pruning models by context rather than about credentials.
@@ -156,7 +182,7 @@ def test_main_token_limit_pruning_partial():
             min_responses=1,
             timeout=10,
             provider_concurrency={},
-            model_token_limits={"openrouter/m1:free": 10000, "openrouter/m2:free": 50000}
+            model_token_limits={"openrouter/m1:free": 10000, "openrouter/m2:free": 50000},
         )
         with pytest.raises(SystemExit) as exc:
             main()
@@ -175,11 +201,13 @@ def test_read_stdin_truncation():
 
 
 def test_main_configured_models_success():
-    with patch("sys.argv", ["4take", "--models=openrouter/m1:free", "--quiet"]), \
-         patch("fourtake.cli.read_stdin", return_value="print('test')"), \
-         patch("fourtake.discovery.validate_configured_models", return_value=["openrouter/m1:free"]), \
-         patch("fourtake.cli.run_council", return_value=CouncilResult([], [], None, None, 0)) as mock_run, \
-         patch("fourtake.cli.output_result", return_value=0):
+    with (
+        patch("sys.argv", ["4take", "--models=openrouter/m1:free", "--quiet"]),
+        patch("fourtake.cli.read_stdin", return_value="print('test')"),
+        patch("fourtake.discovery.validate_configured_models", return_value=["openrouter/m1:free"]),
+        patch("fourtake.cli.run_council", return_value=CouncilResult([], [], None, None, 0)) as mock_run,
+        patch("fourtake.cli.output_result", return_value=0),
+    ):
         with pytest.raises(SystemExit) as exc:
             main()
         assert exc.value.code == 0
@@ -188,17 +216,16 @@ def test_main_configured_models_success():
 
 def test_cli_dunder_main():
     import runpy
+
     with patch("sys.argv", ["4take", "--version"]), pytest.raises(SystemExit) as exc:
         runpy.run_module("fourtake.cli", run_name="__main__")
     assert exc.value.code == 0
 
 
-
-
-
 # --------------------------------------------------------------------------------------
 # S4.1 / S4.4 — user-visible paths added in the safety sprint
 # --------------------------------------------------------------------------------------
+
 
 def test_cli_reports_how_many_secrets_it_redacted(caplog):
     """A silent redaction that eats real code gives the user no way to notice."""
@@ -206,11 +233,13 @@ def test_cli_reports_how_many_secrets_it_redacted(caplog):
 
     empty = CouncilResult(responses=[], errors=[], warning=None, error=None, total_latency_ms=1)
     argv = ["4take", "--accept-risk"]  # --quiet would suppress INFO, as it should
-    with patch("sys.argv", argv), \
-         patch("fourtake.cli.read_stdin", return_value='DB_PASSWORD=hunter2\nghp_' + "a" * 36), \
-         patch("fourtake.cli.run_council", return_value=empty), \
-         patch("fourtake.cli.output_result", return_value=0), \
-         patch("fourtake.discovery.get_best_free_models", return_value=["openrouter/m:free"]):
+    with (
+        patch("sys.argv", argv),
+        patch("fourtake.cli.read_stdin", return_value="DB_PASSWORD=hunter2\nghp_" + "a" * 36),
+        patch("fourtake.cli.run_council", return_value=empty),
+        patch("fourtake.cli.output_result", return_value=0),
+        patch("fourtake.discovery.get_best_free_models", return_value=["openrouter/m:free"]),
+    ):
         with caplog.at_level("INFO"):
             with pytest.raises(SystemExit):
                 main()
@@ -223,11 +252,13 @@ def test_cli_show_redactions_names_the_rules(caplog):
 
     empty = CouncilResult(responses=[], errors=[], warning=None, error=None, total_latency_ms=1)
     argv = ["4take", "--accept-risk", "--show-redactions"]
-    with patch("sys.argv", argv), \
-         patch("fourtake.cli.read_stdin", return_value="DB_PASSWORD=hunter2"), \
-         patch("fourtake.cli.run_council", return_value=empty), \
-         patch("fourtake.cli.output_result", return_value=0), \
-         patch("fourtake.discovery.get_best_free_models", return_value=["openrouter/m:free"]):
+    with (
+        patch("sys.argv", argv),
+        patch("fourtake.cli.read_stdin", return_value="DB_PASSWORD=hunter2"),
+        patch("fourtake.cli.run_council", return_value=empty),
+        patch("fourtake.cli.output_result", return_value=0),
+        patch("fourtake.discovery.get_best_free_models", return_value=["openrouter/m:free"]),
+    ):
         with caplog.at_level("INFO"):
             with pytest.raises(SystemExit):
                 main()
@@ -239,9 +270,14 @@ def test_cli_config_error_names_the_file_and_exits_1(caplog):
     """A bad config used to surface as a TypeError from deep inside the rate limiter."""
     from fourtake.config import ConfigError
 
-    with patch("sys.argv", ["4take"]), \
-         patch("fourtake.cli.read_stdin", return_value="print(1)"), \
-         patch("fourtake.cli.load_config", side_effect=ConfigError("/tmp/config.json: 'rpm_limit' must be greater than 0, got 0")):
+    with (
+        patch("sys.argv", ["4take"]),
+        patch("fourtake.cli.read_stdin", return_value="print(1)"),
+        patch(
+            "fourtake.cli.load_config",
+            side_effect=ConfigError("/tmp/config.json: 'rpm_limit' must be greater than 0, got 0"),
+        ),
+    ):
         with caplog.at_level("ERROR"):
             with pytest.raises(SystemExit) as exc:
                 main()
@@ -254,6 +290,7 @@ def test_cli_config_error_names_the_file_and_exits_1(caplog):
 # --------------------------------------------------------------------------------------
 # A file with one bad byte is still a file worth reviewing
 # --------------------------------------------------------------------------------------
+
 
 def test_undecodable_input_is_reviewed_rather_than_fatal():
     """
@@ -288,6 +325,7 @@ def test_the_size_cap_is_measured_in_bytes():
 # --------------------------------------------------------------------------------------
 # The config file is where the key lives, and where the first run goes wrong
 # --------------------------------------------------------------------------------------
+
 
 def test_init_config_does_not_leave_the_key_world_readable(monkeypatch, tmp_path):
     """
@@ -331,7 +369,10 @@ def test_a_missing_key_fails_before_a_single_request(key):
 
     config = FourtakeConfig(
         providers={"openrouter": ProviderConfig(url="https://x", api_key=key)},
-        default_models=["auto"], rpm_limit=10, min_responses=4, timeout=30,
+        default_models=["auto"],
+        rpm_limit=10,
+        min_responses=4,
+        timeout=30,
         provider_concurrency={},
     )
     with pytest.raises(SystemExit) as exit_info:
@@ -344,7 +385,10 @@ def test_a_real_key_passes_the_pre_flight_check():
 
     config = FourtakeConfig(
         providers={"openrouter": ProviderConfig(url="https://x", api_key="sk-or-v1-real")},
-        default_models=["auto"], rpm_limit=10, min_responses=4, timeout=30,
+        default_models=["auto"],
+        rpm_limit=10,
+        min_responses=4,
+        timeout=30,
         provider_concurrency={},
     )
     cli.require_api_key(config)  # must not raise
@@ -366,10 +410,12 @@ def test_main_refuses_prose_without_dispatching():
     Four requests spent to produce four copies of NO_ISSUES_FOUND is a worse answer than
     saying the input is not code, so the council must not be reached at all.
     """
-    with patch("sys.argv", ["4take", "--quiet"]), \
-         patch("fourtake.cli.require_api_key"), \
-         patch("fourtake.cli.read_stdin", return_value=_PROSE), \
-         patch("fourtake.cli.run_council") as mock_run:
+    with (
+        patch("sys.argv", ["4take", "--quiet"]),
+        patch("fourtake.cli.require_api_key"),
+        patch("fourtake.cli.read_stdin", return_value=_PROSE),
+        patch("fourtake.cli.run_council") as mock_run,
+    ):
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 1
@@ -377,11 +423,13 @@ def test_main_refuses_prose_without_dispatching():
 
 
 def test_force_review_sends_prose_anyway():
-    with patch("sys.argv", ["4take", "--quiet", "--force-review"]), \
-         patch("fourtake.cli.require_api_key"), \
-         patch("fourtake.cli.read_stdin", return_value=_PROSE), \
-         patch("fourtake.cli.run_council") as mock_run, \
-         patch("fourtake.cli.output_result", return_value=0):
+    with (
+        patch("sys.argv", ["4take", "--quiet", "--force-review"]),
+        patch("fourtake.cli.require_api_key"),
+        patch("fourtake.cli.read_stdin", return_value=_PROSE),
+        patch("fourtake.cli.run_council") as mock_run,
+        patch("fourtake.cli.output_result", return_value=0),
+    ):
         mock_run.return_value = CouncilResult(
             responses=[], errors=[], warning=None, error=None, total_latency_ms=10
         )
@@ -397,11 +445,13 @@ def test_code_is_not_refused():
         "    results = gather(*[fetch(u) for u in urls], return_exceptions=True)\n"
         "    return [r for r in results if r]\n"
     )
-    with patch("sys.argv", ["4take", "--quiet"]), \
-         patch("fourtake.cli.require_api_key"), \
-         patch("fourtake.cli.read_stdin", return_value=code), \
-         patch("fourtake.cli.run_council") as mock_run, \
-         patch("fourtake.cli.output_result", return_value=0):
+    with (
+        patch("sys.argv", ["4take", "--quiet"]),
+        patch("fourtake.cli.require_api_key"),
+        patch("fourtake.cli.read_stdin", return_value=code),
+        patch("fourtake.cli.run_council") as mock_run,
+        patch("fourtake.cli.output_result", return_value=0),
+    ):
         mock_run.return_value = CouncilResult(
             responses=[], errors=[], warning=None, error=None, total_latency_ms=10
         )
@@ -419,11 +469,13 @@ _CHANGED = "def rename(uid):\n    user = find_user(uid)\n    return user.email\n
 
 
 def _run_main(argv, stdin=_CHANGED):
-    with patch("sys.argv", argv), \
-         patch("fourtake.cli.read_stdin", return_value=stdin), \
-         patch("fourtake.discovery.get_best_free_models", return_value=["openrouter/m:free"]), \
-         patch("fourtake.cli.run_council") as mock_run, \
-         patch("fourtake.cli.output_result", return_value=0):
+    with (
+        patch("sys.argv", argv),
+        patch("fourtake.cli.read_stdin", return_value=stdin),
+        patch("fourtake.discovery.get_best_free_models", return_value=["openrouter/m:free"]),
+        patch("fourtake.cli.run_council") as mock_run,
+        patch("fourtake.cli.output_result", return_value=0),
+    ):
         mock_run.return_value = CouncilResult([], [], None, None, 1)
         with pytest.raises(SystemExit) as exc:
             main()
@@ -480,8 +532,16 @@ def test_context_over_the_budget_is_named_and_left_out(tmp_path, monkeypatch, ca
     monkeypatch.chdir(tmp_path)
     (tmp_path / "big.py").write_text("x = 1\n" * 2000)
     (tmp_path / "small.py").write_text("def find_user(uid):\n    return None\n")
-    argv = ["4take", "--quiet", "--context-budget", "60",
-            "--context-file", "big.py", "--context-file", "small.py"]
+    argv = [
+        "4take",
+        "--quiet",
+        "--context-budget",
+        "60",
+        "--context-file",
+        "big.py",
+        "--context-file",
+        "small.py",
+    ]
     with caplog.at_level("WARNING"):
         code, mock_run = _run_main(argv)
     assert code == 0
@@ -503,11 +563,13 @@ def test_dry_run_prints_what_would_be_sent_and_contacts_nothing(tmp_path, monkey
     (tmp_path / "users.py").write_text(
         'API_TOKEN = "ghp_' + "a" * 36 + '"\n\ndef find_user(uid):\n    return None\n'
     )
-    with patch("sys.argv", ["4take", "--dry-run", "--context-file", "users.py"]), \
-         patch("fourtake.cli.read_stdin", return_value=_CHANGED), \
-         patch("fourtake.cli.require_api_key") as mock_key, \
-         patch("fourtake.cli.choose_models") as mock_choose, \
-         patch("fourtake.cli.run_council") as mock_run:
+    with (
+        patch("sys.argv", ["4take", "--dry-run", "--context-file", "users.py"]),
+        patch("fourtake.cli.read_stdin", return_value=_CHANGED),
+        patch("fourtake.cli.require_api_key") as mock_key,
+        patch("fourtake.cli.choose_models") as mock_choose,
+        patch("fourtake.cli.run_council") as mock_run,
+    ):
         with pytest.raises(SystemExit) as exc:
             main()
     assert exc.value.code == 0
@@ -530,8 +592,10 @@ def test_dry_run_as_json_reports_the_context(tmp_path, monkeypatch, capsys):
 
     monkeypatch.chdir(tmp_path)
     (tmp_path / "users.py").write_text("def find_user(uid):\n    return None\n")
-    with patch("sys.argv", ["4take", "--dry-run", "--format", "json", "--context-file", "users.py:1-1"]), \
-         patch("fourtake.cli.read_stdin", return_value=_CHANGED):
+    with (
+        patch("sys.argv", ["4take", "--dry-run", "--format", "json", "--context-file", "users.py:1-1"]),
+        patch("fourtake.cli.read_stdin", return_value=_CHANGED),
+    ):
         with pytest.raises(SystemExit) as exc:
             main()
     assert exc.value.code == 0
@@ -546,13 +610,17 @@ def test_auto_context_chooses_the_callers_of_a_changed_function(tmp_path, monkey
 
     monkeypatch.chdir(tmp_path)
     (tmp_path / "users.py").write_text("def find_user(uid):\n    return None\n")
-    (tmp_path / "api.py").write_text("from users import find_user\n\ndef show(uid):\n    return find_user(uid).email\n")
+    (tmp_path / "api.py").write_text(
+        "from users import find_user\n\ndef show(uid):\n    return find_user(uid).email\n"
+    )
     diff = (
         "--- a/users.py\n+++ b/users.py\n@@ -1,2 +1,2 @@\n def find_user(uid):\n"
         "-    raise LookupError(uid)\n+    return None\n"
     )
-    with patch("sys.argv", ["4take", "--dry-run", "--format", "json", "--auto-context"]), \
-         patch("fourtake.cli.read_stdin", return_value=diff):
+    with (
+        patch("sys.argv", ["4take", "--dry-run", "--format", "json", "--auto-context"]),
+        patch("fourtake.cli.read_stdin", return_value=diff),
+    ):
         with pytest.raises(SystemExit) as exc:
             main()
     assert exc.value.code == 0
@@ -571,10 +639,18 @@ def test_without_auto_context_nothing_is_chosen(tmp_path, monkeypatch):
     assert mock_run.call_args.kwargs["context"] is None
 
 
-@pytest.mark.parametrize("argv", [
-    ["--min-responses", "0"], ["--min-responses=-1"], ["--timeout", "0"], ["--timeout=-5"],
-    ["--per-model-timeout", "0"], ["--per-model-timeout=-1.5"],
-], ids=lambda a: " ".join(a))
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--min-responses", "0"],
+        ["--min-responses=-1"],
+        ["--timeout", "0"],
+        ["--timeout=-5"],
+        ["--per-model-timeout", "0"],
+        ["--per-model-timeout=-1.5"],
+    ],
+    ids=lambda a: " ".join(a),
+)
 def test_counts_and_timeouts_must_be_positive(argv):
     """
     `--min-responses 0` counted a council with no review as a success, and a negative timeout set

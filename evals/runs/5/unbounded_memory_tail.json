@@ -1,0 +1,194 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:20:07.120201Z",
+  "config": {
+    "models_requested": 9,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "a6608e8b3e37",
+    "responses_received": 5,
+    "distinct_models": 4,
+    "responses_failed": 2,
+    "total_latency_ms": 65208,
+    "context": null
+  },
+  "warning": "1 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "RESOURCE_LEAK",
+      "symbol": "lines",
+      "title": "Unbounded memory growth in self.lines",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "CRITICAL": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "INJECTION",
+      "symbol": "__init__",
+      "title": "Unvalidated path passed to open",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 2
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "follow",
+      "title": "Generator suspends inside with, leaking file descriptor",
+      "models": [
+        "apodex/apodex-1.1-mini:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "follow",
+      "title": "Missing exception handling for file operations",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "follow",
+      "title": "File handle may not close on iteration exception",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "lines",
+      "title": "Redundant internal buffer self.lines",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "lines",
+      "title": "Unnecessary state accumulation",
+      "models": [
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [RESOURCE_LEAK] Unbounded memory accumulation in self.lines (at self.lines)\n    - Issue: The `follow` method appends every line read from the file to `self.lines`. If the log file is large or `follow` is invoked repeatedly, the list grows indefinitely, consuming memory proportional to the total data processed and potentially exhausting available RAM.\n    - Fix: Eliminate the unnecessary accumulation (e.g., delete the `self.lines.append(line)` line) if the history is not required, or replace the list with a bounded structure such as `collections.deque(maxlen=N)` to retain only recent lines.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 11611
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [RESOURCE_LEAK] Unbounded memory growth in `self.lines` (at `self.lines.append(line)`)\n  - Issue: Every line is appended to `self.lines` and never evicted. On a large or continuously growing log, memory consumption grows without bound. Calling `follow()` a second time re-reads the file and duplicates all lines in the list.\n  - Fix: Remove `self.lines` unless random access is required; if retention is needed, replace it with a bounded `collections.deque(maxlen=...)` and clear it before each follow.\n\n* [WARNING] [SECURITY] Unvalidated path passed to `open()` (at `with open(self.path) as fh:`)\n  - Issue: If `path` originates from user input, directory traversal sequences (e.g., `../../etc/passwd`) allow reading arbitrary files. No validation or canonicalization is performed.\n  - Fix: Resolve the path with `os.path.realpath`, verify it remains under an allowed directory prefix, and reject escapes before opening.\n\n* [SUGGESTION] [SIMPLICITY] Redundant internal buffer `self.lines` (at `self.lines = []`)\n  - Issue: The list duplicates data already streamed by the generator. Callers who need the full content can collect from the iterator themselves, and the buffer introduces the duplication bug on repeated calls.\n  - Fix: Remove `self.lines` entirely; let callers accumulate if they need history.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16295
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] RESOURCE_LEAK - Unbounded memory growth in LogTail.lines (at LogTail.__init__ and LogTail.follow)\n  - Issue: The `self.lines` list appends every line read without any bounds or cleanup mechanism. When processing large or continuously growing log files, this causes unbounded memory consumption that will eventually exhaust system memory and crash the application.\n  - Fix: Either remove the lines list entirely if not needed, or implement a bounded buffer (e.g., `collections.deque(maxlen=N)`) to limit memory usage.\n\n* [WARNING] ERROR_HANDLING - Missing exception handling for file operations (at LogTail.follow)\n  - Issue: The method lacks error handling for FileNotFoundError, PermissionError, UnicodeDecodeError, and IOError. If the file is deleted, rotated, or becomes unreadable during iteration, the exception propagates unhandled, potentially crashing the caller.\n  - Fix: Wrap file operations in try/except blocks and handle or re-raise with appropriate context.\n\n* [WARNING] LOGIC - File handle may not close on iteration exception (at LogTail.follow)\n  - Issue: If an exception occurs during the `for line in fh` iteration (e.g., file rotation, encoding error), the context manager ensures the file closes, but the generator yields partial state. More critically, if the caller breaks out of the generator early, the file handle remains open until garbage collection.\n  - Fix: Consider using a try/finally pattern or ensure the generator is fully consumed or explicitly closed.\n\n* [SUGGESTION] SIMPLICITY - Unnecessary state accumulation (at LogTail.__init__ and LogTail.follow)\n  - Issue: The `self.lines` list serves no clear purpose in a tailing operation and creates coupling between initialization and iteration. The state grows unboundedly and forces callers to manage memory they may not need.\n  - Fix: Remove `self.lines` entirely if the lines are only needed for yielding, or make it an optional bounded cache with explicit size limits.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 63160
+    },
+    {
+      "model": "openrouter/apodex/apodex-1.1-mini:free",
+      "served_model": "apodex/apodex-1.1-mini:free",
+      "served_provider": "Novita",
+      "content": "\n\n* [WARNING] [LOGIC] LogTail reads from file start instead of end (at `follow`)\n    - Issue: `open(self.path)` defaults to mode 'r' at offset 0. A \"tail\" consumer expects to begin at the end of the file. Any pre-existing log content is re-read on every `follow()` call, duplicating historical data into the stream and `self.lines`. If `follow()` is called twice, the entire existing log is read and appended again, causing quadratic I/O growth relative to call count.\n    - Fix: Seek to the end after opening: `fh.seek(0, 2)`, or persist `self.offset` between calls to resume reading.\n\n* [WARNING] [RESOURCE_LEAK] Generator suspends inside `with`, leaking file descriptor (at `follow`)\n    - Issue: The `with open(...) as fh` block executes before the first `yield`. If `follow()` is used to watch a live file (suspended indefinitely waiting for new lines) or the generator is abandoned without `.close()`, `fh.__exit__` never runs, leaving the file descriptor open until garbage collection. Under sustained load, this exhausts the process file descriptor limit.\n    - Fix: Open the handle outside the generator, or wrap the loop in `try/finally` to ensure `fh.close()` runs on interruption or exhaustion.\n\n* [WARNING] [INJECTION] Unvalidated path passed to open (at `__init__`)\n    - Issue: `self.path` is passed directly to `open()` with no validation. If `path` is derived from user input, `../../` traversal reads arbitrary files, bypassing any intended directory restriction and exposing sensitive system files like `/etc/passwd`. This is an authorization bypass at the filesystem boundary.\n    - Fix: Resolve the path and verify it resides within an allowed root directory before opening, raising if it escapes.\n\n* [WARNING] [LOGIC] Unbounded `self.lines` accumulation (at `__init__`)\n    - Issue: `self.lines` persists across `follow()` calls and grows without limit. Combined with the start-of-file read, repeated calls append duplicate data to the same list, causing memory usage to grow linearly with both log size and call count. This state is opaque to callers and cannot be reset without destroying the instance.\n    - Fix: Remove `self.lines` entirely, or replace it with a bounded `collections.deque(maxlen=N)` to cap retained history.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 18150
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "served_model": "nvidia/nemotron-3.5-lightning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [RESOURCE_LEAK] Unbounded line accumulation in `self.lines` (at `self.lines.append(line)`)\n  - Issue: `self.lines` appends every yielded line without any size limit or purge mechanism. On unbounded or long-running log files, this will exhaust available memory. The generator yields lines indefinitely, but the internal list grows superlinearly relative to actual caller usage, creating a silent resource leak.\n  - Fix: Either drop `self.lines` entirely if not needed, or bound/trim it (e.g., keep only the last N lines, or clear periodically). If retention is required, expose a `max_lines` parameter and enforce it within the loop.\n\n* [WARNING] [PATH_TRAVERSAL] Unvalidated `path` passed to `open()` (at `with open(self.path) as fh`)\n  - Issue: `self.path` is conducted directly to `open()` with no sanitization or validation. If `path` originates from user input or an untrusted source, an attacker can exploit path traversal (e.g., `../../../etc/passwd`) to read arbitrary files on the system.\n  - Fix: Validate `path` against an allowed directory/prefix, or use `os.path.abspath` with a rooted base directory check, or raise on `..` components. At minimum, document and enforce that `path` must be a trusted, absolute path under control of the operator.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 44884
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 2159
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "error": "Upstream provider error: Upstream error from Nvidia: ResourceExhausted: Worker local total request limit reached (16/16)",
+      "latency_ms": 47051
+    }
+  ],
+  "_eval": {
+    "snippet": "unbounded_memory_tail.py",
+    "exit_code": 0,
+    "wall_s": 65.6
+  }
+}

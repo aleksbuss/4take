@@ -90,7 +90,9 @@ def _evict_if_over_budget(cache_dir: Path) -> int:
     return removed
 
 
-def compute_cache_key(task_input: str, model_id: str, system_prompt: str = "", context_digest: str = "") -> str:
+def compute_cache_key(
+    task_input: str, model_id: str, system_prompt: str = "", context_digest: str = ""
+) -> str:
     hasher = hashlib.sha256()
     hasher.update(task_input.strip().encode("utf-8"))
     hasher.update(b"\x00")
@@ -197,4 +199,3 @@ def clear_cache() -> int:
         except OSError:
             pass
     return count
-

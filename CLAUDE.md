@@ -15,7 +15,7 @@ It reviews code. A design question or a plan piped in is refused before any requ
 because the reviewers would all answer `NO_ISSUES_FOUND`. Pass `--force-review` to override.
 
 ## Usage for Claude Code
-Runs on 100% free models (`:free` tier) with zero token expenditure. Never pass `--models` with paid models.
+Runs only on OpenRouter's free models (`:free` tier); a paid model is rejected before any request goes out, so never pass `--models` with one. Free-tier limits apply: roughly 4 to 8 reviews a day on an OpenRouter account that has never been topped up, roughly 80 to 160 once it has.
 
 ```bash
 cat src/module.py | 4take --format json --accept-risk --quiet
@@ -54,6 +54,11 @@ stdout is a JSON object and nothing else (all logs go to stderr). Key fields:
   - `symbol`, `title`, `models`, `severities`
 
 Exit codes: `0` met min-responses, `2` partial (see `warning`), `1` total failure (see `error`).
+
+A large diff can take up to the 600 s timeout and often seats fewer than four reviewers (exit
+code `2`): few free models reason through one to an answer. A partial council is still a review.
+Read `agreement` against `summary.distinct_models`; the shares in step 2 below were measured on
+councils of four.
 
 ## Your role as Synthesizer / Chairman
 1. Read `consensus` first; it is the cross-referencing already done.

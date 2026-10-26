@@ -1,0 +1,146 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:05:15.164786Z",
+  "config": {
+    "models_requested": 10,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "f9e5cc50351d",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 2,
+    "total_latency_ms": 104086,
+    "context": null
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "load_rows",
+      "title": "File descriptor not deterministically closed on error paths",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-s-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "required_columns",
+      "title": "Invalid required_columns type causes unhandled TypeError",
+      "models": [
+        "apodex/apodex-1.1-mini:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "INJECTION",
+      "symbol": "open",
+      "title": "Unvalidated path allows arbitrary file read",
+      "models": [
+        "apodex/apodex-1.1-mini:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [WARNING] [RESOURCE_LEAK] File handle leak on exception (at `fh = open(path, ...)`)\n  - Issue: If `csv.DictReader(fh)` or the list comprehension raises an exception (e.g., I/O error, encoding error), `fh.close()` is never executed, leaking the file descriptor.\n  - Fix: Replace manual `open`/`close` with `with open(path, newline=\"\", encoding=\"utf-8\") as fh:`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8745
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK File handle not guaranteed to close on error (at function load_rows)\n    - Issue: If the column‑validation check raises ValueError or if iterating the reader raises an exception (e.g., csv.Error), the file handle opened with `open()` is never closed, leaking a file descriptor.\n    - Fix: Use a context manager to ensure the handle is closed regardless of how the function exits:\n      ```python\n      def load_rows(path, required_columns):\n          with open(path, newline=\"\", encoding=\"utf-8\") as fh:\n              reader = csv.DictReader(fh)\n              if set(required_columns) - set(reader.fieldnames or []):\n                  raise ValueError(f\"{path} is missing columns\")\n              return [r for r in reader]\n      ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 13455
+    },
+    {
+      "model": "openrouter/apodex/apodex-1.1-mini:free",
+      "served_model": "apodex/apodex-1.1-mini:free",
+      "served_provider": "Novita",
+      "content": "\n\n* [WARNING] [RESOURCE_LEAK] File descriptor not deterministically closed on error paths (at `fh.close()`)\n    - Issue: `fh.close()` is executed only after successful validation and full row iteration. If the column check raises `ValueError` or `csv.DictReader` raises during iteration (malformed CSV, encoding error), the handle is not closed by the function. While CPython may reclaim it via GC, this is non-deterministic; under high call volume or GC-delayed runtimes, file descriptors accumulate and exhaust the process limit.\n    - Fix: Replace manual open/close with `with open(path, newline=\"\", encoding=\"utf-8\") as fh:` to ensure cleanup on every exit path.\n* [WARNING] [INJECTION] Unvalidated path allows arbitrary file read (at `open(path, ...)`)\n    - Issue: `path` is passed directly to `open` without sanitization. If `path` is derived from untrusted input (e.g., API parameter), an attacker can traverse directories (`../../etc/passwd`) or specify absolute paths to read sensitive files outside the intended scope (CWE-22). The `encoding` and `newline` parameters do not restrict the filesystem location.\n    - Fix: Resolve `path` with `os.path.realpath` and assert it starts with the expected allowlisted directory root before opening.\n* [WARNING] [ERROR_HANDLING] Invalid `required_columns` type causes unhandled TypeError (at `set(required_columns)`)\n    - Issue: `set(required_columns)` assumes an iterable. If a caller passes `None` or a non-iterable (e.g., `load_rows(\"f\", 123)`), `set()` raises `TypeError` instead of a descriptive `ValueError`, crashing the caller with a confusing traceback.\n    - Fix: Validate `required_columns` is a collection (e.g., `if not isinstance(required_columns, (list, tuple, set)):`) before constructing the set.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 47451
+    },
+    {
+      "model": "openrouter/poolside/laguna-s-2.1:free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] [RESOURCE_LEAK] File handle not closed on exception path (in `load_rows`)\n  - Issue: `fh` is opened with `open()` but only closed via `fh.close()` on the happy path. If `ValueError` is raised (missing columns) or the list comprehension `[r for r in reader]` raises (malformed CSV row, I/O error), the file descriptor leaks. Each call that hits an error path leaves an open FD, which under repeated failed loads exhausts the process file descriptor limit.\n  - Fix: Use a context manager so the handle is closed regardless of how the block exits:\n    ```python\n    with open(path, newline=\"\", encoding=\"utf-8\") as fh:\n        reader = csv.DictReader(fh)\n        if set(required_columns) - set(reader.fieldnames or []):\n            raise ValueError(f\"{path} is missing columns\")\n        return [r for r in reader]\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 53941
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] RESOURCE_LEAK <File not closed on exception> (at open)\n  - Issue: The file handle fh is closed only after the list comprehension finishes; if a CSV parsing error occurs during iteration, fh.close() is never called, leaving the file descriptor open.\n  - Fix: Use a context manager: with open(path, newline=\"\", encoding=\"utf-8\") as fh: rows = [r for r in csv.DictReader(fh)]\n\n* [WARNING] LOGIC <Missing per-row required column validation> (at load_rows)\n  - Issue: The function only checks that all required columns exist in the header; it does not verify that each row actually contains those columns, so downstream code may receive rows missing required data, causing incorrect results or crashes.\n  - Fix: After reading rows, iterate and verify each row’s keys: for r in rows: missing = required_columns - r.keys(); if missing: raise ValueError(f\"{path} row missing columns {missing}\")\n\n* [SUGGESTION] SIMPLICITY <Unnecessary manual file closing> (at open)\n  - Issue: The explicit fh.close() is redundant when using a context manager and adds boilerplate; the context manager guarantees closure and improves readability.\n  - Fix: Replace the open/close pair with `with open(path, newline=\"\", encoding=\"utf-8\") as fh:` and keep the rest unchanged.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 53321
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
+      "served_model": "nvidia/nemotron-3.5-lightning:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [RESOURCE_LEAK] File descriptor not closed on exception in load_rows (at function load_rows)  \n  - Issue: The function opens the file without a context manager and only closes it on the happy path. If the required‑columns check raises ValueError or if csv iteration raises an exception, `fh.close()` is never executed, leaking the file descriptor. This can cause resource exhaustion when called repeatedly.  \n  - Fix: Replace the open/close pattern with a `with` statement: `with open(path, newline=\"\", encoding=\"utf-8\") as fh:` and remove the explicit `fh.close()`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 91722
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/openrouter/free",
+      "error": "served by an incompatible model (nvidia/nemotron-3.5-content-safety:free)",
+      "latency_ms": 1693
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 50137
+    }
+  ],
+  "_eval": {
+    "snippet": "leak_file_handle.py",
+    "exit_code": 0,
+    "wall_s": 104.4
+  }
+}

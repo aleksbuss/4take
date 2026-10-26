@@ -39,9 +39,7 @@ def _validate_bool(key: str, value: object, path: Path) -> bool:
     # "false" and 0 are the two ways people try to turn a flag off in JSON; both are a
     # mistake worth naming rather than a value worth guessing at.
     if not isinstance(value, bool):
-        raise ConfigError(
-            f"{path}: '{key}' must be true or false, got {type(value).__name__} ({value!r})"
-        )
+        raise ConfigError(f"{path}: '{key}' must be true or false, got {type(value).__name__} ({value!r})")
     return value
 
 
@@ -92,10 +90,12 @@ def validate_file_config(file_config: dict, defaults: dict, path: Path) -> dict:
 
     return _deep_merge(defaults, clean)
 
+
 @dataclass
 class ProviderConfig:
     url: str
     api_key: str | None
+
 
 @dataclass
 class FourtakeConfig:
@@ -111,15 +111,14 @@ class FourtakeConfig:
     telemetry: bool = True
     context_budget_tokens: int = DEFAULT_CONTEXT_BUDGET_TOKENS
 
+
 def load_config(cli_overrides: dict) -> FourtakeConfig:
     config_path = Path.home() / ".config" / "4take" / "config.json"
-    
+
     # Default values
     config_data = {
         "providers": {},
-        "default_models": [
-            "auto"
-        ],
+        "default_models": ["auto"],
         "rpm_limit": 10,
         "min_responses": 4,
         "timeout": 600,
@@ -135,7 +134,7 @@ def load_config(cli_overrides: dict) -> FourtakeConfig:
         "telemetry": True,
         "context_budget_tokens": DEFAULT_CONTEXT_BUDGET_TOKENS,
     }
-    
+
     if config_path.exists():
         try:
             with open(config_path, encoding="utf-8") as f:
@@ -147,10 +146,8 @@ def load_config(cli_overrides: dict) -> FourtakeConfig:
             file_config = None
         if file_config is not None:
             config_data = validate_file_config(file_config, config_data, config_path)
-            
-    DEFAULT_PROVIDERS = {
-        "openrouter": "https://openrouter.ai/api/v1/chat/completions"
-    }
+
+    DEFAULT_PROVIDERS = {"openrouter": "https://openrouter.ai/api/v1/chat/completions"}
 
     providers = {}
     for name, url in DEFAULT_PROVIDERS.items():
@@ -170,25 +167,22 @@ def load_config(cli_overrides: dict) -> FourtakeConfig:
                 if "api_key" in data and not providers[name].api_key:
                     providers[name].api_key = data["api_key"]
             else:
-                providers[name] = ProviderConfig(
-                    url=data.get("url", ""), 
-                    api_key=data.get("api_key")
-                )
-        
+                providers[name] = ProviderConfig(url=data.get("url", ""), api_key=data.get("api_key"))
+
     models_str = cli_overrides.get("models")
     if models_str:
         default_models = [m.strip() for m in models_str.split(",") if m.strip()]
     else:
         default_models = config_data["default_models"]
-        
+
     min_responses = cli_overrides.get("min_responses")
     if min_responses is None:
         min_responses = config_data["min_responses"]
-        
+
     timeout = cli_overrides.get("timeout")
     if timeout is None:
         timeout = config_data.get("timeout", 600)
-        
+
     provider_concurrency = config_data.get("provider_concurrency", {})
 
     return FourtakeConfig(
@@ -199,11 +193,6 @@ def load_config(cli_overrides: dict) -> FourtakeConfig:
         timeout=timeout,
         provider_concurrency=provider_concurrency,
         model_token_limits=config_data.get("model_token_limits", {}),
-        telemetry=(
-            False if cli_overrides.get("no_telemetry") else bool(config_data.get("telemetry", True))
-        ),
-        context_budget_tokens=(
-            cli_overrides.get("context_budget") or config_data["context_budget_tokens"]
-        ),
+        telemetry=(False if cli_overrides.get("no_telemetry") else bool(config_data.get("telemetry", True))),
+        context_budget_tokens=(cli_overrides.get("context_budget") or config_data["context_budget_tokens"]),
     )
-

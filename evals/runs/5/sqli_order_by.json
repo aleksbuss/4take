@@ -1,0 +1,132 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:17:11.803962Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "ab1c71b0456f",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 17674,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "INJECTION",
+      "symbol": "list_orders",
+      "title": "SQL injection via unvalidated ORDER BY clause",
+      "models": [
+        "dots-studio/dots-3-note-preview:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 4,
+        "WARNING": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 2,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": "ALLOWED",
+      "title": "Dead code: ALLOWED unused",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "SUGGESTION": 1
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "fetchall",
+      "title": "Cursor never closed",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "RESOURCE_LEAK",
+      "symbol": "list_orders",
+      "title": "Cursor not closed",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] INJECTION SQL Injection in sort_field and direction parameters (at list_orders function)\n  - Issue: The `sort_field` and `direction` parameters are directly interpolated into the SQL query string via f-string without validation. An attacker can inject arbitrary SQL by passing malicious values like `sort_field=\"id; DROP TABLE orders; --\"` or `direction=\"DESC; SELECT * FROM users; --\"`. The ALLOWED set `{\"created_at\", \"email\"}` is defined but never used, leaving the function completely unprotected.\n  - Fix: Validate both parameters against allowed values before interpolation:\n    ```python\n    ALLOWED_FIELDS = {\"created_at\", \"email\"}\n    ALLOWED_DIRECTIONS = {\"ASC\", \"DESC\"}\n    \n    if sort_field not in ALLOWED_FIELDS:\n        raise ValueError(f\"Invalid sort field: {sort_field}\")\n    if direction.upper() not in ALLOWED_DIRECTIONS:\n        raise ValueError(f\"Invalid direction: {direction}\")\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 8083
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] [LOGIC] Missing validation of sort_field and direction (at list_orders)\n    - Issue: The function directly interpolates user‑supplied sort_field and direction into the SQL string without checking they are safe column names or valid sort directions. Supplying an invalid column name or direction (e.g., sort_field=\"id; DROP TABLE orders\") will cause a SQL syntax error or unexpected behavior, leading to query failures that the caller cannot handle.\n    - Fix: Validate sort_field against a whitelist of allowed columns (e.g., the ALLOWED set) and ensure direction is one of {\"ASC\", \"DESC\"} before using them in the query; raise ValueError on invalid input.\n\n* [WARNING] [RESOURCE_LEAK] Cursor not closed (at list_orders)\n    - Issue: The database cursor opened with conn.cursor() is never closed, leaving the cursor resource open until garbage collection. In long‑running applications or under high load this can exhaust server‑side cursor limits or memory.\n    - Fix: Close the cursor after use, preferably via a context manager: `with conn.cursor() as cur: ...` or explicitly call `cur.close()` before returning.\n\n* [CRITICAL] [INJECTION] SQL injection via sort_field and direction (at list_orders)\n    - Issue: The sort_field and direction parameters are embedded directly into the SQL query using an f‑string, allowing an attacker to inject arbitrary SQL. For example, passing sort_field=\"created_at; DELETE FROM orders WHERE 1=1--\"` would modify the query to delete rows, compromising data integrity.\n    - Fix: Remove the f‑string interpolation and use parameterized queries only for values; for identifiers (column names, direction) validate against a whitelist (as above) and then safely format them into the query string after validation.\n\n* [SUGGESTION] [SIMPLICITY] Unused constant ALLOWED (at top-level)\n    - Issue: The ALLOWED set is defined but never referenced, creating dead code that may mislead future maintainers into thinking it enforces column whitelisting, while the function currently ignores it.\n    - Fix: Either remove the ALLOWED constant if it is not needed, or use it to validate sort_field (and possibly direction) as shown in the LOGIC fix. This eliminates confusion and ensures the constant serves a purpose.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12254
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n* [CRITICAL] [INJECTION] SQL injection via unvalidated `ORDER BY` clause (at `list_orders`)\n    - Issue: `sort_field` and `direction` are interpolated directly into the SQL string via f-string with no validation. The `ALLOWED` set is defined but never checked. An attacker can supply arbitrary SQL, e.g. `sort_field=\"created_at; DROP TABLE orders--\"` or `sort_field=\"(SELECT password FROM users LIMIT 1)\"`, executing arbitrary statements or exfiltrating data through the ORDER BY clause.\n    - Fix: Validate `sort_field` against `ALLOWED` and `direction` against `{\"ASC\", \"DESC\"}` before interpolating, raising on unknown values so no untrusted input reaches the query string.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 13045
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [INJECTION] SQL injection via f-string interpolation (lines 5-6)\n  - Issue: `sort_field` and `direction` are interpolated directly into the SQL string. The `ALLOWED` set is defined but never used, so no validation occurs. An attacker can inject arbitrary SQL (e.g., `sort_field=\"1; DROP TABLE orders--\"`).\n  - Fix: Validate `sort_field in ALLOWED` and `direction.upper() in {\"ASC\", \"DESC\"}` before interpolation, or use library-specific identifier quoting.\n\n* [WARNING] [RESOURCE_LEAK] Cursor never closed (line 4)\n  - Issue: The cursor is created but never closed, leaking database resources on every call and especially if `fetchall()` raises.\n  - Fix: Use `with conn.cursor() as cur:` or ensure `cur.close()` runs in a `finally` block.\n\n* [WARNING] [LOGIC] Dead code: `ALLOWED` unused (line 1)\n  - Issue: `ALLOWED` is defined but never referenced, indicating incomplete validation logic that was intended to prevent the injection above.\n  - Fix: Remove the constant or wire it into the function to validate `sort_field`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 17667
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "sqli_order_by.py",
+    "exit_code": 0,
+    "wall_s": 18.1
+  }
+}

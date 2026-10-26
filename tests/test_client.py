@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from fourtake.client import query_model
+from fourtake.client import REASONING_OUTPUT_TOKENS, query_model, reasoning_budget
 
 
 @pytest.mark.asyncio
@@ -66,6 +66,116 @@ async def test_query_model_reasoning_field_without_content_is_not_a_review():
     assert response.content is None
     assert response.error == "Truncated while reasoning; raise max output tokens"
     assert response.reasoning == "Alternate reasoning field"
+
+
+def _completion(content, finish_reason):
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "choices": [{"message": {"content": content}, "finish_reason": finish_reason}]
+    }
+    response.raise_for_status = lambda: None
+    return response
+
+
+@pytest.mark.asyncio
+async def test_a_reasoning_model_gets_room_to_think_on_top_of_the_answer():
+    """
+    Free reasoning providers (Novita, Cohere, Poolside) ignore the reasoning cap and think
+    until max_tokens runs out. On a budget sized for the answer alone they came back empty:
+    measured, ling and apodex needed 2-7k tokens of thinking on a snippet, 15-26k on a diff.
+    """
+    client = AsyncMock()
+    client.post.side_effect = [_completion("1. [CRITICAL] bug", "stop")]
+
+    response = await query_model(
+        client,
+        "http://dummy",
+        "key",
+        "m",
+        "m",
+        "code",
+        max_tokens=2048,
+        max_output_cap=65536,
+        supports_reasoning=True,
+    )
+
+    assert response.content == "1. [CRITICAL] bug"
+    sent = client.post.call_args_list[0].kwargs["json"]
+    assert sent["max_tokens"] == REASONING_OUTPUT_TOKENS
+    # The cap is still sized on the answer, so a provider that honours it thinks as briefly
+    # as it did when the evals were recorded.
+    assert sent["reasoning"] == {"max_tokens": reasoning_budget(2048), "exclude": True}
+
+
+@pytest.mark.asyncio
+async def test_the_room_to_think_never_exceeds_what_the_model_can_emit():
+    client = AsyncMock()
+    client.post.side_effect = [_completion("1. [CRITICAL] bug", "stop")]
+
+    await query_model(
+        client,
+        "http://dummy",
+        "key",
+        "m",
+        "m",
+        "code",
+        max_tokens=2048,
+        max_output_cap=8192,
+        supports_reasoning=True,
+    )
+
+    assert client.post.call_args_list[0].kwargs["json"]["max_tokens"] == 8192
+
+
+@pytest.mark.asyncio
+async def test_a_reasoning_model_that_thinks_through_the_whole_budget_gives_up_its_seat():
+    """
+    On diffs cohere and laguna-s thought through all 32768 tokens and answered nothing, for
+    5-14 minutes. A bigger budget only prolongs that, and switching reasoning off trades the
+    seat's reasoning for an answer: the seat goes to another model that still reasons.
+    """
+    client = AsyncMock()
+    client.post.side_effect = [_completion("", "length")]
+
+    response = await query_model(
+        client,
+        "http://dummy",
+        "key",
+        "m",
+        "m",
+        "code",
+        max_tokens=2048,
+        max_output_cap=65536,
+        supports_reasoning=True,
+    )
+
+    assert response.content is None
+    assert response.error == "Reasoned through the whole 32768-token budget without answering"
+    assert client.post.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_a_model_without_the_reasoning_parameter_only_gets_the_bigger_budget():
+    client = AsyncMock()
+    client.post.side_effect = [_completion("", "length"), _completion("", "length")]
+
+    response = await query_model(
+        client,
+        "http://dummy",
+        "key",
+        "m",
+        "m",
+        "code",
+        max_tokens=2048,
+        max_output_cap=32768,
+    )
+
+    assert response.error == "Empty response from model"
+    assert client.post.call_count == 2
+    retry = client.post.call_args_list[1].kwargs["json"]
+    assert "reasoning" not in retry
+    assert retry["max_tokens"] == 4096
 
 
 @pytest.mark.asyncio
@@ -157,6 +267,25 @@ async def test_query_model_retry_after():
 
 
 @pytest.mark.asyncio
+async def test_a_rate_limited_provider_is_outlasted_rather_than_given_up_on():
+    """
+    A retry after Poolside's 429 got through in 21-50% of cases, so giving up after four left
+    laguna out of about one council in four. A 5xx keeps the shorter limit.
+    """
+    limited = MagicMock()
+    limited.status_code = 429
+    limited.headers = {}
+    client = AsyncMock()
+    client.post.side_effect = [limited] * 6 + [_completion("1. [WARNING] bug", "stop")]
+
+    with patch("fourtake.client.asyncio.sleep", new=AsyncMock()):
+        response = await query_model(client, "http://dummy", "key", "m", "m", "code")
+
+    assert response.content == "1. [WARNING] bug"
+    assert client.post.call_count == 7
+
+
+@pytest.mark.asyncio
 async def test_query_model_timeout_exception():
     client = AsyncMock()
     client.timeout.read = 10
@@ -234,10 +363,7 @@ async def test_query_model_200_with_error():
         mock_response.status_code = 200
         mock_response.raise_for_status = lambda: None
         mock_response.json.return_value = {
-            "error": {
-                "code": 502,
-                "message": "Upstream error from Nvidia: Service temporarily overloaded"
-            }
+            "error": {"code": 502, "message": "Upstream error from Nvidia: Service temporarily overloaded"}
         }
         client.post.return_value = mock_response
 
@@ -245,7 +371,6 @@ async def test_query_model_200_with_error():
         assert "Upstream provider error" in response.error
         assert "Service temporarily overloaded" in response.error
         assert response.content is None
-
 
 
 def _ok_client():
@@ -261,8 +386,9 @@ def _ok_client():
 @pytest.mark.asyncio
 async def test_reference_context_is_sent_before_the_code_under_review():
     client = _ok_client()
-    await query_model(client, "http://dummy", "key", "m", "m", "x = 1", nonce="n1",
-                      context_block="--- svc.py ---\ny = 2\n")
+    await query_model(
+        client, "http://dummy", "key", "m", "m", "x = 1", nonce="n1", context_block="--- svc.py ---\ny = 2\n"
+    )
     user = client.post.call_args.kwargs["json"]["messages"][1]["content"]
     assert user.index("<reference_context_n1>") < user.index("<code_to_review_n1>")
     assert "--- svc.py ---" in user
@@ -279,8 +405,11 @@ async def test_without_context_the_request_body_is_unchanged():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("error", [httpx.ReadError(""), httpx.RemoteProtocolError(""), httpx.WriteError("")],
-                         ids=["read", "remote-protocol", "write"])
+@pytest.mark.parametrize(
+    "error",
+    [httpx.ReadError(""), httpx.RemoteProtocolError(""), httpx.WriteError("")],
+    ids=["read", "remote-protocol", "write"],
+)
 async def test_a_dropped_connection_is_retried(error):
     """
     A connection dropped mid-exchange is the network, not the model. It was reported at once, and
@@ -289,7 +418,9 @@ async def test_a_dropped_connection_is_retried(error):
     ok = MagicMock()
     ok.status_code = 200
     ok.raise_for_status = lambda: None
-    ok.json.return_value = {"choices": [{"message": {"content": "NO_ISSUES_FOUND: ok"}, "finish_reason": "stop"}]}
+    ok.json.return_value = {
+        "choices": [{"message": {"content": "NO_ISSUES_FOUND: ok"}, "finish_reason": "stop"}]
+    }
     client = AsyncMock()
     client.post.side_effect = [error, ok]
     with patch("asyncio.sleep", new_callable=AsyncMock):

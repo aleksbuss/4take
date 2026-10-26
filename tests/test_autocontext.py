@@ -70,10 +70,7 @@ def test_each_case_selects_its_own_context_and_no_other_cases(case, corpus_repo)
 
 def test_hunks_end_where_their_counts_say():
     """A removed line starting '-- ' and an added one starting '++ ' are lines, not file headers."""
-    diff = (
-        "--- a/q.sql\n+++ b/q.sql\n@@ -1,2 +1,2 @@\n"
-        "--- old comment\n+++ new comment\n SELECT 1;\n"
-    )
+    diff = "--- a/q.sql\n+++ b/q.sql\n@@ -1,2 +1,2 @@\n--- old comment\n+++ new comment\n SELECT 1;\n"
     (change,) = parse_diff(diff)
     assert change.path == "q.sql"
     assert [tag for tag, _, _ in change.body] == ["-", "+", " "]
@@ -90,31 +87,37 @@ def test_anything_but_a_diff_parses_to_nothing():
     assert parse_diff("def f():\n    return 1\n") == []
 
 
-@pytest.mark.parametrize("line, name", [
-    ("def find_user(uid):", "find_user"),
-    ("    async def refresh(self):", "refresh"),
-    ("class RateCounter:", "RateCounter"),
-    ("export async function createUser(input) {", "createUser"),
-    ("const transfer = async (from, to, amount) => {", "transfer"),
-    ("  handle(event) {", "handle"),
-    ("func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {", "ServeHTTP"),
-    ("func main() {", "main"),
-    ("    public User findUser(String id) throws NotFound {", "findUser"),
-    ("    User findUser(String id) {", "findUser"),
-    ("pub fn parse(input: &str) -> Result<Ast> {", "parse"),
-    ("  def self.call(env)", "call"),
-])
+@pytest.mark.parametrize(
+    "line, name",
+    [
+        ("def find_user(uid):", "find_user"),
+        ("    async def refresh(self):", "refresh"),
+        ("class RateCounter:", "RateCounter"),
+        ("export async function createUser(input) {", "createUser"),
+        ("const transfer = async (from, to, amount) => {", "transfer"),
+        ("  handle(event) {", "handle"),
+        ("func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {", "ServeHTTP"),
+        ("func main() {", "main"),
+        ("    public User findUser(String id) throws NotFound {", "findUser"),
+        ("    User findUser(String id) {", "findUser"),
+        ("pub fn parse(input: &str) -> Result<Ast> {", "parse"),
+        ("  def self.call(env)", "call"),
+    ],
+)
 def test_definitions_are_recognised_across_languages(line, name):
     assert defined_name(line) == name
 
 
-@pytest.mark.parametrize("line", [
-    "    return find_user(uid)",
-    "    if (user) {",
-    "  } else if (ready) {",
-    "    await transfer(a, b, 10);",
-    "user = find_user(uid)",
-])
+@pytest.mark.parametrize(
+    "line",
+    [
+        "    return find_user(uid)",
+        "    if (user) {",
+        "  } else if (ready) {",
+        "    await transfer(a, b, 10);",
+        "user = find_user(uid)",
+    ],
+)
 def test_calls_and_control_flow_are_not_definitions(line):
     assert defined_name(line) is None
 
@@ -181,40 +184,52 @@ _FIND_USER_DIFF = (
 
 
 def test_credentials_and_repository_internals_are_never_chosen(tmp_path):
-    root = _repo(tmp_path, {
-        "app/api.py": "from app.users import find_user\n\ndef show(uid):\n    return find_user(uid).email\n",
-        "app/.env": "find_user=sk-live-secret\n",
-        "app/keys/find_user.pem": "find_user\n",
-    })
+    root = _repo(
+        tmp_path,
+        {
+            "app/api.py": "from app.users import find_user\n\ndef show(uid):\n    return find_user(uid).email\n",
+            "app/.env": "find_user=sk-live-secret\n",
+            "app/keys/find_user.pem": "find_user\n",
+        },
+    )
     assert _paths(select(_FIND_USER_DIFF, root)) == ["app/api.py"]
 
 
 def test_a_mention_in_data_a_docstring_or_an_import_is_not_a_use(tmp_path):
-    root = _repo(tmp_path, {
-        "app/recording.json": '{"content": "find_user now returns None"}\n',
-        "app/saved.diff": "+    return find_user(uid)\n",
-        "app/doc.py": 'from app.users import find_user\n\n"""\nfind_user is documented here.\n"""\n',
-        "app/reexport.py": "from app.users import (\n    find_user,\n)\n",
-    })
+    root = _repo(
+        tmp_path,
+        {
+            "app/recording.json": '{"content": "find_user now returns None"}\n',
+            "app/saved.diff": "+    return find_user(uid)\n",
+            "app/doc.py": 'from app.users import find_user\n\n"""\nfind_user is documented here.\n"""\n',
+            "app/reexport.py": "from app.users import (\n    find_user,\n)\n",
+        },
+    )
     assert select(_FIND_USER_DIFF, root) == []
 
 
 def test_a_namesake_in_a_module_that_cannot_see_the_change_is_left_out(tmp_path):
     """Editing users.main says nothing about the `main()` another module defines and calls."""
-    root = _repo(tmp_path, {
-        "app/users.py": "def main():\n    return 2\n",
-        "tools/other.py": "def main():\n    return 1\n\nmain()\n",
-        "tools/runner.py": "from app.users import main\n\nmain()\n",
-    })
+    root = _repo(
+        tmp_path,
+        {
+            "app/users.py": "def main():\n    return 2\n",
+            "tools/other.py": "def main():\n    return 1\n\nmain()\n",
+            "tools/runner.py": "from app.users import main\n\nmain()\n",
+        },
+    )
     diff = "--- a/app/users.py\n+++ b/app/users.py\n@@ -1,2 +1,2 @@\n def main():\n-    return 1\n+    return 2\n"
     assert _paths(select(diff, root)) == ["tools/runner.py"]
 
 
 def test_a_method_called_on_an_object_does_not_pull_in_a_function_of_that_name(tmp_path):
-    root = _repo(tmp_path, {
-        "app/search.py": "def search(query):\n    return []\n",
-        "app/handler.py": "import re\n\ndef handle(text):\n    return re.search(r'x', text)\n",
-    })
+    root = _repo(
+        tmp_path,
+        {
+            "app/search.py": "def search(query):\n    return []\n",
+            "app/handler.py": "import re\n\ndef handle(text):\n    return re.search(r'x', text)\n",
+        },
+    )
     diff = (
         "--- a/app/handler.py\n+++ b/app/handler.py\n@@ -3,2 +3,2 @@\n def handle(text):\n"
         "-    return 1\n+    return re.search(r'x', text)\n"
@@ -231,11 +246,14 @@ def test_a_name_used_everywhere_is_a_word_and_is_not_followed(tmp_path, monkeypa
 
 def test_tests_come_after_the_code_and_the_selection_is_capped(tmp_path, monkeypatch):
     monkeypatch.setattr(autocontext, "MAX_PIECES", 2)
-    root = _repo(tmp_path, {
-        "tests/test_users.py": "from app.users import find_user\n\ndef test_it():\n    find_user(1)\n",
-        "app/api.py": "from app.users import find_user\n\ndef show(uid):\n    return find_user(uid)\n",
-        "app/mailer.py": "from app.users import find_user\n\ndef mail(uid):\n    find_user(uid)\n",
-    })
+    root = _repo(
+        tmp_path,
+        {
+            "tests/test_users.py": "from app.users import find_user\n\ndef test_it():\n    find_user(1)\n",
+            "app/api.py": "from app.users import find_user\n\ndef show(uid):\n    return find_user(uid)\n",
+            "app/mailer.py": "from app.users import find_user\n\ndef mail(uid):\n    find_user(uid)\n",
+        },
+    )
     assert _paths(select(_FIND_USER_DIFF, root)) == ["app/api.py", "app/mailer.py"]
 
 
@@ -251,10 +269,13 @@ def test_input_that_is_not_a_diff_selects_nothing_and_says_so(tmp_path, caplog):
 
 
 def test_auto_pieces_say_why_and_come_after_named_ones(tmp_path):
-    root = _repo(tmp_path, {
-        "app/api.py": "from app.users import find_user\n\ndef show(uid):\n    return find_user(uid).email\n",
-        "app/models.py": "class User:\n    pass\n",
-    })
+    root = _repo(
+        tmp_path,
+        {
+            "app/api.py": "from app.users import find_user\n\ndef show(uid):\n    return find_user(uid).email\n",
+            "app/models.py": "class User:\n    pass\n",
+        },
+    )
     context, _ = assemble(["app/models.py"], 16000, root=root, reviewed=_FIND_USER_DIFF, auto=True)
     assert [p.label for p in context.pieces] == ["app/models.py", "app/api.py"]
     assert context.summary()["auto"] == {"app/api.py": "uses find_user"}
@@ -301,11 +322,17 @@ def test_the_selection_does_not_depend_on_the_hash_seed(tmp_path):
     edited = [f"step_{i}" for i in range(6)]
     module = "".join(f"def {name}(x):\n    return x + {i}\n\n\n" for i, name in enumerate(edited))
     filler = "".join(f"def pad_{i}():\n    return {i}\n\n\n" for i in range(30))
-    callers = "from app.steps import " + ", ".join(edited) + "\n\n\n" + filler + "".join(
-        f"def call_{name}():\n    return {name}(1)\n\n\n" + filler for name in edited
+    callers = (
+        "from app.steps import "
+        + ", ".join(edited)
+        + "\n\n\n"
+        + filler
+        + "".join(f"def call_{name}():\n    return {name}(1)\n\n\n" + filler for name in edited)
     )
     root = _repo(tmp_path, {"app/steps.py": module.replace("x + 0", "x - 0"), "app/flow.py": callers})
-    body = "".join(f" def {name}(x):\n-    return x + {i}\n+    return x - {i}\n \n \n" for i, name in enumerate(edited))
+    body = "".join(
+        f" def {name}(x):\n-    return x + {i}\n+    return x - {i}\n \n \n" for i, name in enumerate(edited)
+    )
     diff = f"--- a/app/steps.py\n+++ b/app/steps.py\n@@ -1,{len(edited) * 4} +1,{len(edited) * 4} @@\n{body}"
     module_after = "".join(f"def {name}(x):\n    return x - {i}\n\n\n" for i, name in enumerate(edited))
     (root / "app/steps.py").write_text(module_after)
@@ -315,8 +342,12 @@ def test_the_selection_does_not_depend_on_the_hash_seed(tmp_path):
     )
     runs = {
         subprocess.run(
-            [sys.executable, "-c", script, str(root)], input=diff, capture_output=True, text=True,
-            env={**os.environ, "PYTHONHASHSEED": str(seed)}, check=True,
+            [sys.executable, "-c", script, str(root)],
+            input=diff,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PYTHONHASHSEED": str(seed)},
+            check=True,
         ).stdout
         for seed in range(4)
     }

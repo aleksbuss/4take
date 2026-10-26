@@ -6,6 +6,7 @@ what it must never contain is asserted as carefully as what it must.
 """
 
 import json
+import time
 from unittest.mock import patch
 
 import pytest
@@ -13,12 +14,21 @@ import pytest
 from fourtake import telemetry
 from fourtake.client import ModelResponse
 from fourtake.discovery import blend_with_observed, evaluate_model_intelligence
-from fourtake.telemetry import MAX_EVENTS, ModelStats, aggregate, clear, record
+from fourtake.telemetry import (
+    MAX_EVENTS,
+    MIN_SAMPLES_FOR_RANKING,
+    REFUSAL_WINDOW_S,
+    ModelStats,
+    aggregate,
+    clear,
+    record,
+)
 
 
 def _ok(model, latency_ms=1000, served=None):
-    return ModelResponse(model=model, content="review", error=None,
-                         latency_ms=latency_ms, served_model=served or model)
+    return ModelResponse(
+        model=model, content="review", error=None, latency_ms=latency_ms, served_model=served or model
+    )
 
 
 def _failed(model, error, latency_ms=90000):
@@ -28,6 +38,7 @@ def _failed(model, error, latency_ms=90000):
 # --------------------------------------------------------------------------------------
 # What is stored, and what must never be
 # --------------------------------------------------------------------------------------
+
 
 def test_the_review_and_the_code_never_reach_the_file(tmp_path):
     path = tmp_path / "stats.json"
@@ -39,8 +50,7 @@ def test_the_review_and_the_code_never_reach_the_file(tmp_path):
     assert "password" not in text
 
     (event, _) = json.loads(text)["events"]
-    assert set(event) == {"model", "served_model", "ok", "latency_ms", "error_code",
-                          "finish_reason", "ts"}
+    assert set(event) == {"model", "served_model", "ok", "latency_ms", "error_code", "finish_reason", "ts"}
 
 
 def test_the_file_is_not_readable_by_other_users(tmp_path):
@@ -49,16 +59,20 @@ def test_the_file_is_not_readable_by_other_users(tmp_path):
     assert oct(path.stat().st_mode & 0o777) == "0o600"
 
 
-@pytest.mark.parametrize("error,expected", [
-    ("Per-model timeout after 90s", "per_model_timeout"),
-    ("Request timed out", "timeout"),
-    ("HTTP 429: rate limit exceeded", "rate_limited"),
-    ("HTTP 503 Service Unavailable", "http_5xx"),
-    ("Provider returned malformed JSON", "malformed_response"),
-    ("connection reset by peer", "connection"),
-    ("something nobody anticipated", "other"),
-    (None, None),
-])
+@pytest.mark.parametrize(
+    "error,expected",
+    [
+        ("Reasoned through the whole 32768-token budget without answering", "reasoning_loop"),
+        ("Per-model timeout after 90s", "per_model_timeout"),
+        ("Request timed out", "timeout"),
+        ("HTTP 429: rate limit exceeded", "rate_limited"),
+        ("HTTP 503 Service Unavailable", "http_5xx"),
+        ("Provider returned malformed JSON", "malformed_response"),
+        ("connection reset by peer", "connection"),
+        ("something nobody anticipated", "other"),
+        (None, None),
+    ],
+)
 def test_error_text_is_reduced_to_a_low_cardinality_code(error, expected):
     """Storing provider prose verbatim would turn a metrics file into someone else's log."""
     assert telemetry._error_code(error) == expected
@@ -104,6 +118,7 @@ def test_the_temporary_file_is_not_left_behind(tmp_path):
 # Aggregation
 # --------------------------------------------------------------------------------------
 
+
 def test_aggregate_separates_success_rate_from_latency(tmp_path):
     path = tmp_path / "stats.json"
     record([_ok("fast:free", 500), _ok("fast:free", 700), _ok("fast:free", 900)], [], path=path)
@@ -120,9 +135,51 @@ def test_aggregate_of_a_missing_file_is_empty(tmp_path):
     assert aggregate(tmp_path / "absent.json") == {}
 
 
+def _refused(model):
+    return _failed(model, "Provider error 429 after 4 retries: Provider returned error", latency_ms=500)
+
+
+def test_a_model_its_provider_refuses_every_time_is_unavailable(tmp_path):
+    """gemma-4-31b: 27 of 27 requests in a week came back 429."""
+    path = tmp_path / "stats.json"
+    record([], [_refused("gone:free")] * MIN_SAMPLES_FOR_RANKING, path=path)
+
+    assert aggregate(path)["gone:free"].unavailable
+
+
+def test_a_rate_limited_model_that_still_answers_sometimes_stays_available(tmp_path):
+    """Poolside: about one 429 retry in three gets through, and laguna is worth the seat."""
+    path = tmp_path / "stats.json"
+    record([], [_refused("busy:free")] * 10, path=path)
+    record([_ok("busy:free")], [], path=path)
+
+    assert not aggregate(path)["busy:free"].unavailable
+
+
+def test_a_model_that_answered_badly_is_not_unavailable(tmp_path):
+    """
+    An empty answer is the model, or 4take's budget, not the provider refusing: laguna-s came
+    back empty 19 times in a week until the reasoning budget was fixed, then answered.
+    """
+    path = tmp_path / "stats.json"
+    record([], [_failed("thinker:free", "Empty response from model")] * 12, path=path)
+    record([], [_refused("thinker:free")] * 9, path=path)
+
+    assert not aggregate(path)["thinker:free"].unavailable
+
+
+def test_refusals_older_than_the_window_are_forgiven(tmp_path):
+    path = tmp_path / "stats.json"
+    record([], [_refused("gone:free")] * 20, path=path)
+
+    later = time.time() + REFUSAL_WINDOW_S + 60
+    assert not aggregate(path, now=later)["gone:free"].unavailable
+
+
 # --------------------------------------------------------------------------------------
 # Ranking: the heuristic is a prior, the measurements are the evidence
 # --------------------------------------------------------------------------------------
+
 
 def test_an_unobserved_model_keeps_its_prior():
     assert blend_with_observed("nvidia/nemotron-3-ultra-550b:free", 65, {}) == 65.0
@@ -168,7 +225,6 @@ def test_telemetry_records_models_with_the_prefix_discovery_omits():
     assert blend_with_observed("vendor/m:free", 65, stats) < 30
 
 
-
 def test_a_cache_hit_is_not_an_observation(tmp_path):
     """
     A cached review made no request. Counting it would credit the model with a 0 ms success
@@ -177,8 +233,14 @@ def test_a_cache_hit_is_not_an_observation(tmp_path):
     """
     path = tmp_path / "stats.json"
     live = _ok("live:free", 1500)
-    cached = ModelResponse(model="cached:free", content="review", error=None, latency_ms=0,
-                           served_model="cached:free", from_cache=True)
+    cached = ModelResponse(
+        model="cached:free",
+        content="review",
+        error=None,
+        latency_ms=0,
+        served_model="cached:free",
+        from_cache=True,
+    )
 
     assert record([live, cached], [], path=path) == 1
     assert set(aggregate(path)) == {"live:free"}

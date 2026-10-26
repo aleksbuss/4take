@@ -1,0 +1,94 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:11:30.171541Z",
+  "config": {
+    "models_requested": 7,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "31daf51b7a6b",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 1,
+    "total_latency_ms": 51579,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "lastNLines",
+      "title": "Off-by-one error in lastNLines returns extra line",
+      "models": [
+        "dots-studio/dots-3-note-preview:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "CRITICAL": 2,
+        "WARNING": 4
+      },
+      "disputed": true
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [LOGIC] Off-by-one in `lastNLines` returns n+1 lines instead of n\n  - `lines.slice(lines.length - n - 1)` includes one extra line before the intended window. For example, with 5 lines and n=2, it returns lines at indices 2,3,4 (3 lines) instead of indices 3,4 (2 lines). Fix: remove the `- 1` → `lines.slice(lines.length - n)`.\n\n* [WARNING] [LOGIC] `truncateWithEllipsis` produces output longer than maxLen when maxLen < 3\n  - If maxLen is 0, 1, or 2, `maxLen - 3` is negative, `slice(0, negative)` returns empty string, and the result is `\"...\"` (3 chars) which exceeds maxLen. Fix: add a guard like `if (maxLen < 3) return \"...\"` or clamp the slice end to 0.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12554
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [WARNING] LOGIC truncateWithEllipsis produces strings longer than maxLen when maxLen < 3 (at truncateWithEllipsis)\n  - Issue: When maxLen is less than 3, the expression `maxLen - 3` becomes negative, causing `slice(0, maxLen - 3)` to return a substring based on `text.length + (maxLen - 3)`. Appending \"...\" then yields a result whose length can exceed maxLen (e.g., text=\"hello\", maxLen=2 returns \"hell...\" of length 7). This violates the function's contract to never exceed maxLen.\n  - Fix: Guard against small maxLen values, e.g., if (maxLen < 3) return text.slice(0, maxLen); or ensure the ellipsis is only added when there is room: const visible = Math.max(0, maxLen - 3); return text.slice(0, visible) + (text.length > maxLen ? \"...\" : \"\");\n\n* [WARNING] LOGIC lastNLines returns n+1 lines instead of the requested n lines due to an off‑by‑one error (at lastNLines)\n  - Issue: The slice start index is computed as `lines.length - n - 1`. This includes one extra line when `lines.length >= n + 1`. For example, with text=\"a\\nb\\nc\" and n=2, the function returns all three lines instead of the last two (\"b\\nc\"). When n exceeds the number of lines, the negative start index yields unpredictable results.\n  - Fix: Use the correct start index for the last n lines: `return lines.slice(Math.max(0, lines.length - n)).join(\"\\n\");`. This safely handles cases where n is larger than the available lines.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12967
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n* [CRITICAL] [LOGIC] Off-by-one error in `lastNLines` returns extra line (at `lastNLines`)\n  - Issue: The slice start index `lines.length - n - 1` causes the function to return `n + 1` lines instead of `n` lines. For example, calling `lastNLines(\"line1\\nline2\\nline3\", 1)` returns `\"line2\\nline3\"` (2 lines) instead of just `\"line3\"`. If `n` is 0, it returns 1 line instead of an empty string. Callers relying on getting exactly the last `n` lines will receive incorrect output.\n  - Fix: Change the slice index to `Math.max(0, lines.length - n)` to correctly extract the last `n` lines: `return lines.slice(Math.max(0, lines.length - n)).join(\"\\n\");`\n\n* [WARNING] [LOGIC] Boundary and comparison flaws in `truncateWithEllipsis` (at `truncateWithEllipsis`)\n  - Issue: The condition `text.length < maxLen` triggers truncation even when `text.length === maxLen`, slicing a string that fits exactly within the limit. Additionally, if `maxLen` is less than 3, `maxLen - 3` is negative, causing `slice` to drop characters from the end and append `\"...\"`, resulting in a string longer than `maxLen` (e.g., `truncateWithEllipsis(\"hello\", 2)` returns `\"hell...\"`, length 7).\n  - Fix: Change the condition to `text.length <= maxLen` and handle small limits: `if (text.length <= maxLen || maxLen <= 3) return text.slice(0, maxLen);` (or handle `maxLen <= 3` by returning `\"...\"` if truncation is needed).",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 49806
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [WARNING] LOGIC lastNLines off-by-one error in slice calculation (at `lastNLines` function)\n  - Issue: The formula `lines.slice(lines.length - n - 1)` returns n+1 lines instead of n. With 5 lines and n=2, it returns 3 lines (indices 2,3,4). The `-1` is incorrect; should be `lines.slice(-n)` or `lines.slice(lines.length - n)`.\n  - Fix: Change to `return lines.slice(-n).join(\"\\n\");`\n\n* [WARNING] LOGIC truncateWithEllipsis fails for maxLen < 3 (at `truncateWithEllipsis` function)\n  - Issue: When maxLen is 0, 1, or 2, `maxLen - 3` is negative, and `text.slice(0, negative)` returns empty string, resulting in \"...\" (3 chars) which exceeds maxLen. For maxLen=2, output is \"...\" (3 chars) violating the length constraint.\n  - Fix: Add guard: `if (maxLen < 3) return text.slice(0, maxLen);` before the ellipsis logic, or handle the edge case in the return statement.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 51574
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "error": "Upstream provider error: Upstream error from Nvidia: ResourceExhausted: Worker local total request limit reached (16/16)",
+      "latency_ms": 48974
+    }
+  ],
+  "_eval": {
+    "snippet": "offbyone_retry_window.js",
+    "exit_code": 0,
+    "wall_s": 52.0
+  }
+}

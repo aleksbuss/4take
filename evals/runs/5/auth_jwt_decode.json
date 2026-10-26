@@ -1,0 +1,198 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T07:52:35.490638Z",
+  "config": {
+    "models_requested": 8,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "70b085ae735b",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 2,
+    "total_latency_ms": 57890,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "AUTH_CRYPTO",
+      "symbol": "decode",
+      "title": "JWT payload decoded without signature verification",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "dots-studio/dots-3-note-preview:free",
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "CRITICAL": 3
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 3,
+      "severity": "CRITICAL",
+      "category": "LOGIC",
+      "symbol": "exp",
+      "title": "Missing exp claim bypasses expiration check",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "dots-studio/dots-3-note-preview:free",
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "CRITICAL": 1,
+        "WARNING": 2
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "authorization",
+      "title": "Non-string Authorization header crashes the handler",
+      "models": [
+        "apodex/apodex-1.1-mini:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "LOGIC",
+      "symbol": null,
+      "title": "Authorization scheme is case-sensitive",
+      "models": [
+        "apodex/apodex-1.1-mini:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "decode",
+      "title": "No try/catch around JWT operations",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": null,
+      "title": "Signing secret not passed as a parameter",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "STRUCTURE",
+      "symbol": "authorization",
+      "title": "Authorization header parsing is fragile",
+      "models": [
+        "dots-studio/dots-3-note-preview:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "currentUser",
+      "title": "Redundant string replace for Bearer prefix",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [AUTH_CRYPTO] JWT signature not verified (line 5)\n  - `jwt.decode(token)` only base64-decodes the token; it does **not** verify the signature. Any caller can forge a token with arbitrary `sub`, `roles`, and `exp` claims, bypassing authorization entirely. The fix is to use `jwt.verify(token, secret)` with the server's signing key, which both validates the signature and checks `exp` automatically.\n  - Fix: Replace `jwt.decode(token)` with `jwt.verify(token, process.env.JWT_SECRET)` (or inject the secret), and remove the manual expiration check since `verify` handles it.\n\n* [WARNING] [ERROR_HANDLING] No try/catch around JWT operations (line 5)\n  - If the token is malformed (e.g., wrong number of segments, invalid base64), `jwt.decode` returns `null` which is handled, but after switching to `jwt.verify`, a malformed token will throw an uncaught exception and crash the request handler.\n  - Fix: Wrap the verify call in try/catch and return `null` on verification failure.\n\n* [WARNING] [LOGIC] Missing `exp` claim passes expiration check silently (line 6)\n  - When `claims.exp` is undefined, `undefined * 1000` evaluates to `NaN`, and `NaN < Date.now()` is always `false`, so a token with no expiration claim is treated as valid. This may be unintended depending on the security policy.\n  - Fix: After switching to `jwt.verify`, this is handled automatically. If keeping `jwt.decode`, explicitly reject tokens lacking `exp`.\n\n* [WARNING] [STRUCTURE] Signing secret not passed as a parameter (line 5)\n  - The function currently has no way to receive the verification key. If this is moved to a shared module, the secret will likely be pulled from a global or env var, making testing harder and coupling the function to environment configuration.\n  - Fix: Accept the secret as a parameter: `currentUser(req, secret)` or a config object.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 5820
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [AUTH_CRYPTO] Missing token signature verification (at currentUser)\n  - Issue: The function uses jwt.decode which only decodes the payload without verifying the signature. An attacker can craft a token with arbitrary claims (e.g., elevating roles) and it will be accepted as valid.\n  - Fix: Replace jwt.decode with jwt.verify, supplying the secret or public key, and handle the verification error by returning null.\n\n* [LOGIC] Accepts token lacking exp claim (at currentUser)\n  - Issue: If the token does not contain an exp claim, claims.exp is undefined, making claims.exp * 1000 NaN; the NaN < Date.now() evaluation is false, so the function treats the token as valid and returns a user. This allows tokens without expiration to be used indefinitely.\n  - Fix: Add an explicit check for the presence and validity of exp: if (!claims || typeof claims.exp !== 'number' || claims.exp * 1000 < Date.now()) return null;.\n\n* [SIMPLICITY] Redundant string replace for Bearer prefix (at currentUser)\n  - Issue: The replace call only removes the first occurrence of \"Bearer \" and is case‑sensitive, requiring callers to match exact casing and spacing. This couples the function to a specific header format and forces callers to adjust if the auth scheme varies.\n  - Fix: Extract the token by splitting on whitespace and taking the second part, or use a case‑insensitive regex: const match = req.headers.authorization?.match(/^Bearer\\s+(.+)$/i); const token = match ? match[1]: '';. This handles multiple spaces and different casing in one place.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 11212
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": "AtlasCloud",
+      "content": "\n\n**CRITICAL** find first:\n\n* [CRITICAL] [AUTH_CRYPTO] JWT signature verification bypass via `jwt.decode()` (at `jwt.decode(token)`)\n    - Issue: `jwt.decode()` performs base64 decoding of the payload without verifying the cryptographic signature. Any attacker can craft a JWT with arbitrary claims — including `sub`, `roles`, and a far-future `exp` — and `currentUser()` will accept it as authentic. This completely defeats the purpose of JWT-based authentication. An attacker who can observe a valid token (or even guess a user ID) can mint an admin token.\n    - Fix: Replace `jwt.decode(token)` with `jwt.verify(token, SECRET_KEY)` (using the application's configured secret/key) so the library validates the signature, `exp`, `iss`, and `aud` before returning claims. Handle the `JsonWebTokenError` thrown on invalid tokens.\n\n* [WARNING] [LOGIC] Missing `exp` claim yields `NaN` comparison, never-expiring tokens (at `claims.exp * 1000 < Date.now()`)\n    - Issue: If a token omits the `exp` claim, `claims.exp` is `undefined`, so `undefined * 1000` evaluates to `NaN`. The comparison `NaN < Date.now()` is always `false`, so the token passes the expiry check regardless of age. Combined with the signature bug above, an attacker can forge tokens without `exp` that are accepted forever. Even with proper verification, a missing `exp` would be treated as \"never expires\".\n    - Fix: Explicitly check `if (!claims.exp || claims.exp * 1000 < Date.now()) return null;` so tokens lacking an expiration are rejected (or treated according to a defined policy).\n\n* [SUGGESTION] [STRUCTURE] Authorization header parsing is fragile (at `req.headers.authorization` handling)\n    - Issue: Using `.replace(\"Bearer \", \"\")` performs a string substitution anywhere in the header value rather than validating the scheme prefix. A header like `\"Token Bearer xyz\"` becomes `\"Token xyz\"`, and `\"Bearer Bearer xyz\"` becomes `\"Bearer xyz\"` — both malformed but not cleanly rejected. There is no trimming or case-sensitivity handling either.\n    - Fix: Parse the header explicitly: `const [scheme, value] = (req.headers.authorization || \"\").split(\" \"); if (scheme !== \"Bearer\" || !value) return null; const token = value;`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 23601
+    },
+    {
+      "model": "openrouter/apodex/apodex-1.1-mini:free",
+      "served_model": "apodex/apodex-1.1-mini:free",
+      "served_provider": "Novita",
+      "content": "\n\n* [CRITICAL] [AUTH_CRYPTO] JWT payload decoded without signature verification (at `jwt.decode`)\n  - Issue: `jwt.decode` parses the JSON payload but never validates the signature or algorithm. An attacker can craft an unsigned token with arbitrary `sub` and `roles` claims; `currentUser` will return them as an authenticated user. This is a complete authentication bypass.\n  - Fix: Replace with `jwt.verify(token, secret, { algorithms: ['HS256'] })` wrapped in a try/catch that returns `null` on failure to preserve the existing contract.\n\n* [CRITICAL] [LOGIC] Missing `exp` claim bypasses expiration check (at `claims.exp * 1000`)\n  - Issue: If the token lacks `exp`, `claims.exp * 1000` evaluates to `NaN`. Since `NaN < Date.now()` is always `false`, the expiration guard passes and the token is treated as valid indefinitely. Even with signature verification added, a token without `exp` never expires.\n  - Fix: Validate `claims.exp != null` before comparing, or enforce expiration strictly via `jwt.verify` options and reject tokens missing `exp`.\n\n* [WARNING] [ERROR_HANDLING] Non-string Authorization header crashes the handler (at `.replace`)\n  - Issue: Assumes `req.headers.authorization` is a string. If the transport returns an array (common with some proxies/load balancers) or a non-string type, `.replace` throws a TypeError, crashing the request instead of returning `null`.\n  - Fix: Normalize before string ops: `const auth = Array.isArray(v) ? v[0] : v; if (typeof auth !== 'string') return null;`\n\n* [WARNING] [LOGIC] Authorization scheme is case-sensitive (at `.replace(\"Bearer \", \"\")`)\n  - Issue: RFC 7235 defines the scheme as case-insensitive. A valid `authorization: \"bearer <token>\"` header fails to strip the scheme, leaving \"bearer <token>\" passed to `jwt.decode`, which returns `null` and denies a valid user.\n  - Fix: Use a case-insensitive regex: `token.replace(/^Bearer\\s+/i, \"\")`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15547
+    }
+  ],
+  "errors": [
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "error": "Provider error 429 after 4 retries: Provider returned error",
+      "latency_ms": 39175
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "error": "Upstream provider error: Upstream error from Nvidia: ResourceExhausted: Worker local total request limit reached (16/16)",
+      "latency_ms": 42333
+    }
+  ],
+  "_eval": {
+    "snippet": "auth_jwt_decode.js",
+    "exit_code": 0,
+    "wall_s": 58.4
+  }
+}

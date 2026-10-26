@@ -1,0 +1,119 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:09:09.910144Z",
+  "config": {
+    "models_requested": 6,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "99c9b53936e4",
+    "responses_received": 4,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 63064,
+    "context": null
+  },
+  "warning": null,
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "fetchProfile",
+      "title": "Missing response validation and null guards",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 1,
+        "CRITICAL": 3
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 4,
+      "severity": "WARNING",
+      "category": "INJECTION",
+      "symbol": "fetchProfile",
+      "title": "Missing URL encoding of path parameter",
+      "models": [
+        "cohere/north-mini-code:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 4
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "ERROR_HANDLING",
+      "symbol": "fetchProfile",
+      "title": "Unhandled async errors",
+      "models": [
+        "inclusionai/ling-3.0-flash-sante:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <Missing profile fields cause runtime error> (at fetchProfile)\n    - Issue: If the response JSON lacks a `profile` object or `displayName` property, the code throws TypeError when accessing `body.profile.displayName.trim()` or `body.profile.avatarUrl`, crashing the caller on otherwise valid input.\n    - Fix: Add defensive checks, e.g. `const profile = body.profile ?? {}; const name = (profile.displayName ?? '').trim(); const avatar = profile.avatarUrl ?? '/static/default.png';`.\n\n* [WARNING] INJECTION <Unencoded user id in URL path enables path traversal> (at fetchProfile)\n    - Issue: The `id` parameter is interpolated directly into the request path without encoding. An attacker supplying `id` like `../admin` results in a GET to `/users/../admin` → `/admin`, potentially accessing unintended endpoints or leaking data.\n    - Fix: Encode the segment: `const res = await client.get(`/users/${encodeURIComponent(id)}`);`.\n\n\n\n* [CRITICAL] LOGIC <Missing profile fields cause runtime error> (at fetchProfile)\n    - Issue: If the response JSON lacks a `profile` object or `displayName` property, the code throws TypeError when accessing `body.profile.displayName.trim()` or `body.profile.avatarUrl`, crashing the caller on otherwise valid input.\n    - Fix: Add defensive checks, e.g. `const profile = body.profile ?? {}; const name = (profile.displayName ?? '').trim(); const avatar = profile.avatarUrl ?? '/static/default.png';`.\n\n* [WARNING] INJECTION <Unencoded user id in URL path enables path traversal> (at fetchProfile)\n    - Issue: The `id` parameter is interpolated directly into the request path without encoding. An attacker supplying `id` like `../admin` results in a GET to `/users/../admin` → `/admin`, potentially accessing unintended endpoints or leaking data.\n    - Fix: Encode the segment: `const res = await client.get(`/users/${encodeURIComponent(id)}`);`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12727
+    },
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] ERROR_HANDLING Missing response validation and null guards (in fetchProfile)\n  - Issue: No check on `res.ok`; a 404/500 response still proceeds to `body.profile.displayName`, crashing with TypeError if `profile` or `displayName` is missing. Also, `displayName.trim()` throws if the value is not a string.\n  - Fix: Verify `res.ok`, then guard `body?.profile?.displayName` before calling `.trim()`.\n\n* [WARNING] INJECTION Path traversal via unsanitized `id` (in fetchProfile)\n  - Issue: `id` is interpolated directly into the URL path. A value like `../admin` produces `/users/../admin`, which may resolve to `/admin` depending on the HTTP client, bypassing intended user-scoped access.\n  - Fix: Validate `id` against a strict allow-list pattern (e.g., `^[0-9a-f-]+$`) before building the URL.\n\n* [WARNING] ERROR_HANDLING Unhandled async errors (in fetchProfile)\n  - Issue: Network failures, invalid JSON, or unexpected exceptions are not caught, resulting in unhandled promise rejections that crash the process or leave callers with no error context.\n  - Fix: Wrap the body in `try/catch` and throw a domain-specific error or return a fallback.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 15981
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] ERROR_HANDLING Missing null/undefined check before calling .trim() (at fetchProfile function body)\n  - Issue: `body.profile.displayName` may be null or undefined. Calling `.trim()` on null/undefined throws TypeError, crashing the caller. Example: API returns `{profile: {displayName: null}}` or `{profile: {}}`\n  - Fix: Add null coalescing: `name: (body.profile?.displayName || \"\").trim()`\n\n* [CRITICAL] ERROR_HANDLING Missing HTTP response status validation (at fetchProfile function body)\n  - Issue: Code processes response body without checking `res.ok` or `res.status`. Non-2xx responses (404, 500) may have malformed bodies, causing TypeError when accessing `body.profile`. Example: Server returns 404 with `{error: \"Not found\"}`\n  - Fix: Add status check: `if (!res.ok) throw new Error(\\`HTTP ${res.status}\\`);`\n\n* [WARNING] INJECTION Unvalidated id parameter in URL path (at fetchProfile function call)\n  - Issue: `id` is directly interpolated into URL without sanitization. Malicious input like `../admin` or encoded characters could manipulate the request path. Example: `id = \"../admin\"` produces `/users/../admin` potentially accessing unintended resources\n  - Fix: Validate id format: `if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error(\"Invalid id\");`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16789
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": "Cohere",
+      "content": "* [WARNING] ERROR_HANDLING Missing response validation and error handling (at fetchProfile)\n  - Issue: The function assumes the API always returns a JSON object with a profile property containing displayName and avatarUrl. If the response lacks profile (e.g., {error: \"not found\"}) or profile is null, accessing body.profile.displayName throws a TypeError, crashing the caller. Similarly, non‑2xx HTTP status codes are not checked, so error responses are treated as data.\n  - Fix: Validate the response before using it:\n    ```js\n    if (!res.ok) throw new Error(`HTTP ${res.status}`);\n    const body = await res.json();\n    if (!body?.profile) throw new Error('Invalid profile response');\n    const { displayName, avatarUrl } = body.profile;\n    return {\n      name: (displayName ?? '').trim(),\n      avatar: avatarUrl || \"/static/default.png\",\n    };\n    ```\n\n* [WARNING] INJECTION Missing URL encoding of path parameter (at fetchProfile)\n  - Issue: The id argument is directly interpolated into the URL template `/users/${id}`. If client.get performs naive string concatenation, an id like \"../../etc/passwd\" could escape the intended path segment, potentially exposing sensitive files or causing unexpected requests.\n  - Fix: Ensure the id is safely encoded before interpolation, e.g.:\n    ```js\n    const encodedId = encodeURIComponent(id);\n    const res = await client.get(`/users/${encodedId}`);\n    ```",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 63057
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "none_json_response.js",
+    "exit_code": 0,
+    "wall_s": 63.5
+  }
+}

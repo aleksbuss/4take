@@ -10,20 +10,23 @@ from fourtake.rate_limiter import PersistentTokenBucket
 async def test_persistent_token_bucket(tmp_path):
     bucket = PersistentTokenBucket(rpm=60)
     bucket.state_file = tmp_path / "bucket.json"
-    
+
     with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
         await bucket.acquire(1)
         assert mock_sleep.call_count == 0
+
 
 @pytest.mark.asyncio
 async def test_persistent_token_bucket_win32(tmp_path):
     import sys
     from unittest.mock import MagicMock
+
     bucket = PersistentTokenBucket(rpm=60)
     bucket.state_file = tmp_path / "bucket.json"
-    
+
     with patch.object(sys, "platform", "win32"):
         import sys as sys_mod
+
         sys_mod.modules["msvcrt"] = MagicMock()
         try:
             with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
@@ -32,15 +35,18 @@ async def test_persistent_token_bucket_win32(tmp_path):
         finally:
             del sys_mod.modules["msvcrt"]
 
+
 @pytest.mark.asyncio
 async def test_persistent_token_bucket_win32_lock_fail(tmp_path):
     import sys
     from unittest.mock import MagicMock
+
     bucket = PersistentTokenBucket(rpm=60)
     bucket.state_file = tmp_path / "bucket.json"
-    
+
     with patch.object(sys, "platform", "win32"):
         import sys as sys_mod
+
         msvcrt_mock = MagicMock()
         msvcrt_mock.locking.side_effect = OSError("Lock failed")
         sys_mod.modules["msvcrt"] = msvcrt_mock
@@ -50,38 +56,43 @@ async def test_persistent_token_bucket_win32_lock_fail(tmp_path):
         finally:
             del sys_mod.modules["msvcrt"]
 
+
 @pytest.mark.asyncio
 async def test_persistent_token_bucket_unix_lock_fail(tmp_path):
     bucket = PersistentTokenBucket(rpm=60)
     bucket.state_file = tmp_path / "bucket.json"
-    
+
     with patch("fcntl.flock", side_effect=OSError("Lock failed")), patch("time.sleep"):
         with pytest.raises(TimeoutError):
             await bucket.acquire(1)
+
 
 @pytest.mark.asyncio
 async def test_persistent_token_bucket_corrupt_state(tmp_path):
     bucket = PersistentTokenBucket(rpm=60)
     bucket.state_file = tmp_path / "bucket.json"
-    
+
     # Empty file
     bucket.state_file.write_text("")
     await bucket.acquire(1)
-    
+
     # Corrupt file
     bucket.state_file.write_text("{bad json")
     await bucket.acquire(1)
-    
+
+
 @pytest.mark.asyncio
 async def test_persistent_token_bucket_time_travel(tmp_path):
     bucket = PersistentTokenBucket(rpm=60)
     bucket.state_file = tmp_path / "bucket.json"
-    
+
     # Write future time
     import json
+
     bucket.state_file.write_text(json.dumps({"tokens": 10, "last_update": time.time() + 1000, "rpm": 60}))
-    
+
     await bucket.acquire(1)
+
 
 @pytest.mark.asyncio
 async def test_persistent_token_bucket_waits_once_the_burst_is_spent(tmp_path):
@@ -94,6 +105,7 @@ async def test_persistent_token_bucket_waits_once_the_burst_is_spent(tmp_path):
         assert mock_sleep.call_count == 0
         await bucket.acquire(1)
         assert mock_sleep.call_count == 1
+
 
 def test_release_lock_sync_error_handling():
     import sys
@@ -109,9 +121,12 @@ def test_release_lock_sync_error_handling():
             _release_lock_sync(999)
 
     # 2. unix release with OSError
-    with patch("sys.platform", "darwin"), patch("os.close"), patch("fcntl.flock", side_effect=OSError("Flock error")):
+    with (
+        patch("sys.platform", "darwin"),
+        patch("os.close"),
+        patch("fcntl.flock", side_effect=OSError("Flock error")),
+    ):
         _release_lock_sync(999)
-
 
 
 def test_state_file_is_not_world_readable(tmp_path):

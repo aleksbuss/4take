@@ -1,8 +1,10 @@
 try:
     import tiktoken
+
     HAS_TIKTOKEN = True
 except ImportError:
     HAS_TIKTOKEN = False
+
 
 def estimate_tokens(text: str) -> int:
     """
@@ -15,8 +17,7 @@ def estimate_tokens(text: str) -> int:
             enc = tiktoken.get_encoding("cl100k_base")
             return len(enc.encode(text, allowed_special="all"))
         except Exception:
-            pass # Fallback to naive if encoding fails
-    
+            pass  # Fallback to naive if encoding fails
+
     # Naive fallback
     return max(1, len(text) // 4)
-

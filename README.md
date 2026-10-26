@@ -3,13 +3,13 @@
 <div align="center">
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-yellow.svg)](LICENSE)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-yellow.svg)](https://github.com/aleksbuss/4take/blob/main/LICENSE)
 [![FastMCP](https://img.shields.io/badge/FastMCP-Ready-6366f1?style=flat&logo=fastapi&logoColor=white)](https://modelcontextprotocol.io/)
 [![Powered by OpenRouter](https://img.shields.io/badge/API-OpenRouter-000000?style=flat&logo=openai&logoColor=white)](https://openrouter.ai/)
 [![CI Status](https://github.com/aleksbuss/4take/actions/workflows/ci.yml/badge.svg)](https://github.com/aleksbuss/4take/actions)
 [![Linted with Ruff](https://img.shields.io/badge/linting-ruff-D7FF64.svg)](https://github.com/astral-sh/ruff)
 
-**Universal Multi-Model AI Council for Code Reviews & Architecture Decisions.**  
+**Multi-Model AI Council for Code Review.**  
 *Get 4 independent AI opinions on your code via OpenRouter in one command.*
 
 [⚡ 30-Second Quickstart](#-30-second-quickstart) •
@@ -21,6 +21,15 @@
 [📊 OpenRouter Limits Guide](#-openrouter-free-tier--rate-limits)
 
 </div>
+
+> **What is free, what is paid.** 4take is source-available under the
+> [Business Source License 1.1](https://github.com/aleksbuss/4take/blob/main/LICENSE); the license text decides.
+>
+> | | |
+> | :--- | :--- |
+> | **Free to use** | A person using it for their own work, paid or unpaid. A solo developer working alone, as long as it does not run on a client's machines or accounts and no client requires or pays for it. Volunteer projects whose code is public under an OSI-approved license ([details](#-license)). |
+> | **Paid** | Organizations: companies, public bodies, universities and non-profits, after a 30-day evaluation. Commercial license: takelicensing@gmail.com. |
+> | **Models** | Only OpenRouter's free (`:free`) models. Free has limits: roughly 4 to 8 reviews a day on an OpenRouter account that has never been topped up, roughly 80 to 160 once it has ([limits](#-openrouter-free-tier--rate-limits)). |
 
 ---
 
@@ -67,6 +76,8 @@ git diff --cached | 4take
 
 `4take` is built for **AI Coding Agents** (Claude Code, Cursor, Antigravity IDE, Windsurf, Cline, Roo Code, Codex). It provides agents with a native "Council of LLMs" to audit their code in parallel before presenting it to the user.
 
+Whether the council improves what a given coding agent ships has not been measured. The eval below scores the council against single reviewers on a fixed corpus, and the one test with a frontier model as the primary (20 bugs) found no gain. The [ROADMAP](https://github.com/aleksbuss/4take/blob/main/ROADMAP.md) lists what is planned.
+
 ```text
                        ┌─────────────────────────┐
                        │    AI Coding Agent      │
@@ -81,7 +92,7 @@ git diff --cached | 4take
                                     │
        ┌────────────────────────────┼────────────────────────────┐
        ▼                            ▼                            ▼
-  Model 1 (Nemotron)           Model 2 (Gemma)             Model 3 (Llama)
+  Model 1 (Nemotron)           Model 2 (Laguna)            Model 3 (Cohere)
   (Flags Race Condition)      (Flags Race Condition)       (Suggests Type Hint)
        └────────────────────────────┬────────────────────────────┘
                                     │ 2. Synthesizes consensus
@@ -173,7 +184,7 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
 
 ```json
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "timestamp": "2026-08-16T14:20:00Z",
   "summary": {
     "task_hash": "25d297f773c3",
@@ -204,7 +215,7 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
       "latency_ms": 1150
     },
     {
-      "model": "openrouter/meta-llama/llama-3.3-70b-instruct",
+      "model": "openrouter/poolside/laguna-s-2.1:free",
       "content": "### Security & Performance\n1. Use parameterized query for user_id...",
       "latency_ms": 1420
     }
@@ -237,11 +248,21 @@ it shadows, and does not count towards `agreement`. It never takes a seat, even 
 vendor answers in time: the council then reports fewer seats (exit code `2`, and `warning`
 says how many), and no spare is launched from a vendor that already holds one.
 
+A review lasts as long as the council waits for its seats. Most free models reason before they
+answer, and each gets up to 32768 tokens to do it in, so a short file is usually reviewed in about
+a minute, while a large diff can take up to `--timeout` (600 s). On a large diff some models
+reason without ever reaching an answer and lose their seat at the per-model timeout, and only
+three or four free vendors reliably finish one, so the council often seats fewer than four
+reviewers (exit code `2`). Measured on 8 real diffs of 3.5–29 KB, each run twice on 8 October:
+8 of the 16 councils seated four reviewers, 5 seated three and 3 seated one or two; the median
+council took about 8½ minutes, and 6 ran to the 600 s limit. On the 28 short snippets of the eval
+corpus the median was about 50 s, and 27 of 28 councils seated four.
+
 ### Ready-to-Use Agent Configuration Files:
-- **Universal Agent Instructions**: [`AGENTS.md`](AGENTS.md)
-- **Claude Code**: [`CLAUDE.md`](CLAUDE.md)
-- **Antigravity Skill**: [`SKILL.md`](SKILL.md)
-- **Machine Summary**: [`llms.txt`](llms.txt)
+- **Universal Agent Instructions**: [`AGENTS.md`](https://github.com/aleksbuss/4take/blob/main/AGENTS.md)
+- **Claude Code**: [`CLAUDE.md`](https://github.com/aleksbuss/4take/blob/main/CLAUDE.md)
+- **Antigravity Skill**: [`SKILL.md`](https://github.com/aleksbuss/4take/blob/main/SKILL.md)
+- **Machine Summary**: [`llms.txt`](https://github.com/aleksbuss/4take/blob/main/llms.txt)
 
 ---
 
@@ -252,7 +273,7 @@ says how many), and no spare is launched from a vendor that already holds one.
 - 🔎 **Four Review Axes**: Correctness, security, structure and simplicity — not just defects. Every structural finding has to name its cost, so the breadth does not become a flood of taste.
 - 🤝 **Consensus Grouping**: Findings several models raised independently are grouped and ranked by how many raised them, so the cross-referencing is done for you rather than left in four parallel reviews.
 - 🔄 **Fault-Tolerant Dynamic Rotation**: If a model hits a rate limit (HTTP 429) or fails, the engine seamlessly rotates in replacement candidates from a pre-ranked 12-model pool with exponential backoff.
-- 🆓 **Zero-Token-Cost Guarantee**: Strictly 100% free multi-model council using OpenRouter's free-tier pool (Nemotron 120B/550B, Llama 3.3 70B:free, Gemma 4:free, Laguna:free, Qwen:free). Never spends your paid tokens or credits.
+- 🆓 **Free Models Only**: Requests go only to OpenRouter's free (`:free`) models, and a paid model is rejected before anything is sent. Free has limits: roughly 4 to 8 reviews a day on an account that has never been topped up, roughly 80 to 160 once it has ([details](#-openrouter-free-tier--rate-limits)).
 - 🛡️ **Zero-Config Privacy & Secret Redaction**: Automatically scrubs API keys, passwords, and authorization tokens before sending payloads over the wire.
 - 🚦 **Cross-Process Rate Limiter**: Shared file-locked token bucket ensures concurrent terminal sessions or background agents never trigger rate limit bans.
 - 🎨 **Rich Terminal UI & JSON Output**: Beautiful ANSI Markdown rendering in terminal, plus `--format json` for automated scripts & CI pipelines.
@@ -368,8 +389,8 @@ below still describe it.
 │                                                                             │
 │  1. Safety Sanitizer      — Redact secrets & sensitive credentials          │
 │  2. Token Estimator       — tiktoken context verification                   │
-│  3. Model Auto-Discovery  — Heuristic scoring (70B+, Llama 3, Qwen 2.5...)  │
-│  4. Zero-Cost Guard       — Hard check: strictly zero-cost free models only  │
+│  3. Model Auto-Discovery  — Heuristic prior, then measured success rate     │
+│  4. Free-Model Guard      — Hard check: only :free models, paid refused     │
 │  5. Token Bucket Limiter  — Shared cross-process rate governor              │
 │  6. Async Parallel Pool   — Query N models concurrently                     │
 │  7. Dynamic Rotation      — Auto-swap failing models on HTTP 429 / errors   │
@@ -382,8 +403,8 @@ below still describe it.
                                      │
            ┌─────────────────────────┼─────────────────────────┐
            ▼                         ▼                         ▼
-   NVIDIA Nemotron              Google Gemma              Meta Llama 3
-   (120B / 550B:free)           (26B / 31B:free)          (70B:free)
+   NVIDIA Nemotron              Poolside Laguna           Cohere North
+   (120B / 550B:free)           (S / XS:free)             (mini-code:free)
                                      │
                                      ▼
                    ┌───────────────────────────────────┐
@@ -410,7 +431,7 @@ gh pr diff 42 | 4take
 ### 3. Use Custom Free Models from OpenRouter
 
 ```bash
-4take --models="meta-llama/llama-3.3-70b-instruct:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-ultra-550b-a55b:free,poolside/laguna-s-2.1:free"
+4take --models="nvidia/nemotron-3-super-120b-a12b:free,poolside/laguna-xs-2.1:free,cohere/north-mini-code:free,dots-studio/dots-3-note-preview:free"
 ```
 
 ### 4. Output as JSON for Automation
@@ -528,12 +549,19 @@ model cannot stall it, and every retry after a 429 and every replacement for a f
 more request. On recorded runs a review took 6 requests when the pool was quiet and a median of
 11 to 12 on a busy day, when about half of them failed:
 
-- **Free (Unfunded) Account**: OpenRouter limits free usage to **50 requests per day**, about
-  **4 to 8 reviews** a day.
-- **Funded Account ($10+ lifetime balance)**: OpenRouter expands free model limits to **1,000
-  requests per day**, about **80 to 160 reviews** a day.
+- **An account that has never been topped up**: OpenRouter limits free-model use to **50 requests
+  per day**: about **4 reviews** on a busy day, up to **8** on a quiet one.
+- **An account that has been topped up with $10 or more at least once**: the limit rises to **1,000
+  requests per day**: about **80 reviews** on a busy day, up to **160** on a quiet one.
 
-If any model encounters an HTTP 429 rate limit, `4take` automatically applies exponential backoff with jitter and rotates in candidate models from its 12-model backup pool. The 429s come from the free pool's global load, not from your own usage, so a quiet hour is the best way to get full councils.
+OpenRouter sets these limits and can change them. They are why 4take is free to run but not
+unlimited.
+
+If a model hits an HTTP 429 rate limit, `4take` retries it up to eight times with exponential
+backoff and jitter, then rotates in a candidate from its 12-model backup pool. A model whose
+provider refused every request of the last 72 hours is left out of the pool until those refusals
+age out. The 429s come from the free pool's global load, not from your own usage, so a quiet hour
+is the best way to get full councils.
 
 ---
 
@@ -547,6 +575,12 @@ If any model encounters an HTTP 429 rate limit, `4take` automatically applies ex
   `token = await fetchToken()`, `password: string` — is left alone, so the council reviews the
   code as written. It is a safety net, not a guarantee: `--dry-run` shows exactly what would be sent.
 - **Privacy Warning Banner**: Alerts users when code leaves local machine (silence with `--accept-risk` or `export FOURTAKE_ACCEPT_RISK=1`).
+- **Free endpoints are run by third parties.** Your code goes to OpenRouter and from there to
+  whichever provider serves the free model. Providers set their own policies, and some may retain
+  prompts or train on them. OpenRouter has account privacy settings for this, separate for free and
+  paid models: check them, and the provider's terms, before you send code you cannot share.
+  `--dry-run` shows exactly what would be sent. On first use `tiktoken` may also download its
+  tokenizer vocabulary from its default host; no code is sent there.
 - **Context Length Safeguard**: Estimates input size with `tiktoken` and checks it against each
   model's real context window from the OpenRouter catalog, reserving room for the reply.
 - **Reference Context Guard**: Context files are read only from under the project root, after
@@ -721,7 +755,7 @@ Read it with its limits:
 
 ## 📄 License
 
-4take is source-available under the [Business Source License 1.1](LICENSE). The license text
+4take is source-available under the [Business Source License 1.1](https://github.com/aleksbuss/4take/blob/main/LICENSE). The license text
 decides; this is what it says in plain words:
 
 - **Free for you.** A person using 4take for their own work, paid or unpaid, may use it in full,
@@ -729,7 +763,7 @@ decides; this is what it says in plain words:
   no company with staff under their control), in their own name or through a company only they
   own: on software they own, and for clients, as long as it does not run on the client's machines
   or accounts and the client does not ask for it, require it or pay for it.
-- **Free for volunteer open-source projects**, in their CI and accounts: public code under an
+- **Free for volunteer projects**, in their CI and accounts: public code under an
   OSI-approved license, not owned or controlled by any organization other than a non-profit that
   stewards open source, and not sold or the basis of anything sold by its owners, its maintainers
   or an organization paying people to maintain it. Donations, sponsorship and grants do not make a
@@ -743,8 +777,7 @@ decides; this is what it says in plain words:
   itself.
 - **No hosted service.** Offering 4take or what it does to others as a hosted or managed service
   is not covered by any of the free grants.
-- **Every version becomes open source.** Each version converts to the Apache License 2.0 four
-  years after it is first published.
+- **Every version converts to the Apache License 2.0** four years after it is first published.
 
 For a commercial license, write to takelicensing@gmail.com. The code is open to read, change and
 redistribute under the same terms. A pull request can only be merged once its author agrees that

@@ -1,0 +1,136 @@
+{
+  "version": "0.2.0",
+  "timestamp": "2026-10-08T08:10:00.363814Z",
+  "config": {
+    "models_requested": 8,
+    "min_responses": 4,
+    "timeout_seconds": 600,
+    "strict": false
+  },
+  "summary": {
+    "task_hash": "0b3562ca01c9",
+    "responses_received": 6,
+    "distinct_models": 4,
+    "responses_failed": 0,
+    "total_latency_ms": 48039,
+    "context": null
+  },
+  "warning": "2 response(s) came from an already-seated model or vendor",
+  "error": null,
+  "consensus": [
+    {
+      "agreement": 4,
+      "severity": "CRITICAL",
+      "category": "ERROR_HANDLING",
+      "symbol": "primary_email",
+      "title": "Missing null/empty checks on record, contacts, and contact entries",
+      "models": [
+        "apodex/apodex-1.1-mini:free",
+        "inclusionai/ling-3.0-flash-sante:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "poolside/laguna-xs-2.1:free"
+      ],
+      "severities": {
+        "WARNING": 2,
+        "CRITICAL": 3
+      },
+      "disputed": true
+    },
+    {
+      "agreement": 1,
+      "severity": "WARNING",
+      "category": "STRUCTURE",
+      "symbol": "primary_email",
+      "title": "Logic scattered across loop and fallback",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "WARNING": 1
+      },
+      "disputed": false
+    },
+    {
+      "agreement": 1,
+      "severity": "SUGGESTION",
+      "category": "SIMPLICITY",
+      "symbol": "primary_email",
+      "title": "Manual loop where a generator expression with next suffices",
+      "models": [
+        "nvidia/nemotron-3-super-120b-a12b:free"
+      ],
+      "severities": {
+        "SUGGESTION": 1
+      },
+      "disputed": false
+    }
+  ],
+  "responses": [
+    {
+      "model": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+      "served_model": "inclusionai/ling-3.0-flash-sante:free",
+      "served_provider": "Novita",
+      "content": "* [CRITICAL] [ERROR_HANDLING] Missing null/empty checks on record, contacts, and contact entries (primary_email)\n  - Issue: If `directory.get(user_id)` returns None (unknown user), `record.get(\"contacts\")` raises AttributeError. If \"contacts\" key is missing, `contacts` is None and the for-loop raises TypeError. If contacts is an empty list, `contacts[0]` raises IndexError. Any of these are triggered by valid-looking input (a missing user or empty contacts list).\n  - Fix: Add guards: `if not record or not contacts: return None` (or raise a specific error) before the loop, and handle the no-primary-found case explicitly.\n\n* [WARNING] [ERROR_HANDLING] KeyError on missing \"address\" key in contact dict (primary_email)\n  - Issue: Both `c[\"address\"]` and `contacts[0][\"address\"]` will raise KeyError if the contact dict lacks an \"address\" key. This is a valid data shape the caller cannot reason about without try/except.\n  - Fix: Use `c.get(\"address\")` and check for None, or validate contact structure before access.\n\n* [WARNING] [ERROR_HANDLING] Silent fallback to first contact when no primary is set (primary_email)\n  - Issue: When no contact has `\"primary\": True`, the function silently returns `contacts[0][\"address\"]`. This may be unexpected — a caller asking for the \"primary\" email may want to know that none was designated, especially if the first contact is a non-email entry (e.g., a legacy or duplicate record).\n  - Fix: Return None or raise when no primary contact exists, or make the fallback explicit and documented.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 4339
+    },
+    {
+      "model": "openrouter/poolside/laguna-xs-2.1:free",
+      "served_model": "poolside/laguna-xs-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] CORRECTNESS - AttributeError on missing user_id (at `record.get(\"contacts\")`)\n    - Issue: If `user_id` is not present in `directory`, `directory.get(user_id)` returns `None`. Calling `.get(\"contacts\")` on `None` raises `AttributeError: 'NoneType' object has no attribute 'get'`. This crashes on a valid scenario where the user doesn't exist.\n    - Fix: Add null check: `record = directory.get(user_id); if not record: return None`\n\n* [CRITICAL] CORRECTNESS - IndexError/TypeError on empty or None contacts (at `for c in contacts` and `contacts[0][\"address\"]`)\n    - Issue: If `contacts` is `None`, the `for` loop raises `TypeError`. If `contacts` is an empty list `[]`, the loop does nothing and `contacts[0]` raises `IndexError`. Both occur when a user exists but has no contacts, a valid data state.\n    - Fix: Validate contacts: `if not contacts: return None`\n\n* [CRITICAL] CORRECTNESS - KeyError on missing address field (at `c[\"address\"]`)\n    - Issue: If a contact dictionary lacks the \"address\" key, `c[\"address\"]` raises `KeyError`. This crashes when contact data is incomplete, violating the function's implicit contract.\n    - Fix: Use safe access: `return c.get(\"address\")` or validate presence before access",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 11183
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC <AttributeError when user_id missing> (at primary_email)\n    - Issue: If `directory.get(user_id)` returns `None` (user not found), the subsequent `record.get(\"contacts\")` raises `AttributeError: 'NoneType' object has no attribute 'get'`.\n    - Fix: Add a guard: `record = directory.get(user_id); if record is None: return None` (or raise an appropriate error).\n\n* [CRITICAL] LOGIC <TypeError when contacts is None or non‑iterable> (at primary_email)\n    - Issue: `record.get(\"contacts\")` may return `None` or a non‑iterable value, causing the `for c in contacts:` loop to raise `TypeError: 'NoneType' object is not iterable`.\n    - Fix: Ensure `contacts` is a list: `contacts = record.get(\"contacts\") or []`.\n\n* [CRITICAL] LOGIC <IndexError when contacts list is empty> (at primary_email)\n    - Issue: When `contacts` is an empty list, the fallback `return contacts[0][\"address\"]` raises `IndexError: list index out of range`.\n    - Fix: Check emptiness before indexing: `if contacts: return contacts[0][\"address\"]; else: return None`.\n\n* [CRITICAL] LOGIC <KeyError when contact lacks \"address\"> (at primary_email)\n    - Issue: A contact dict may have `\"primary\": True` but miss the `\"address\"` key, causing `c[\"address\"]` to raise `KeyError`.\n    - Fix: Use `c.get(\"address\")` and handle missing values, e.g., `addr = c.get(\"address\"); if addr: return addr`.\n\n* [WARNING] STRUCTURE <Logic scattered across loop and fallback> (at primary_email)\n    - Issue: The function mixes searching for a primary contact and selecting a fallback in a single block, making it harder to reuse the search logic elsewhere (e.g., another function needing just the primary address).\n    - Fix: Extract a helper: `def _first_primary(contacts): return next((c.get(\"address\") for c in contacts if c.get(\"primary\")), None)` and call it, then handle the fallback.\n\n* [SUGGESTION] SIMPLICITY <Manual loop where a generator expression with `next` suffices> (at primary_email)\n    - Issue: The explicit `for` loop and manual return can be replaced with a single `next` call, reducing lines and making the intent clearer.\n    - Fix: Replace the loop with `primary = next((c.get(\"address\") for c in contacts if c.get(\"primary\")), None); if primary: return primary`. (Still need guards for missing/empty contacts as above.)",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 14805
+    },
+    {
+      "model": "openrouter/apodex/apodex-1.1-mini:free",
+      "served_model": "apodex/apodex-1.1-mini:free",
+      "served_provider": "Novita",
+      "content": "\n\n* [WARNING] [ERROR_HANDLING] Crash on missing user record (at `primary_email`, `record`)\n  - Issue: `directory.get(user_id)` returns `None` if `user_id` is absent. The subsequent `record.get(\"contacts\")` call raises `AttributeError` on `None`. Concrete scenario: a lookup for a deleted or non-existent user crashes the calling service with an unhandled exception rather than returning `None` or raising a domain-specific error. This also leaks internal traceback details in logs.\n  - Fix: `record = directory.get(user_id)`; `if record is None: return None`.\n\n* [WARNING] [ERROR_HANDLING] Crash on missing or empty contacts (at `primary_email`, `contacts`)\n  - Issue: `record.get(\"contacts\")` returns `None` if the key is missing, causing `TypeError` when iterating. Even if the key exists, an empty list `[]` passes the loop and hits the fallback `contacts[0][\"address\"]`, raising `IndexError`. Concrete scenario: a user record with no contacts field or an empty contacts list crashes the function instead of returning a safe default.\n  - Fix: `contacts = record.get(\"contacts\") or []`.\n\n* [WARNING] [ERROR_HANDLING] Crash on missing address field (at `primary_email`, `c[\"address\"]`)\n  - Issue: `c[\"address\"]` and the fallback `contacts[0][\"address\"]` use direct indexing. A contact record missing the `address` key raises `KeyError`. Concrete scenario: a malformed contact entry (e.g., `{\"primary\": true}` without an address) crashes the function, violating the return contract and corrupting the caller's expectation of a string or `None`.\n  - Fix: `c.get(\"address\")` and `contacts[0].get(\"address\")`.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 16554
+    },
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "poolside/laguna-s-2.1:free",
+      "served_provider": "Poolside",
+      "content": "* [CRITICAL] [BOUNDS] `primary_email` crashes on empty contacts list (at `primary_email`)\n  - Issue: When `record.get(\"contacts\")` returns an empty list, the `for` loop body never executes, and execution falls through to `return contacts[0][\"address\"]`. Indexing an empty list raises `IndexError`, crashing the caller. This is a silent failure on valid input — a user record with no contacts is a legitimate state, not an error condition that should propagate as an unhandled exception.\n  - Fix: Add an explicit guard before the loop: `if not contacts: return None` (or raise a domain-specific exception). This makes the empty-contacts case a defined return value rather than an unhandled crash.\n\n* [WARNING] [ERROR_HANDLING] `primary_email` swallows missing `record` and missing `primary` key (at `primary_email`)\n  - Issue: `directory.get(user_id)` returns `None` when `user_id` is absent, and the subsequent `record.get(\"contacts\")` then raises `AttributeError` on `None`. Similarly, `c.get(\"primary\")` returns `None` (falsy) for contacts lacking the key, which is handled, but the function provides no signal that the lookup failed. A caller cannot distinguish \"user not found\" from \"user found but no primary email\" — both either crash or return a fallback address that may not exist.\n  - Fix: Validate `record` is not `None` and raise or return a sentinel (e.g., `return None`) explicitly. Consider returning `None` for both \"no record\" and \"no contacts\" cases so callers can handle absence uniformly.\n\n* [WARNING] [BOUNDS] `primary_email` assumes `contacts[0]` has an `\"address\"` key (at `primary_email`)\n  - Issue: The fallback `return contacts[0][\"address\"]` uses direct key access. If the first contact dict lacks an `\"address\"` key, this raises `KeyError`. The loop above uses `.get()` for `\"primary\"` but not for `\"address\"`, creating an inconsistency: the primary path is defensive, the fallback path is not.\n  - Fix: Use `contacts[0].get(\"address\")` in the fallback, or validate that every contact has an `\"address\"` key before relying on it.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "poolside/laguna-xs-2.1:free",
+      "latency_ms": 11309
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": "Nvidia",
+      "content": "* [CRITICAL] LOGIC primary_email Null pointer dereference (at primary_email)\n  - Issue: If directory.get(user_id) returns None, contacts = None, then contacts[0] raises IndexError; also empty contacts list or missing \"address\" key cause IndexError/KeyError, leading to crashes on valid input.\n  - Fix:\n    if not record:\n        raise ValueError(\"User not found\")\n    contacts = record.get(\"contacts\")\n    if not contacts:\n        raise ValueError(\"No contacts\")\n    for c in contacts:\n        if c.get(\"primary\"):\n            return c.get(\"address\")\n    raise ValueError(\"No primary email\")",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": "nvidia/nemotron-3-super-120b-a12b:free",
+      "latency_ms": 31474
+    }
+  ],
+  "errors": [],
+  "_eval": {
+    "snippet": "none_lookup_chain.py",
+    "exit_code": 0,
+    "wall_s": 48.5
+  }
+}

@@ -104,7 +104,8 @@ def build_system_prompt(nonce: str | None = None, with_context: bool = False) ->
         CONTEXT_RULES_TEMPLATE.format(
             tag=code_tag(nonce), ctx_tag=context_tag(nonce), after_change=AFTER_CHANGE_NOTE
         )
-        if with_context else ""
+        if with_context
+        else ""
     )
     return REVIEWER_SYSTEM_PROMPT_TEMPLATE.format(
         tag=code_tag(nonce), categories=CATEGORY_LIST, context_rules=rules

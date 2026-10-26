@@ -19,11 +19,8 @@ jobs:
         # `evals/corpus` is excluded in pyproject: it is deliberately defective code.
         run: uvx ruff@0.16.6 check src tests evals
 
-      # `ruff format --check` is deliberately not a gate yet: applying the formatter touches
-      # 29 files and ~1500 lines, which belongs in its own commit rather than mixed into
-      # review-bearing changes. Enable this step in the same commit that lands the reformat.
-      # - name: Format
-      #   run: uvx ruff@0.16.6 format --check src tests
+      - name: Format
+        run: uvx ruff@0.16.6 format --check src tests
 
   commit-messages:
     runs-on: ubuntu-latest
@@ -89,3 +86,11 @@ jobs:
             echo "expected 4take-mcp to exit non-zero without the extra"; exit 1
           fi
           grep -q "4take\[mcp\]" /tmp/mcp.err
+
+      # uv.lock pins mcp 1.28.1, so the test job cannot notice a newer release that removes what
+      # the server imports (mcp 2.0 renamed FastMCP). Installing the wheel with its extra
+      # resolves fresh, the way `pip install '4take[mcp]'` does.
+      - name: Verify the MCP extra resolves to a version the server can import
+        run: |
+          VIRTUAL_ENV=/tmp/verify uv pip install "$(ls dist/*.whl)[mcp]"
+          /tmp/verify/bin/python -c "import fourtake.mcp_server"
