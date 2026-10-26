@@ -18,7 +18,13 @@ from .context import ContextError, ReviewContext, assemble
 from .engine import run_council
 from .input_kind import looks_like_code
 from .output import output_result
-from .preflight import CONFIG_KEY_PLACEHOLDER, NoUsableModels, choose_models, missing_api_key
+from .preflight import (
+    CONFIG_KEY_PLACEHOLDER,
+    NoUsableModels,
+    choose_models,
+    free_limit_problem,
+    missing_api_key,
+)
 from .prompts import build_system_prompt, new_review_nonce, wrap_input
 from .safety import redact_secrets_with_report
 from .tokenizer import estimate_tokens
@@ -536,6 +542,11 @@ def main() -> None:
             print(render_dry_run(task_input, review_context, getattr(args, "format", "text")))
             sys.exit(0)
 
+        limit_problem = asyncio.run(free_limit_problem(config))
+        if limit_problem:
+            logger.error(f"Error: {limit_problem}")
+            sys.exit(1)
+
         review_tokens = estimate_tokens(task_input)
         estimated_tokens = review_tokens + (review_context.tokens if review_context is not None else 0)
 
@@ -598,6 +609,11 @@ def main() -> None:
             from .telemetry import record
 
             record(result.responses, result.errors)
+
+        if result.error and not result.responses:
+            # The text report lists failures per model; the reason a review never happened belongs
+            # on stderr too, where it is seen when stdout goes to a file.
+            logger.error(f"Error: {result.error}")
 
         exit_code = output_result(
             result,

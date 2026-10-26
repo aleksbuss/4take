@@ -10,7 +10,7 @@ from .context import ContextError, assemble
 from .engine import distinct_seats, run_council
 from .findings import Consensus, build_consensus
 from .input_kind import looks_like_code
-from .preflight import NoUsableModels, choose_models, missing_api_key
+from .preflight import NoUsableModels, choose_models, free_limit_problem, missing_api_key
 from .safety import redact_secrets
 from .tokenizer import estimate_tokens
 
@@ -193,6 +193,10 @@ async def get_4take_opinion(
                     )
         except Exception:
             pass  # Ignore progress errors to not crash the main tool
+
+    limit_problem = await free_limit_problem(config)
+    if limit_problem:
+        return _refused(limit_problem)
 
     review_tokens = estimate_tokens(sanitized_code)
     total_tokens = review_tokens + (review_context.tokens if review_context is not None else 0)

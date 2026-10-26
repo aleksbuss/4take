@@ -12,9 +12,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import httpx
+
 from . import discovery
 from .config import FourtakeConfig
 from .engine import MAX_OUTPUT_TOKENS_CEILING, PROMPT_OVERHEAD_TOKENS, filter_models_by_context
+from .quota import daily_limit_message, fetch_free_quota, is_openrouter_url
 
 # How many models are seated when the pool is discovered rather than configured.
 COUNCIL_SIZE = 4
@@ -42,6 +45,26 @@ def missing_api_key(config: FourtakeConfig) -> str | None:
         f"the OpenRouter API key {what}. Run `4take --set-key` to paste it once and save it "
         f"(keys are free at https://openrouter.ai/keys), or set OPENROUTER_API_KEY in the environment."
     )
+
+
+async def free_limit_problem(config: FourtakeConfig) -> str | None:
+    """
+    Why no review can start because OpenRouter's free-model allowance for today is spent, or None.
+
+    One free read of the key's own counter before the council is built. When the allowance is gone
+    every request answers 429 and the council would wait for ten minutes to say so unhelpfully; this
+    says it at once, with the hour it resets and what lifts it. Unknown reads as fine: a missing
+    counter, a refused key or no network never stop a review.
+    """
+    provider = config.providers.get("openrouter")
+    key = (provider.api_key or "").strip() if provider else ""
+    if not key or not is_openrouter_url(provider.url):
+        return None
+    async with httpx.AsyncClient() as client:
+        quota = await fetch_free_quota(client, key)
+    if quota is not None and quota.remaining <= 0:
+        return daily_limit_message(quota)
+    return None
 
 
 class NoUsableModels(Exception):

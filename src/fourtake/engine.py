@@ -20,6 +20,7 @@ from .prompts import (
     build_system_prompt,
     new_review_nonce,
 )
+from .quota import QuotaGuard, is_openrouter_url
 from .rate_limiter import PersistentTokenBucket
 from .tokenizer import estimate_tokens
 
@@ -314,8 +315,12 @@ async def run_council(
     }
 
     deadline = start_time + config.timeout
+    guard: QuotaGuard | None = None
 
     async with httpx.AsyncClient(limits=limits, timeout=timeout, headers=headers) as client:
+        openrouter = config.providers.get("openrouter")
+        if openrouter is not None and openrouter.api_key and is_openrouter_url(openrouter.url):
+            guard = QuotaGuard(client, openrouter.api_key)
         semaphores = {name: asyncio.Semaphore(limit) for name, limit in config.provider_concurrency.items()}
         # A provider without a configured cap is held to what the council plans to have in flight:
         # rotation replaces a finished model, so no more than `planned_launch` ever run at once.
@@ -377,6 +382,7 @@ async def run_council(
                         deadline=deadline,
                         acquire_token=_acquire_slot,
                         context_block=context_block,
+                        quota_guard=guard if resolved.provider_name == "openrouter" else None,
                     ),
                     timeout=per_model_timeout,
                 )
@@ -409,6 +415,7 @@ async def run_council(
 
         task_to_model: dict[asyncio.Task, str] = {}
         pending: set[asyncio.Task] = set()
+        limit_announced = False
 
         for m in initial_models:
             t = asyncio.create_task(wrapped_query(m), name=f"4take-{m}")
@@ -555,6 +562,10 @@ async def run_council(
                                         )
                                     except Exception:
                                         pass
+                        elif guard is not None and result.error == guard.message:
+                            # The day's allowance is spent. Said once below, not once per model, and
+                            # no spare is launched: it would meet the same answer.
+                            pass
                         else:
                             errors.append(result)
                             if verbose:
@@ -565,6 +576,17 @@ async def run_council(
                         err_resp = ModelResponse(model=model_id, content=None, error=str(e), latency_ms=0)
                         errors.append(err_resp)
                         freed.append(f"replacing {model_id}")
+
+                if guard is not None and guard.tripped:
+                    # Requests OpenRouter already accepted still return answers, so they are waited
+                    # for; what stops is everything new, since a spare would meet the same 429.
+                    if verbose and not limit_announced:
+                        limit_announced = True
+                        _log(
+                            "[4take] ✗ OpenRouter's free-model limit for today is used up; "
+                            "waiting only for requests already in flight"
+                        )
+                    freed = []
 
                 for reason in freed:
                     rotate_in(reason)
@@ -607,8 +629,22 @@ async def run_council(
             f"[4take] Done. {len(responses)} responses, {len(errors)} error(s), {total_latency_ms / 1000.0:.1f}s total."
         )
 
+    if guard is not None and guard.tripped and not responses:
+        # Nothing was reviewed, and the reason is one sentence, not the dozen errors that restate it.
+        return CouncilResult(
+            responses=[],
+            errors=[e for e in errors if e.error != guard.message],
+            warning=None,
+            error=guard.message,
+            total_latency_ms=total_latency_ms,
+            context=context,
+            models_asked=len(all_launched),
+        )
+
     duplicates = sum(1 for r in responses if r.duplicate_of)
     notes = []
+    if guard is not None and guard.tripped:
+        notes.append(f"stopped early: {guard.message}")
     if duplicates:
         notes.append(f"{duplicates} response(s) came from an already-seated model or vendor")
     if len(seen_served) >= config.min_responses:
