@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-26
+
+A spent free-model allowance is reported and stops the review; everything else behaves as in 0.2.4.
+
 ### Added
 - **A spent free-model allowance is reported and stops the review.** Once an OpenRouter account has
   used its day's free-model requests (50 without purchased credits, 1000 with $10 or more), every
