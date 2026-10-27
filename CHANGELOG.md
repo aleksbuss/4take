@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-10-27
+
+A placeholder key is caught before any request, and the fallback pool no longer names a retired
+model; everything else behaves as in 0.2.5.
+
 ### Fixed
 - **A placeholder key is caught before any request goes out.** The README's MCP configs set
   `"OPENROUTER_API_KEY": "sk-or-v1-..."` in the client's `env`. Copied unedited, that outranks the
