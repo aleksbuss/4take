@@ -73,6 +73,27 @@ def test_a_real_key_is_not_reported_missing():
     )
 
 
+@pytest.mark.parametrize("placeholder", ["sk-or-v1-...", "sk-or-v1-…", "YOUR_OPENROUTER_API_KEY_HERE"])
+def test_a_placeholder_key_is_caught_before_a_request_goes_out(placeholder):
+    """
+    The README's MCP examples once set `"OPENROUTER_API_KEY": "sk-or-v1-..."` in the client's `env`.
+    Copied unedited, the environment outranks the key `--set-key` saved, and the placeholder went
+    out to OpenRouter as the key: every seat failed instead of one message saying what to do.
+    """
+    problem = missing_api_key(_config(providers={"openrouter": ProviderConfig(url="u", api_key=placeholder)}))
+    assert problem is not None
+    assert "placeholder" in problem
+    assert "4take --set-key" in problem
+    # `--set-key` alone cannot fix a placeholder the environment sets, so the message says so.
+    assert "the environment wins" in problem
+    assert placeholder not in problem
+
+
+def test_a_real_key_is_never_taken_for_a_placeholder():
+    real = "sk-or-v1-" + "a1b2" * 16
+    assert missing_api_key(_config(providers={"openrouter": ProviderConfig(url="u", api_key=real)})) is None
+
+
 @pytest.mark.asyncio
 async def test_the_mcp_tool_refuses_without_a_key_before_dispatching():
     """The CLI stopped before dispatch without a key; the MCP server spent a council to learn it."""

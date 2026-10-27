@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-10-27
+
+A placeholder key is caught before any request, and the fallback pool no longer names a retired
+model; everything else behaves as in 0.2.5.
+
+### Fixed
+- **A placeholder key is caught before any request goes out.** The README's MCP configs set
+  `"OPENROUTER_API_KEY": "sk-or-v1-..."` in the client's `env`. Copied unedited, that outranks the
+  key `4take --set-key` saved, and the pre-flight check knew only the `--init-config` placeholder,
+  so `sk-or-v1-...` went to OpenRouter as the key and every seat failed. A key ending in `...` or
+  `…` now stops the review with a message that says to run `--set-key` and, because the
+  environment wins over the saved key, to remove the variable if it holds the placeholder. The MCP
+  examples have no `env` block any more, and the install step says that installing asks for nothing.
+- **The fallback pool no longer seats a retired model.** OpenRouter withdrew
+  `nvidia/nemotron-3-super-120b-a12b:free`; only the paid model is left. Discovery stopped offering
+  it by itself, but the fallback pool used when the catalogue cannot be read still named it, as did
+  the `--models` recipe in the README and `llms.txt`, so each gave one reviewer fewer and exit code 2.
+  It is replaced by `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`, the live free model with
+  the best record in the maintainer's telemetry: 92% of 195 requests answered, median 33 s.
+
 ## [0.2.5] - 2026-10-26
 
 A spent free-model allowance is reported and stops the review; everything else behaves as in 0.2.4.

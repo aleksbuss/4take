@@ -54,6 +54,9 @@ fails with `No matching distribution found for 4take`. `uv tool install 4take` f
 Python by itself, whatever the system has; to get uv, run
 `curl -LsSf https://astral.sh/uv/install.sh | sh` or `brew install uv`.
 
+Installing asks for nothing: pip and uv cannot prompt during an install. The key comes next, in
+step 2 or on your first review in a terminal.
+
 ### 2. Set Your OpenRouter API Key
 
 Get a free key at [OpenRouter](https://openrouter.ai/keys), then save it once:
@@ -133,6 +136,11 @@ cryptography) triples the size of an install that most CLI users never run a ser
 pip install '4take[mcp]'        # or: uv tool install '4take[mcp]'
 ```
 
+The server reads the key `4take --set-key` saved ([step 2](#2-set-your-openrouter-api-key)), so
+none of the configs below needs an `env` block. The server cannot ask for a key: run
+`4take --set-key` in a terminal first. If you do give the client an `env` block with
+`OPENROUTER_API_KEY`, put your real key in it, because the environment wins over the saved key.
+
 <details open>
 <summary><b>Claude Desktop Configuration (<code>claude_desktop_config.json</code>)</b></summary>
 
@@ -141,10 +149,7 @@ pip install '4take[mcp]'        # or: uv tool install '4take[mcp]'
   "mcpServers": {
     "4take": {
       "command": "uvx",
-      "args": ["--from", "4take[mcp]", "4take-mcp"],
-      "env": {
-        "OPENROUTER_API_KEY": "sk-or-v1-..."
-      }
+      "args": ["--from", "4take[mcp]", "4take-mcp"]
     }
   }
 }
@@ -158,10 +163,7 @@ pip install '4take[mcp]'        # or: uv tool install '4take[mcp]'
 {
   "mcpServers": {
     "4take": {
-      "command": "4take-mcp",
-      "env": {
-        "OPENROUTER_API_KEY": "sk-or-v1-..."
-      }
+      "command": "4take-mcp"
     }
   }
 }
@@ -176,10 +178,7 @@ pip install '4take[mcp]'        # or: uv tool install '4take[mcp]'
   "mcpServers": {
     "4take": {
       "command": "uvx",
-      "args": ["--from", "4take[mcp]", "4take-mcp"],
-      "env": {
-        "OPENROUTER_API_KEY": "sk-or-v1-..."
-      }
+      "args": ["--from", "4take[mcp]", "4take-mcp"]
     }
   }
 }
@@ -203,7 +202,7 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
 
 ```json
 {
-  "version": "0.2.5",
+  "version": "0.2.6",
   "timestamp": "2026-08-16T14:20:00Z",
   "config": {"models_requested": 12, "min_responses": 4, "timeout_seconds": 600, "strict": false},
   "summary": {
@@ -223,7 +222,7 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
       "category": "INJECTION",
       "symbol": "search_users",
       "title": "SQL injection via the term parameter",
-      "models": ["cohere/north-mini-code:free", "nvidia/nemotron-3-super-120b-a12b:free",
+      "models": ["cohere/north-mini-code:free", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
                  "poolside/laguna-s-2.1:free"],
       "severities": {"CRITICAL": 2, "WARNING": 1},
       "disputed": true
@@ -231,8 +230,8 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
   ],
   "responses": [
     {
-      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
-      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
       "served_provider": "NVIDIA",
       "content": "### Code Review\n1. Found SQL Injection on line 8...",
       "finish_reason": "stop",
@@ -549,7 +548,7 @@ gh pr diff 42 | 4take
 ### 3. Use Custom Free Models from OpenRouter
 
 ```bash
-4take --models="nvidia/nemotron-3-super-120b-a12b:free,poolside/laguna-xs-2.1:free,cohere/north-mini-code:free,dots-studio/dots-3-note-preview:free"
+4take --models="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,poolside/laguna-xs-2.1:free,cohere/north-mini-code:free,dots-studio/dots-3-note-preview:free"
 ```
 
 ### 4. Output as JSON for Automation

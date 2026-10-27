@@ -10,13 +10,15 @@ from .telemetry import MIN_SAMPLES_FOR_RANKING, ModelStats, aggregate
 
 logger = logging.getLogger("4take")
 
+# Only for a run that cannot read the catalogue. Unlike discovery this list never updates itself:
+# OpenRouter retired nemotron-3-super-120b-a12b:free and it stayed here, a dead seat, until 0.2.6.
 FALLBACK_MODELS = [
     "openrouter/cohere/north-mini-code:free",
     "openrouter/poolside/laguna-s-2.1:free",
     "openrouter/nvidia/nemotron-3.5-lightning:free",
     "openrouter/openrouter/free",
     "openrouter/dots-studio/dots-3-note-preview:free",
-    "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
 ]
 
 VERIFIED_FREE_MODELS: set[str] = {fb.split("openrouter/", 1)[-1].lower() for fb in FALLBACK_MODELS}
