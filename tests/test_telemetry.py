@@ -53,6 +53,7 @@ def test_the_review_and_the_code_never_reach_the_file(tmp_path):
     assert set(event) == {"model", "served_model", "ok", "latency_ms", "error_code", "finish_reason", "ts"}
 
 
+@pytest.mark.posix_only("file modes: Windows reports 0o666/0o777 and the profile's ACL guards the file")
 def test_the_file_is_not_readable_by_other_users(tmp_path):
     path = tmp_path / "stats.json"
     record([_ok("a:free")], [], path=path)

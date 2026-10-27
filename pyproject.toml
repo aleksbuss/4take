@@ -123,6 +123,9 @@ ignore = [
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "posix_only(reason): skipped on Windows, for what the test checks and Windows does not have",
+]
 filterwarnings = [
     "ignore:.*found in sys.modules.*:RuntimeWarning",
 ]
