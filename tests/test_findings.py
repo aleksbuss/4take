@@ -235,6 +235,57 @@ def test_a_bare_symbol_title_falls_back_to_the_issue_when_nothing_better_is_ther
     assert cluster.title == "The connection is never closed."
 
 
+def test_a_title_that_is_only_a_function_or_a_file_never_heads_an_entry():
+    """
+    Live, 2026-10-27, `git diff HEAD~1 | 4take` on 4take 0.2.6: cohere filed `INJECTION find_order
+    (db.py)`. Its symbol parsed as the file, so the title "find_order" was not the finding's own
+    symbol, passed for a real one, and headed the entry over three reviewers' real titles.
+    """
+    issue = "The order id is interpolated into the SQL string."
+    findings = [
+        _f("cohere/north-mini-code:free", "CRITICAL", "find_order", "db.py", issue),
+        _f("google/gemma-4-31b-it:free", "CRITICAL", "SQL Injection in Order Lookup", "find_order", issue),
+        _f(
+            "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+            "CRITICAL",
+            "SQL injection in find_order",
+            "find_order",
+            issue,
+        ),
+    ]
+    (cluster,) = cluster_findings(findings)
+    # The first of the real titles in order, not cohere's, which sorts before all of them.
+    assert cluster.title == "SQL Injection in Order Lookup"
+    assert cluster.symbol == "find_order"
+
+
+@pytest.mark.parametrize(
+    "title", ["find_order", "db.py", "OrderService.find", "api/orders.py", "Cart::total", "find_order()"]
+)
+def test_a_single_identifier_or_path_is_not_a_title_even_with_no_symbol_to_compare_to(title):
+    issue = "The order id is interpolated into the SQL string."
+    (cluster,) = cluster_findings([_f("cohere/north-mini-code:free", "CRITICAL", title, "db.py", issue)])
+    assert cluster.title == issue
+
+
+def test_a_function_named_by_another_reviewer_is_a_bare_symbol_even_without_punctuation():
+    issue = "The discount percent is no longer divided by 100."
+    findings = [
+        _f("cohere/north-mini-code:free", "CRITICAL", "total", "cart.py", issue),
+        _f("google/gemma-4-31b-it:free", "CRITICAL", "Incorrect Discount Calculation", "total", issue),
+    ]
+    (cluster,) = cluster_findings(findings)
+    assert cluster.title == "Incorrect Discount Calculation"
+
+
+@pytest.mark.parametrize("title", ["Off-by-one", "Deadlock", "TOCTOU", "N+1", "SQLi", "Path traversal"])
+def test_a_short_title_that_says_what_is_wrong_is_kept(title):
+    """Single words and hyphenated terms are how defects are named; only code-shaped tokens are not."""
+    issue = "The loop stops one short of n."
+    (cluster,) = cluster_findings([_f("a", "WARNING", title, "sum_to", issue)])
+    assert cluster.title == title
+
+
 def test_a_long_issue_shown_as_a_title_is_cut_at_a_word():
     issue = "No error handling surrounds the database operations. An invalid db_path, malformed input or a locked file raises."
     (cluster,) = cluster_findings(

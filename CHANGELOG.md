@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A consensus entry is no longer titled with only a function name or a file.** Live, on 0.2.6:
+  `git diff HEAD~1 | 4take` showed `find_order (at find_order)` and `total (at total)` for two
+  4/4 findings, while three of the four seats had written "SQL injection in db.py" and "Discount
+  math broken in cart.py". Cohere files `INJECTION find_order (db.py)`; its own symbol parses as
+  the file, so the title "find_order" was not recognised as a place, and as the first seat in order
+  it headed the entry. A title now counts as a place when it equals the symbol any reviewer in the
+  entry located the defect at, or is a single code-shaped token (`find_order`, `db.py`,
+  `Cart::total`); the entry takes a real title from the group, or the start of the issue. Short
+  real titles such as "Off-by-one", "Deadlock" and "N+1" are kept. On 184 recorded councils
+  (100 Greptile, 84 corpus) nothing but a title changed in any of them, and `evals/score.py`
+  prints the same numbers. The same names also headed `report_for_user` in the MCP payload.
+
+### Changed
+- **A review prints one line about the request limiter instead of one per wait.** A first review
+  on a new machine printed fourteen "Rate limit: waiting 4.2s..." lines in 254 s. Each wait is now
+  a debug line, and the end of the run says, once, "Paused 14 times (longest 20s) to stay under
+  4take's own limit of 10 requests a minute", or nothing when it never paused.
+
 ## [0.2.6] - 2026-10-27
 
 A placeholder key is caught before any request, and the fallback pool no longer names a retired

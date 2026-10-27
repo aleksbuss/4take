@@ -30,6 +30,20 @@ class PersistentTokenBucket:
         self.rpm = rpm
         self.state_file = Path.home() / ".cache" / "4take" / "bucket.json"
         self.state_file.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # What this process waited, for one summary line. Several seats wait at once, so the
+        # waits do not add up to elapsed time and only their count and the longest are kept.
+        self.pauses = 0
+        self.longest_pause = 0.0
+
+    def pause_summary(self) -> str | None:
+        """One line saying the limiter held requests back, or None when it never did."""
+        if not self.pauses:
+            return None
+        times = "once" if self.pauses == 1 else f"{self.pauses} times"
+        return (
+            f"[4take] Paused {times} (longest {self.longest_pause:.0f}s) to stay under "
+            f"4take's own limit of {self.rpm} requests a minute."
+        )
 
     def _sync_acquire_tokens(self, tokens: int, max_wait: float | None = None) -> float:
         import os
@@ -120,6 +134,10 @@ class PersistentTokenBucket:
         if wait_time < 0:
             return False
         if wait_time > 0:
-            logger.info("Rate limit: waiting %.1fs...", wait_time)
+            # One line per wait filled a first review with a dozen of them: 14 in a four-minute
+            # run, none of them anything a reader could act on. The engine prints a summary.
+            logger.debug("Rate limit: waiting %.1fs...", wait_time)
+            self.pauses += 1
+            self.longest_pause = max(self.longest_pause, wait_time)
             await asyncio.sleep(wait_time)
         return True

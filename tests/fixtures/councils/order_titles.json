@@ -1,0 +1,53 @@
+{
+  "recorded": {
+    "by": "4take 0.2.6 installed from PyPI, a live council on OpenRouter's free models, 2026-10-27, run as `git diff HEAD~1 | 4take`; rebuilt from the text report it printed, which round-trips to the same text",
+    "note": "Two planted defects in a toy repo: a discount percent no longer divided by 100 (cart.py), and an f-string SQL query (db.py). Cohere filed both as `INJECTION find_order (db.py)` and `LOGIC total (cart.py)`: a bare name where the title belongs, and a file where the symbol belongs. The other three seats gave real titles; the consensus entries used to show the bare names."
+  },
+  "code": "diff --git a/cart.py b/cart.py\nindex 67248ea..ec95d7c 100644\n--- a/cart.py\n+++ b/cart.py\n@@ -1,3 +1,3 @@\n def total(items, discount_percent=0):\n     subtotal = sum(i[\"price\"] * i[\"qty\"] for i in items)\n-    return round(subtotal * (1 - discount_percent / 100), 2)\n+    return round(subtotal * (1 - discount_percent), 2)\ndiff --git a/db.py b/db.py\nnew file mode 100644\nindex 0000000..066443b\n--- /dev/null\n+++ b/db.py\n@@ -0,0 +1,2 @@\n+def find_order(conn, order_id):\n+    return conn.execute(f\"SELECT * FROM orders WHERE id = {order_id}\").fetchone()\n",
+  "warning": null,
+  "error": null,
+  "total_latency_ms": 35900,
+  "responses": [
+    {
+      "model": "openrouter/openrouter/free",
+      "served_model": "dots-studio/dots-3-note-preview:free",
+      "served_provider": null,
+      "content": "* [CRITICAL] [LOGIC] Discount math broken in cart.py (total)\n    - Issue: The change drops the `/ 100` divisor, so `discount_percent` is now treated as a raw multiplier fraction instead of a percentage. With `discount_percent=20` (intended 20% off), the expression becomes `1 - 20 = -19`, multiplying the subtotal by -19 and producing negative or wildly wrong totals. Any caller passing a 0–100 percentage will get incorrect results; only callers that already pass a 0–1 fraction (and previously had their discount silently scaled by 100×) would coincidentally be near-correct, and even they are now off by a factor of 100.\n    - Fix: Restore the divisor: `return round(subtotal * (1 - discount_percent / 100), 2)`. If the intent was to change the parameter's meaning to a 0–1 fraction, update the function signature/docstring and all call sites instead of silently changing the formula.\n\n* [CRITICAL] [INJECTION] SQL injection in db.py (find_order)\n    - Issue: `order_id` is interpolated directly into the query string via f-string (`f\"SELECT * FROM orders WHERE id = {order_id}\"`). Any caller-controlled or database-stored value containing SQL metacharacters (e.g. `1 OR 1=1`, `1; DROP TABLE orders`) will alter the query. This is a textbook injection sink and can leak or destroy data.\n    - Fix: Use a parameterized query: `conn.execute(\"SELECT * FROM orders WHERE id = ?\", (order_id,)).fetchone()`. If `order_id` must be dynamically injected for a non-value reason (e.g. a column name), validate/whitelist it against a known set before formatting.",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 12800
+    },
+    {
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_provider": null,
+      "content": "* [CRITICAL] LOGIC <Incorrect discount calculation> (cart.py: return round(subtotal * (1 - discount_percent), 2))\n  - Issue: discount_percent is treated as a fraction instead of a percentage, so a call with discount_percent=20 yields 2000% discount and negative subtotal, producing wrong results.\n  - Fix: return round(subtotal * (1 - discount_percent / 100), 2)\n\n* [CRITICAL] INJECTION <SQL injection in find_order> (db.py: return conn.execute(f\"SELECT * FROM orders WHERE id = {order_id}\").fetchone())\n  - Issue: order_id is interpolated directly into the SQL string, allowing an attacker to inject arbitrary SQL (e.g., order_id = \"1; DROP TABLE orders;--\") and corrupt the database.\n  - Fix: use a parameterized query: conn.execute(\"SELECT * FROM orders WHERE id = ?\", (order_id,)).fetchone()",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 26500
+    },
+    {
+      "model": "openrouter/google/gemma-4-31b-it:free",
+      "served_model": "google/gemma-4-31b-it:free",
+      "served_provider": null,
+      "content": "[CRITICAL] [LOGIC] Incorrect Discount Calculation (total)\n- Issue: The removal of `/ 100` changes the expected input of `discount_percent` from a percentage (0-100) to a decimal fraction (0-1). A caller passing `20` to represent a 20% discount will now result in a multiplier of `-19` (`1 - 20`), causing the function to return a negative total.\n- Fix: `return round(subtotal * (1 - discount_percent / 100), 2)`\n\n[CRITICAL] [INJECTION] SQL Injection in Order Lookup (find_order)\n- Issue: `order_id` is interpolated directly into the SQL query via an f-string. If `order_id` is sourced from user input, an attacker can bypass the intended query logic or execute administrative commands (e.g., passing `\"1 OR 1=1\"` to dump all orders or `\"1; DROP TABLE orders--\"` to delete data).\n- Fix: `return conn.execute(\"SELECT * FROM orders WHERE id = ?\", (order_id,)).fetchone()`",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 33100
+    },
+    {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "served_model": "cohere/north-mini-code:free",
+      "served_provider": null,
+      "content": "* [CRITICAL] LOGIC total (cart.py)\n  - Issue: discount_percent is used as a raw percentage without dividing by 100, causing incorrect totals (e.g., discount_percent=20 yields subtotal * (1-20) = -19*subtotal).\n  - Fix: return round(subtotal * (1 - discount_percent / 100), 2)\n\n* [CRITICAL] INJECTION find_order (db.py)\n  - Issue: order_id is directly interpolated into the SQL string, allowing an attacker to inject arbitrary SQL (e.g., order_id='1; DROP TABLE orders;--').\n  - Fix: return conn.execute(\"SELECT * FROM orders WHERE id = ?\", (order_id,)).fetchone()",
+      "finish_reason": "stop",
+      "truncated": false,
+      "duplicate_of": null,
+      "latency_ms": 35900
+    }
+  ],
+  "errors": []
+}
