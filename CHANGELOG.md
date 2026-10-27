@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `…` now stops the review with a message that says to run `--set-key` and, because the
   environment wins over the saved key, to remove the variable if it holds the placeholder. The MCP
   examples have no `env` block any more, and the install step says that installing asks for nothing.
+- **The fallback pool no longer seats a retired model.** OpenRouter withdrew
+  `nvidia/nemotron-3-super-120b-a12b:free`; only the paid model is left. Discovery stopped offering
+  it by itself, but the fallback pool used when the catalogue cannot be read still named it, as did
+  the `--models` recipe in the README and `llms.txt`, so each gave one reviewer fewer and exit code 2.
+  It is replaced by `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`, the live free model with
+  the best record in the maintainer's telemetry: 92% of 195 requests answered, median 33 s.
 
 ## [0.2.5] - 2026-10-26
 

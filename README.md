@@ -222,7 +222,7 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
       "category": "INJECTION",
       "symbol": "search_users",
       "title": "SQL injection via the term parameter",
-      "models": ["cohere/north-mini-code:free", "nvidia/nemotron-3-super-120b-a12b:free",
+      "models": ["cohere/north-mini-code:free", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
                  "poolside/laguna-s-2.1:free"],
       "severities": {"CRITICAL": 2, "WARNING": 1},
       "disputed": true
@@ -230,8 +230,8 @@ cat modified_file.py | 4take --format json --accept-risk --quiet
   ],
   "responses": [
     {
-      "model": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
-      "served_model": "nvidia/nemotron-3-super-120b-a12b:free",
+      "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "served_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
       "served_provider": "NVIDIA",
       "content": "### Code Review\n1. Found SQL Injection on line 8...",
       "finish_reason": "stop",
@@ -548,7 +548,7 @@ gh pr diff 42 | 4take
 ### 3. Use Custom Free Models from OpenRouter
 
 ```bash
-4take --models="nvidia/nemotron-3-super-120b-a12b:free,poolside/laguna-xs-2.1:free,cohere/north-mini-code:free,dots-studio/dots-3-note-preview:free"
+4take --models="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,poolside/laguna-xs-2.1:free,cohere/north-mini-code:free,dots-studio/dots-3-note-preview:free"
 ```
 
 ### 4. Output as JSON for Automation
