@@ -96,6 +96,45 @@ async def test_persistent_token_bucket_time_travel(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_a_wait_is_logged_for_debugging_and_counted_but_not_announced(tmp_path, caplog):
+    """
+    A first review printed fourteen "Rate limit: waiting Ns..." lines (live, 2026-10-27, 254 s).
+    Each wait is now a debug line, and the limiter keeps the count and the longest for a summary.
+    """
+    bucket = PersistentTokenBucket(rpm=60)
+    bucket.state_file = tmp_path / "bucket.json"
+
+    with patch("asyncio.sleep", new_callable=AsyncMock), caplog.at_level("DEBUG", logger="4take"):
+        for _ in range(63):  # the burst of 60, then three waits
+            await bucket.acquire(1)
+
+    waits = [r for r in caplog.records if "Rate limit: waiting" in r.getMessage()]
+    assert len(waits) == 3
+    assert {r.levelname for r in waits} == {"DEBUG"}
+    assert bucket.pauses == 3
+    assert 0 < bucket.longest_pause <= 3.0
+
+
+def test_the_pause_summary_is_one_line_and_absent_when_nothing_waited(tmp_path):
+    bucket = PersistentTokenBucket(rpm=10)
+    assert bucket.pause_summary() is None
+
+    bucket.pauses, bucket.longest_pause = 1, 4.2
+    assert (
+        bucket.pause_summary()
+        == "[4take] Paused once (longest 4s) to stay under 4take's own limit of 10 requests a minute."
+    )
+
+    bucket.pauses, bucket.longest_pause = 14, 19.9
+    line = bucket.pause_summary()
+    assert "\n" not in line
+    assert (
+        line
+        == "[4take] Paused 14 times (longest 20s) to stay under 4take's own limit of 10 requests a minute."
+    )
+
+
+@pytest.mark.asyncio
 async def test_persistent_token_bucket_waits_once_the_burst_is_spent(tmp_path):
     bucket = PersistentTokenBucket(rpm=60)
     bucket.state_file = tmp_path / "bucket.json"

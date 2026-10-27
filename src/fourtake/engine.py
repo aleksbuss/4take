@@ -625,6 +625,9 @@ async def run_council(
     total_latency_ms = int((time.monotonic() - start_time) * 1000)
 
     if verbose:
+        pauses = bucket.pause_summary()
+        if pauses:
+            _log(pauses)
         _log(
             f"[4take] Done. {len(responses)} responses, {len(errors)} error(s), {total_latency_ms / 1000.0:.1f}s total."
         )

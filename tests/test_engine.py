@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -87,6 +87,80 @@ async def test_run_council_unknown_provider_and_console():
         assert result.errors[0].error == "Unknown provider"
         assert result.warning == "only 1 distinct of 2 models responded"
         console.print.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_a_council_that_was_held_back_says_so_in_one_line_before_done():
+    from unittest.mock import MagicMock
+
+    from fourtake.client import ModelResponse
+    from fourtake.config import ProviderConfig
+
+    config = FourtakeConfig(
+        providers={"openrouter": ProviderConfig(url="y", api_key="x")},
+        default_models=["openrouter/A:free"],
+        rpm_limit=10,
+        min_responses=1,
+        timeout=25,
+        provider_concurrency={"openrouter": 1},
+    )
+    held = MagicMock()
+    held.acquire = AsyncMock(return_value=True)
+    held.pause_summary.return_value = (
+        "[4take] Paused 14 times (longest 20s) to stay under 4take's own limit of 10 requests a minute."
+    )
+    console = MagicMock()
+    with (
+        patch("fourtake.engine.PersistentTokenBucket", return_value=held),
+        patch("fourtake.engine.query_model") as mock_query,
+    ):
+
+        async def answer(**kwargs):
+            return ModelResponse(
+                model=kwargs["model_str"], content="NO_ISSUES_FOUND: ok", error=None, latency_ms=5
+            )
+
+        mock_query.side_effect = answer
+        await run_council(
+            config, "code", model_pool=["openrouter/A:free"], verbose=True, console=console, use_cache=False
+        )
+
+    printed = [call.args[0] for call in console.print.call_args_list]
+    pause_at = [i for i, line in enumerate(printed) if "Paused 14 times" in line]
+    done_at = [i for i, line in enumerate(printed) if line.startswith("[4take] Done.")]
+    assert len(pause_at) == 1 and len(done_at) == 1
+    assert pause_at[0] < done_at[0]
+
+
+@pytest.mark.asyncio
+async def test_a_council_that_was_never_held_back_says_nothing_about_it():
+    from unittest.mock import MagicMock
+
+    from fourtake.client import ModelResponse
+    from fourtake.config import ProviderConfig
+
+    config = FourtakeConfig(
+        providers={"openrouter": ProviderConfig(url="y", api_key="x")},
+        default_models=["openrouter/A:free"],
+        rpm_limit=10,
+        min_responses=1,
+        timeout=25,
+        provider_concurrency={"openrouter": 1},
+    )
+    console = MagicMock()
+    with patch("fourtake.engine.query_model") as mock_query:
+
+        async def answer(**kwargs):
+            return ModelResponse(
+                model=kwargs["model_str"], content="NO_ISSUES_FOUND: ok", error=None, latency_ms=5
+            )
+
+        mock_query.side_effect = answer
+        await run_council(
+            config, "code", model_pool=["openrouter/A:free"], verbose=True, console=console, use_cache=False
+        )
+
+    assert not any("Paused" in call.args[0] for call in console.print.call_args_list)
 
 
 @pytest.mark.asyncio
