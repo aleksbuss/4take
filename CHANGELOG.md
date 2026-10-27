@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A new machine ranks free models on evidence from its first review.** With no telemetry the
+  name heuristic seated the council, and on 2026-10-27 it seated nemotron-3-ultra-550b first: an
+  Nvidia 500 in 26 of 28 recorded councils, while the two gemma-4 models seated next timed out 38
+  times, and the median council took 186 s against 63 s for the four models that did answer. The
+  package now ships `seed_stats.json`, the maintainer's telemetry reduced to requests sent,
+  requests answered and the median latency of an answer, for the 13 models the catalogue still
+  lists as free. Each counts as at most eight attempts, as much as the name heuristic, and this
+  machine's own history is added to it, so a few local runs outweigh it and a model it sank does
+  not climb back after one more failure. It never excludes a model, and a seed older than 60 days
+  is ignored. On today's catalogue a new machine now seats nemotron-3-nano-omni, the free router,
+  laguna-xs and north-mini-code instead of nemotron-3-ultra, the router, gemma-4-26b and
+  xing4.0. `scripts/build_seed_stats.py` rebuilds it before a release.
+
 ### Fixed
 - **A consensus entry is no longer titled with only a function name or a file.** Live, on 0.2.6:
   `git diff HEAD~1 | 4take` showed `find_order (at find_order)` and `total (at total)` for two

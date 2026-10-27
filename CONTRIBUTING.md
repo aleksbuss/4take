@@ -83,6 +83,19 @@ both. If your employer or a client may own what you write, get their permission 
 5. Agree to the [CLA](CLA.md) in the pull request.
 6. Our CI pipeline will automatically run tests and linting (including checking for Conventional Commits compliance).
 
+## Releasing (maintainer)
+
+Before tagging, rebuild the ranking seed from your own telemetry, read the diff, and commit it
+with the release:
+
+```bash
+uv run python scripts/build_seed_stats.py
+```
+
+It keeps three numbers per model the OpenRouter catalogue still lists as free (see
+`src/fourtake/seed.py`). A seed older than 60 days is ignored at run time, so a skipped refresh
+falls back to the name heuristic rather than to stale evidence.
+
 ## CI Status
 
 Our CI pipeline enforces:
