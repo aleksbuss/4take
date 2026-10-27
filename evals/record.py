@@ -180,7 +180,9 @@ def record_one(
                        impaired=True, quota_exhausted=quota)
 
     payload["_eval"] = {"snippet": path.name, "exit_code": proc.returncode, "wall_s": round(elapsed, 1)}
-    out.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    out.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n"
+    )
     seats = payload.get("summary", {}).get("distinct_models", 0)
     # Exit 2 is a council short of its seats. On its own that is ordinary for free models; while
     # the provider is refusing requests it is the provider failing, and not a fair draw.
