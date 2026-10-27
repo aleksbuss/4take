@@ -49,8 +49,8 @@ jobs:
         # rather than only the floor.
         python-version: ["3.10", "3.11", "3.12", "3.13"]
         # The floor and the newest on the other two systems people install it on. Windows has no
-        # POSIX file modes and defaults to cp1252 and "\r\n": tests that need the former carry
-        # `posix_only`, and tests/test_text_encoding.py keeps the latter out of src and evals.
+        # POSIX file modes (a test that needs them carries `posix_only`) and reads text as cp1252
+        # unless told otherwise (tests/test_text_encoding.py keeps that out of src and evals).
         include:
           - { os: macos-latest, python-version: "3.10" }
           - { os: macos-latest, python-version: "3.13" }
