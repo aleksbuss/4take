@@ -40,13 +40,21 @@ jobs:
             --rev-range origin/${{ github.base_ref }}..HEAD
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         # requires-python is >=3.10 and the classifiers advertise 3.10-3.13; test all of them
         # rather than only the floor.
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+        # The floor and the newest on the other two systems people install it on: a user on a
+        # Mac or on Windows runs this code too, and nothing else in CI ever started on either.
+        include:
+          - { os: macos-latest, python-version: "3.10" }
+          - { os: macos-latest, python-version: "3.13" }
+          - { os: windows-latest, python-version: "3.10" }
+          - { os: windows-latest, python-version: "3.13" }
     steps:
       - uses: actions/checkout@v4
 
