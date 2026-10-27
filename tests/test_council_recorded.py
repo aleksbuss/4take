@@ -11,6 +11,7 @@ count. Offline: nothing is sent anywhere.
 
 import json
 import pathlib
+from types import SimpleNamespace
 
 import pytest
 
@@ -22,7 +23,7 @@ from fourtake.mcp_server import serialise_result
 from fourtake.output import format_markdown, output_result
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "councils"
-RECORDED = ["accounts", "find_user", "self_review"]
+RECORDED = ["accounts", "find_user", "self_review", "order_titles"]
 SEVERITY_RANK = {"CRITICAL": 3, "WARNING": 2, "SUGGESTION": 1}
 
 
@@ -118,6 +119,30 @@ def test_the_recordings_cover_a_dispute_and_a_held_duplicate_and_failed_models()
     assert any(len(c.findings) > c.agreement for c in build_consensus(self_review.responses)), (
         "no entry where one reviewer filed the same defect twice"
     )
+
+
+def test_a_council_where_one_seat_titled_its_findings_with_a_bare_name_shows_the_real_titles():
+    """
+    Live, 2026-10-27: cohere wrote `INJECTION find_order (db.py)` and `LOGIC total (cart.py)`; the
+    three other seats wrote real titles. The consensus, `report_for_user` and the screenshot-ready
+    text report all showed "find_order" and "total".
+    """
+    result, _ = _load("order_titles")
+    titles = {c.symbol: c.title for c in build_consensus(result.responses)}
+    assert set(titles) == {"find_order", "total"}
+    assert "injection" in titles["find_order"].lower()
+    assert "discount" in titles["total"].lower()
+    lines = json.loads(serialise_result(result, SimpleNamespace(min_responses=4)))["report_for_user"]
+    assert not any(line.endswith("find_order") or line.endswith("— total") for line in lines[1:])
+
+
+def test_no_entry_is_titled_with_one_bare_token_when_a_reviewer_wrote_a_real_title(council):
+    _, result, _ = council
+    for c in build_consensus(result.responses):
+        if " " not in c.title:
+            assert not any(" " in f.title for f in c.findings), (
+                f"{c.title!r} headed an entry with real titles"
+            )
 
 
 # --------------------------------------------------------------------------------------

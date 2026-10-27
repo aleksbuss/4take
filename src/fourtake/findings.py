@@ -557,16 +557,37 @@ def _linked_groups(tokens_of: list[set[str]], weights: dict[str, float]) -> list
     return list(groups.values())
 
 
-def _names_the_defect(f: Finding) -> bool:
-    """Whether the title says what is wrong rather than only where, or nothing at all."""
-    bare = f.title.strip("`() ").lower()
-    return bool(bare) and f.title != "(untitled)" and bare != (f.symbol or "").strip("`() ").lower()
+# What a name looks like rather than a description: an underscore, a dot, a slash, `::` or a call.
+# Deliberately not camelCase or a hyphen, so "Off-by-one", "Deadlock" and "N+1" stay titles.
+_CODE_SHAPED_RE = re.compile(r"[_./]|::|\(\)")
 
 
-def _shown_title(f: Finding) -> str:
+def _plain(name: str) -> str:
+    return name.strip("`() ").lower()
+
+
+def _names_the_defect(f: Finding, symbols: frozenset[str] = frozenset()) -> bool:
+    """
+    Whether the title says what is wrong rather than only where, or nothing at all.
+
+    `symbols` are the names any reviewer in the entry located the defect at. A title equal to one
+    of them is a place, whoever wrote it: cohere files `INJECTION find_order (db.py)`, so its own
+    symbol parses as the file and "find_order" looked like a title, while the other three seats
+    had located the defect at find_order. A single code-shaped token (`db.py`, `Cart::total`) is a
+    place too.
+    """
+    plain = _plain(f.title)
+    if not plain or f.title == "(untitled)":
+        return False
+    if plain in symbols or plain == _plain(f.symbol or ""):
+        return False
+    return not (" " not in plain and _CODE_SHAPED_RE.search(plain))
+
+
+def _shown_title(f: Finding, symbols: frozenset[str] = frozenset()) -> str:
     # Cohere's north-mini-code sometimes puts the symbol where the title belongs, `[CRITICAL]
     # INJECTION find_user (def find_user)`: 11 of its 75 recorded findings. Its issue says more.
-    if _names_the_defect(f) or not f.issue:
+    if _names_the_defect(f, symbols) or not f.issue:
         return f.title
     return f.issue if len(f.issue) <= 80 else f.issue[:80].rsplit(" ", 1)[0] + "…"
 
@@ -614,7 +635,9 @@ def cluster_findings(findings: list[Finding]) -> list[Consensus]:
         severities = {sev: len(models) for sev, models in by_severity.items()}
         # Among the most severe, a title that names the defect beats one that only names the
         # symbol: the first model in order otherwise lent its "find_user" to every entry it was in.
-        worst = max(group, key=lambda f: (SEVERITY_ORDER.get(f.severity, 0), _names_the_defect(f)))
+        # "Only names the symbol" is judged against every name the group located the defect at.
+        located = frozenset(_plain(f.symbol) for f in group if f.symbol)
+        worst = max(group, key=lambda f: (SEVERITY_ORDER.get(f.severity, 0), _names_the_defect(f, located)))
         # Distinct reviewers, not raw findings: one model listing a defect twice is one
         # opinion, and counting it twice would manufacture consensus out of verbosity.
         models = sorted({f.model for f in group})
@@ -636,7 +659,7 @@ def cluster_findings(findings: list[Finding]) -> list[Consensus]:
             Consensus(
                 severity=worst.severity,
                 symbol=symbol,
-                title=_shown_title(worst),
+                title=_shown_title(worst, located),
                 models=models,
                 severities=severities,
                 findings=group,
