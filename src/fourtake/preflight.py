@@ -28,6 +28,16 @@ COUNCIL_SIZE = 4
 CONFIG_KEY_PLACEHOLDER = "YOUR_OPENROUTER_API_KEY_HERE"
 
 
+def _is_placeholder(key: str) -> bool:
+    """
+    A key copied from an example rather than from OpenRouter.
+
+    Examples elide a key as `sk-or-v1-...`, and a real one ends in hex digits. The README's MCP
+    configs once set exactly that in the client's `env`, where it outranks the saved key.
+    """
+    return key == CONFIG_KEY_PLACEHOLDER or key.endswith(("...", "…"))
+
+
 def missing_api_key(config: FourtakeConfig) -> str | None:
     """
     Why the council cannot authenticate, or None when it can.
@@ -38,12 +48,19 @@ def missing_api_key(config: FourtakeConfig) -> str | None:
     """
     provider = config.providers.get("openrouter")
     key = (provider.api_key or "").strip() if provider else ""
-    if key and key != CONFIG_KEY_PLACEHOLDER:
+    if key and not _is_placeholder(key):
         return None
-    what = "is still the placeholder" if key == CONFIG_KEY_PLACEHOLDER else "is not set"
+    if key:
+        # The key itself stays out of the message, in case a real one is ever taken for this.
+        return (
+            "the OpenRouter API key is still a placeholder copied from an example. Run "
+            "`4take --set-key` to save your own (keys are free at https://openrouter.ai/keys). If "
+            "OPENROUTER_API_KEY is set to the placeholder, in your shell or an MCP client's `env` "
+            "block, remove it: the environment wins over the saved key."
+        )
     return (
-        f"the OpenRouter API key {what}. Run `4take --set-key` to paste it once and save it "
-        f"(keys are free at https://openrouter.ai/keys), or set OPENROUTER_API_KEY in the environment."
+        "the OpenRouter API key is not set. Run `4take --set-key` to paste it once and save it "
+        "(keys are free at https://openrouter.ai/keys), or set OPENROUTER_API_KEY in the environment."
     )
 
 
