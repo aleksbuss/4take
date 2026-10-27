@@ -1,6 +1,18 @@
+import sys
+
 import pytest
 
 from fourtake.rate_limiter import PersistentTokenBucket
+
+
+def pytest_collection_modifyitems(items):
+    """Skip, with the reason given, what a test checks and Windows does not have."""
+    if sys.platform != "win32":
+        return
+    for item in items:
+        marker = item.get_closest_marker("posix_only")
+        if marker:
+            item.add_marker(pytest.mark.skip(reason=f"POSIX only, {marker.args[0]}"))
 
 
 @pytest.fixture(autouse=True)

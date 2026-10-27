@@ -1,4 +1,5 @@
 import io
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -327,6 +328,7 @@ def test_the_size_cap_is_measured_in_bytes():
 # --------------------------------------------------------------------------------------
 
 
+@pytest.mark.posix_only("file modes: Windows reports 0o666/0o777 and the profile's ACL guards the file")
 def test_init_config_does_not_leave_the_key_world_readable(monkeypatch, tmp_path):
     """
     `--init-config` writes the file the docs tell users to paste their API key into. The
@@ -344,6 +346,7 @@ def test_init_config_does_not_leave_the_key_world_readable(monkeypatch, tmp_path
     assert oct(config.parent.stat().st_mode & 0o777) == "0o700"
 
 
+@pytest.mark.posix_only("file modes: Windows reports 0o666/0o777 and the profile's ACL guards the file")
 def test_a_pre_existing_loose_config_is_tightened(monkeypatch, tmp_path):
     """`mkdir(mode=...)` applies only on creation, so an old directory keeps its old mode."""
     from pathlib import Path
@@ -698,8 +701,9 @@ def test_set_key_creates_a_private_config_the_cli_then_reads(home):
     assert _set_key() == 0
     config = home / ".config" / "4take" / "config.json"
     assert json.loads(config.read_text())["providers"]["openrouter"]["api_key"] == KEY
-    assert oct(config.stat().st_mode & 0o777) == "0o600"
-    assert oct(config.parent.stat().st_mode & 0o777) == "0o700"
+    if sys.platform != "win32":  # no POSIX modes there; the profile's ACL guards the file
+        assert oct(config.stat().st_mode & 0o777) == "0o600"
+        assert oct(config.parent.stat().st_mode & 0o777) == "0o700"
     assert missing_api_key(load_config({})) is None
 
 
@@ -829,7 +833,8 @@ def test_a_first_run_at_a_terminal_asks_saves_and_goes_on(home):
     dispatch.assert_called_once()
     config = home / ".config" / "4take" / "config.json"
     assert json.loads(config.read_text())["providers"]["openrouter"]["api_key"] == KEY
-    assert oct(config.stat().st_mode & 0o777) == "0o600"
+    if sys.platform != "win32":  # no POSIX modes there; the profile's ACL guards the file
+        assert oct(config.stat().st_mode & 0o777) == "0o600"
 
 
 def test_without_a_terminal_there_is_no_prompt_only_the_error(home):
