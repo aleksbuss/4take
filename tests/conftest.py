@@ -27,6 +27,9 @@ def isolate_test_cache(tmp_path, monkeypatch):
     # Telemetry is written on every real run, so without this the suite would append to the
     # developer's own ~/.cache/4take/stats.json and then rank models from it.
     monkeypatch.setattr("fourtake.telemetry.stats_path", lambda: tmp_path / "stats.json")
+    # The shipped seed is refreshed at every release, and a test that ranks models must not
+    # change with it. Tests of the seed itself load it through fourtake.seed.
+    monkeypatch.setattr("fourtake.discovery.load_seed", lambda: {})
 
     # A key for every test. `main()` stops before dispatch without one and CI has none, so the
     # tests that drive the CLI end to end passed only on machines with a key configured — nine

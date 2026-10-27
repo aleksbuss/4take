@@ -1,0 +1,76 @@
+{
+  "generated": "2026-10-27",
+  "source": "the maintainer's 4take telemetry: per model, requests sent, requests answered with a review, and the median latency of an answer",
+  "window": {
+    "from": "2026-09-09",
+    "to": "2026-10-26"
+  },
+  "events": 2000,
+  "models": {
+    "openrouter/cohere/north-mini-code:free": {
+      "attempts": 225,
+      "successes": 84,
+      "p50_latency_ms": 9617
+    },
+    "openrouter/dots-studio/dots-3-note-preview:free": {
+      "attempts": 43,
+      "successes": 12,
+      "p50_latency_ms": 130637
+    },
+    "openrouter/google/gemma-4-26b-a4b-it:free": {
+      "attempts": 69,
+      "successes": 3,
+      "p50_latency_ms": 49371
+    },
+    "openrouter/google/gemma-4-31b-it:free": {
+      "attempts": 92,
+      "successes": 1,
+      "p50_latency_ms": 121691
+    },
+    "openrouter/liquid/lfm-2.5-2.6b:free": {
+      "attempts": 26,
+      "successes": 2,
+      "p50_latency_ms": 54571
+    },
+    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
+      "attempts": 195,
+      "successes": 180,
+      "p50_latency_ms": 32901
+    },
+    "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free": {
+      "attempts": 25,
+      "successes": 0,
+      "p50_latency_ms": 0
+    },
+    "openrouter/nvidia/nemotron-3.5-lightning:free": {
+      "attempts": 77,
+      "successes": 56,
+      "p50_latency_ms": 42604
+    },
+    "openrouter/openrouter/free": {
+      "attempts": 226,
+      "successes": 119,
+      "p50_latency_ms": 21379
+    },
+    "openrouter/poolside/laguna-s-2.1:free": {
+      "attempts": 145,
+      "successes": 31,
+      "p50_latency_ms": 10613
+    },
+    "openrouter/poolside/laguna-xs-2.1:free": {
+      "attempts": 202,
+      "successes": 127,
+      "p50_latency_ms": 48867
+    },
+    "openrouter/recursive/flint-v1.0:free": {
+      "attempts": 7,
+      "successes": 2,
+      "p50_latency_ms": 111020
+    },
+    "openrouter/xingchen-agi/xing4.0-29b-a4b:free": {
+      "attempts": 15,
+      "successes": 7,
+      "p50_latency_ms": 149226
+    }
+  }
+}

@@ -6,6 +6,8 @@ from typing import Any
 
 import httpx
 
+from .seed import load as load_seed
+from .seed import with_seed
 from .telemetry import MIN_SAMPLES_FOR_RANKING, ModelStats, aggregate
 
 logger = logging.getLogger("4take")
@@ -251,8 +253,8 @@ async def get_best_free_models(
         count: How many models the caller intends to run concurrently (used for default pool_size).
         pool_size: Total number of models to return (for runtime rotation). Defaults to count * 3.
         timeout: HTTP request timeout in seconds.
-        stats: Observed per-model behaviour. Defaults to the local telemetry history; pass
-            `{}` to rank on the name heuristic alone.
+        stats: Observed per-model behaviour. Defaults to the local telemetry history with the
+            shipped seed added to it (seed.py); pass `{}` to rank on the name heuristic alone.
 
     Returns:
         A list of model IDs sorted by intelligence score, up to pool_size entries.
@@ -261,7 +263,7 @@ async def get_best_free_models(
         pool_size = count * 3
 
     if stats is None:
-        stats = aggregate()
+        stats = with_seed(aggregate(), load_seed())
 
     url = "https://openrouter.ai/api/v1/models"
 

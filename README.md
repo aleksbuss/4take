@@ -299,7 +299,7 @@ corpus the median was about 50 s, and 27 of 28 councils seated four.
 ## ✨ Features
 
 - 🚀 **One Command**: Pipe a file or a diff into `4take`; four free models review it in parallel.
-- 🧠 **Auto-Discovery Ranked on Evidence**: Fetches and filters the free models on OpenRouter, then ranks them by the success rate and median latency they have actually delivered on your machine. The name-based heuristic (parameter count, context window) survives only as the cold-start prior for models you have not run yet.
+- 🧠 **Auto-Discovery Ranked on Evidence**: Fetches and filters the free models on OpenRouter, then ranks them by the success rate and median latency they have actually delivered on your machine. A new machine starts from a small table shipped in the package, how often each free model answered on the maintainer's machine, which your own runs are added to; the name-based heuristic (parameter count, context window) survives only for a model neither has run.
 - 🔎 **Four Review Axes**: Correctness, security, structure and simplicity — not just defects. Every structural finding has to name its cost, so the breadth does not become a flood of taste.
 - 🤝 **Consensus Grouping**: Findings several models raised independently are grouped and ranked by how many raised them, so the cross-referencing is done for you rather than left in four parallel reviews.
 - 🔄 **Fault-Tolerant Dynamic Rotation**: A rate-limited model (HTTP 429) is retried with exponential backoff; one that keeps failing gives its seat to the next model in a pre-ranked pool of up to 12.
@@ -708,6 +708,10 @@ is the best way to get full councils.
   paid models: check them, and the provider's terms, before you send code you cannot share.
   `--dry-run` shows exactly what would be sent. On first use `tiktoken` may also download its
   tokenizer vocabulary from its default host; no code is sent there.
+- **Shipped ranking seed**: The package includes `seed_stats.json`, the maintainer's telemetry reduced
+  to three numbers for each free model: requests sent, requests answered with a review, and the
+  median latency of an answer. It holds no code, prompts, error text, timestamps or account data.
+  Your own telemetry stays on your machine; nothing is sent anywhere to build or use it.
 - **Context Length Safeguard**: Estimates input size with `tiktoken` and checks it against each
   model's real context window from the OpenRouter catalog, reserving room for the reply.
 - **Reference Context Guard**: Context files are read only from under the project root, after

@@ -96,6 +96,18 @@ jobs:
           fi
           grep -q "4take\[mcp\]" /tmp/mcp.err
 
+      # Package data is easy to lose from a wheel, and without it a new machine ranks on names alone.
+      - name: Verify the ranking seed ships in the wheel and loads
+        run: |
+          /tmp/verify/bin/python - <<'EOF'
+          import json
+          from importlib import resources
+          from fourtake import seed
+          data = json.loads(resources.files("fourtake").joinpath(seed.SEED_FILE).read_text(encoding="utf-8"))
+          assert data["models"], "the shipped seed is empty"
+          assert seed.load(now=seed._generated_at(data)), "the shipped seed does not load"
+          EOF
+
       # uv.lock pins mcp 1.28.1, so the test job cannot notice a newer release that removes what
       # the server imports (mcp 2.0 renamed FastMCP). Installing the wheel with its extra
       # resolves fresh, the way `pip install '4take[mcp]'` does.
