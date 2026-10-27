@@ -27,7 +27,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "src"))
 from fourtake.findings import build_consensus, parse_findings
 
 ROOT = pathlib.Path(__file__).resolve().parent
-LABELS = json.loads((ROOT / "labels.json").read_text())
+LABELS = json.loads((ROOT / "labels.json").read_text(encoding="utf-8"))
 RECORDINGS = ROOT / "recordings"
 
 # Share of the corpus's labelled defects a model must have been seated for before its recall
@@ -104,7 +104,7 @@ def _load(recordings: pathlib.Path | None = None, labels: dict | None = None) ->
         name = path.stem
         if name not in labels:
             continue
-        payload = json.loads(path.read_text())
+        payload = json.loads(path.read_text(encoding="utf-8"))
         runs[name] = payload
     return runs
 
@@ -341,7 +341,7 @@ RECORDINGS_CTX = ROOT / "recordings_ctx"
 # `_about` documents the labelling rule inside the file; it is not a case.
 LABELS_CTX = {
     name: defects
-    for name, defects in json.loads((ROOT / "labels_ctx.json").read_text()).items()
+    for name, defects in json.loads((ROOT / "labels_ctx.json").read_text(encoding="utf-8")).items()
     if not name.startswith("_")
 }
 CTX_MODES = ("without", "with")

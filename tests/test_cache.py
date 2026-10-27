@@ -3,6 +3,8 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from fourtake.cache import (
     clear_cache,
     compute_cache_key,
@@ -157,6 +159,7 @@ def test_clear_cache_unlink_error(tmp_path, monkeypatch):
 import stat as _stat
 
 
+@pytest.mark.posix_only("file modes: Windows reports 0o666/0o777 and the profile's ACL guards the file")
 def test_cache_files_are_not_world_readable(monkeypatch, tmp_path):
     import fourtake.cache as cache_mod
     from fourtake.client import ModelResponse
@@ -194,6 +197,7 @@ def test_cache_evicts_oldest_entries_when_over_the_entry_cap(monkeypatch, tmp_pa
     assert len(list(cache_dir.glob("*.json"))) <= 5
 
 
+@pytest.mark.posix_only("file modes: Windows reports 0o666/0o777 and the profile's ACL guards the file")
 def test_pre_existing_cache_entries_are_tightened_once(monkeypatch, tmp_path):
     """
     Entries written before the permission fix keep their old mode, and they contain the

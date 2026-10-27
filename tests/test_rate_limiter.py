@@ -57,6 +57,7 @@ async def test_persistent_token_bucket_win32_lock_fail(tmp_path):
             del sys_mod.modules["msvcrt"]
 
 
+@pytest.mark.posix_only("fcntl: Windows locks with msvcrt, which these tests cover on every platform")
 @pytest.mark.asyncio
 async def test_persistent_token_bucket_unix_lock_fail(tmp_path):
     bucket = PersistentTokenBucket(rpm=60)
@@ -108,19 +109,23 @@ async def test_persistent_token_bucket_waits_once_the_burst_is_spent(tmp_path):
 
 
 def test_release_lock_sync_error_handling():
+    """A lock that fails to release is swallowed on win32 (msvcrt); runs on every platform."""
     import sys
     from unittest.mock import MagicMock
 
     from fourtake.rate_limiter import _release_lock_sync
 
-    # 1. win32 release with OSError
     with patch("sys.platform", "win32"), patch("os.close"), patch("os.lseek"):
         msvcrt_mock = MagicMock()
         msvcrt_mock.locking.side_effect = OSError("Unlock error")
         with patch.dict(sys.modules, {"msvcrt": msvcrt_mock}):
             _release_lock_sync(999)
 
-    # 2. unix release with OSError
+
+@pytest.mark.posix_only("fcntl: Windows locks with msvcrt, which these tests cover on every platform")
+def test_release_lock_sync_error_handling_with_flock():
+    from fourtake.rate_limiter import _release_lock_sync
+
     with (
         patch("sys.platform", "darwin"),
         patch("os.close"),
@@ -129,6 +134,7 @@ def test_release_lock_sync_error_handling():
         _release_lock_sync(999)
 
 
+@pytest.mark.posix_only("file modes: Windows reports 0o666/0o777 and the profile's ACL guards the file")
 def test_state_file_is_not_world_readable(tmp_path):
     """
     The review cache was tightened to 0600, but the bucket state beside it was still created
@@ -146,6 +152,7 @@ def test_state_file_is_not_world_readable(tmp_path):
     assert stat.S_IMODE(bucket.state_file.stat().st_mode) == 0o600
 
 
+@pytest.mark.posix_only("file modes: Windows reports 0o666/0o777 and the profile's ACL guards the file")
 def test_pre_existing_state_file_is_tightened(tmp_path):
     """os.open's mode argument applies only on creation, so existing files need a chmod."""
     import asyncio

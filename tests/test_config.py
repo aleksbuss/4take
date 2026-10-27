@@ -7,6 +7,16 @@ import pytest
 from fourtake.config import load_config
 
 
+@pytest.fixture(autouse=True)
+def a_home_to_find(monkeypatch, tmp_path):
+    """
+    `patch.dict(os.environ, ..., clear=True)` also removes USERPROFILE, where Path.home() looks on
+    Windows; on Linux and macOS it falls back to the password database and the tests never noticed.
+    A home pinned here makes them mean the same thing on every platform.
+    """
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+
+
 def test_load_config_missing_api_key():
     with patch.dict(os.environ, {}, clear=True), patch("pathlib.Path.exists", return_value=False):
         config = load_config({})

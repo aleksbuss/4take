@@ -28,7 +28,8 @@ from fourtake.context import (
 def _write(root: Path, rel: str, text: str = "def f():\n    return 1\n") -> Path:
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    # Bytes: write_text turns "\n" into "\r\n" on Windows, and the tests expect what they wrote.
+    path.write_bytes(text.encode("utf-8"))
     return path
 
 
