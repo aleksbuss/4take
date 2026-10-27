@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A placeholder key is caught before any request goes out.** The README's MCP configs set
+  `"OPENROUTER_API_KEY": "sk-or-v1-..."` in the client's `env`. Copied unedited, that outranks the
+  key `4take --set-key` saved, and the pre-flight check knew only the `--init-config` placeholder,
+  so `sk-or-v1-...` went to OpenRouter as the key and every seat failed. A key ending in `...` or
+  `…` now stops the review with a message that says to run `--set-key` and, because the
+  environment wins over the saved key, to remove the variable if it holds the placeholder. The MCP
+  examples have no `env` block any more, and the install step says that installing asks for nothing.
+
 ## [0.2.5] - 2026-10-26
 
 A spent free-model allowance is reported and stops the review; everything else behaves as in 0.2.4.

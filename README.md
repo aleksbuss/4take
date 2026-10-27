@@ -54,6 +54,9 @@ fails with `No matching distribution found for 4take`. `uv tool install 4take` f
 Python by itself, whatever the system has; to get uv, run
 `curl -LsSf https://astral.sh/uv/install.sh | sh` or `brew install uv`.
 
+Installing asks for nothing: pip and uv cannot prompt during an install. The key comes next, in
+step 2 or on your first review in a terminal.
+
 ### 2. Set Your OpenRouter API Key
 
 Get a free key at [OpenRouter](https://openrouter.ai/keys), then save it once:
@@ -133,6 +136,11 @@ cryptography) triples the size of an install that most CLI users never run a ser
 pip install '4take[mcp]'        # or: uv tool install '4take[mcp]'
 ```
 
+The server reads the key `4take --set-key` saved ([step 2](#2-set-your-openrouter-api-key)), so
+none of the configs below needs an `env` block. The server cannot ask for a key: run
+`4take --set-key` in a terminal first. If you do give the client an `env` block with
+`OPENROUTER_API_KEY`, put your real key in it, because the environment wins over the saved key.
+
 <details open>
 <summary><b>Claude Desktop Configuration (<code>claude_desktop_config.json</code>)</b></summary>
 
@@ -141,10 +149,7 @@ pip install '4take[mcp]'        # or: uv tool install '4take[mcp]'
   "mcpServers": {
     "4take": {
       "command": "uvx",
-      "args": ["--from", "4take[mcp]", "4take-mcp"],
-      "env": {
-        "OPENROUTER_API_KEY": "sk-or-v1-..."
-      }
+      "args": ["--from", "4take[mcp]", "4take-mcp"]
     }
   }
 }
@@ -158,10 +163,7 @@ pip install '4take[mcp]'        # or: uv tool install '4take[mcp]'
 {
   "mcpServers": {
     "4take": {
-      "command": "4take-mcp",
-      "env": {
-        "OPENROUTER_API_KEY": "sk-or-v1-..."
-      }
+      "command": "4take-mcp"
     }
   }
 }
@@ -176,10 +178,7 @@ pip install '4take[mcp]'        # or: uv tool install '4take[mcp]'
   "mcpServers": {
     "4take": {
       "command": "uvx",
-      "args": ["--from", "4take[mcp]", "4take-mcp"],
-      "env": {
-        "OPENROUTER_API_KEY": "sk-or-v1-..."
-      }
+      "args": ["--from", "4take[mcp]", "4take-mcp"]
     }
   }
 }
